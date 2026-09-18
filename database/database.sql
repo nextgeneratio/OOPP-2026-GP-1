@@ -283,7 +283,7 @@ CREATE TABLE `assessments` (
         REFERENCES `course_offerings` (offering_id)
 );
 
-```sql
+
 -- Table: marks
 CREATE TABLE `marks` (
     mark_id INT NOT NULL AUTO_INCREMENT,
