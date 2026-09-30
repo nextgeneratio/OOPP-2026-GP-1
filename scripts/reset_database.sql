@@ -1,0 +1,1 @@
+-- Database reset script is implemented during Phase 1.

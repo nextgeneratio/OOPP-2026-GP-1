@@ -1,0 +1,10 @@
++-------------+-----------+
+| [38;2;0;255;95;01mUser[39;00m        | [38;2;0;255;95;01mHost[39;00m      |
++-------------+-----------+
+| OOP_G01     | localhost |
+| fsmanager   | localhost |
+| mariadb.sys | localhost |
+| mysql       | localhost |
+| root        | localhost |
++-------------+-----------+
+

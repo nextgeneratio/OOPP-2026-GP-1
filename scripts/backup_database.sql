@@ -1,0 +1,1 @@
+-- Database backup procedure is documented during Phase 1.
