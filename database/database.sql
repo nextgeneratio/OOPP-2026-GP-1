@@ -1,3 +1,9 @@
+-- Create Database --
+
+CREATE DATABASE IF NOT EXISTS `university_management` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE `university_management`;
+
 -- Table: users
 CREATE TABLE `users` (
     user_id BIGINT NOT NULL AUTO_INCREMENT,
