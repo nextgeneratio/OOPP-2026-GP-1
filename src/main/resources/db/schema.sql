@@ -1,0 +1,1 @@
+-- Database schema is implemented during Phase 1.

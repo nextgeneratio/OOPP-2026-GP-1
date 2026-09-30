@@ -3,6 +3,12 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 .kotlin
+target/
+*.log
+logs/
+uploads/
+application.properties
+test-application.properties
 
 ### Eclipse ###
 .apt_generated
