@@ -59,7 +59,6 @@ public class NewUI extends JFrame {
         bmiStatusDisplay.setBounds(350, 300, 120, 30);
         add(bmiStatusDisplay);
 
-        // Lambda expression භාවිතයෙන් බටන් එකේ ක්‍රියාකාරීත්වය සරල කර ඇත
         calculateButton.addActionListener(e -> {
             try {
                 double weight = Double.parseDouble(weightField.getText());
