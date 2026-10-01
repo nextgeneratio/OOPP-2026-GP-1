@@ -67,12 +67,10 @@ public class Main extends JFrame {
 
         gbc.gridx = 1; gbc.weightx = 0.3;
         gbc.insets = new Insets(12, 10, 12, 0);
-        // සාමාන්‍යයෙන් උස මනින්නේ cm වලින් නිසා 'm' වෙනුවට 'cm' ලෙස වෙනස් කරන ලදි
         heightUnitCombo = new JComboBox<>(new String[]{"cm", "In"});
         styleComboBox(heightUnitCombo);
         formPanel.add(heightUnitCombo, gbc);
 
-        // Action submit button element setup
         gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 2; gbc.weightx = 1.0;
         gbc.insets = new Insets(25, 0, 10, 0);
         calculateButton = new JButton("Calculate BMI");
