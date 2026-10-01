@@ -1,0 +1,86 @@
+<component name="libraryTable">
+  <library name="Groovy-6.0.0" type="groovy-sdk">
+    <properties version="6.0.0" />
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/groovy-ant-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-cli-picocli-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-cli-commons-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-contracts-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-datetime-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-dateutil-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-astbuilder-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-csv-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-console-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-groovydoc-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-grape-ivy-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-grape-maven-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-docgenerator-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-ginq-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-jmx-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-http-builder-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-groovysh-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-jsr223-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-macro-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-markdown-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-nio-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-reactor-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-rxjava-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-servlet-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-macro-library-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-sql-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-test-junit5-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-test-junit6-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-test-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-swing-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-json-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-testng-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-toml-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-templates-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-yaml-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-typecheckers-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-xml-6.0.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-6.0.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/lib/groovy-ant-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-astbuilder-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-cli-commons-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-cli-picocli-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-dateutil-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-csv-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-console-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-grape-ivy-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-contracts-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-ginq-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-datetime-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-grape-maven-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-docgenerator-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-http-builder-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-groovydoc-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-jsr223-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-groovysh-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-macro-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-jmx-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-markdown-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-macro-library-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-reactor-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-rxjava-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-json-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-nio-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-servlet-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-sql-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-templates-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-test-junit5-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-swing-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-test-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-test-junit6-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-testng-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-toml-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-typecheckers-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-yaml-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-xml-6.0.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/groovy-6.0.0-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
