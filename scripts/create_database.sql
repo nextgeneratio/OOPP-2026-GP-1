@@ -1,1 +1,0 @@
--- Database creation script is implemented during Phase 1.
