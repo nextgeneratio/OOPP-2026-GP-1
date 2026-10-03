@@ -100,3 +100,21 @@ Start Phase 1 using `01-instruction-foundation.md`.
 - Schema and seed resource presence checks: passed.
 - Deferred attendance-session timetable foreign-key check: passed.
 - Full Phase 1 status: INCOMPLETE pending Maven dependency resolution, JUnit execution, schema execution, seed execution, Swing launch verification, and MySQL integration connectivity.
+
+## Phase 3 (UI shell) — branch `ui-shell`
+**Done (compiles; not yet run against MySQL by the author of this change)**
+- UiTheme: full palette incl. Warning/Info, font helpers (Inter -> sans-serif fallback), spacing constants, FlatLaf setup.
+- Shell: MainFrame, TopBar (name, role, account menu, logout with confirmation), NavigationPanel (role-filtered), StatusBar, PlaceholderScreen.
+- Login: inline validation, background sign-in with "Signing in…" state, safe messages via ApplicationErrorHandler, Enter key, accessible names.
+- Dashboards: Admin, Lecturer, Technical Officer, Undergraduate (summary cards + shortcuts, loading and error states).
+- API contract: `DashboardController` + `DashboardSummary`; `PendingDashboardController` stand-in (cards show "—").
+- Test: `NavigationModuleTest` (role navigation).
+
+**Not done / gaps for the group**
+- Module screens (users, students, courses, attendance, medical, marks, eligibility, GPA, timetable, notices, materials, profile, reports) show PlaceholderScreen — they need their controllers first.
+- `AuthenticatedSession.displayName` is currently the username; top bar needs the full name from the business layer (profile tables).
+- Dashboard figures need a real `DashboardController` implementation wired in `ApplicationComponents`.
+- Navigation per role follows Instruction 03 shortcut lists; verify against SRS section 5.
+- UI smoke tests (AssertJ Swing / Mockito) and the AssertJ Swing dependency are still to be added.
+
+**Next:** implement module controllers, then replace each PlaceholderScreen.
