@@ -1,3 +1,9 @@
+-- Create Database --
+
+CREATE DATABASE IF NOT EXISTS `university_management` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE `university_management`;
+
 -- Table: users
 CREATE TABLE `users` (
     user_id BIGINT NOT NULL AUTO_INCREMENT,
@@ -24,7 +30,7 @@ CREATE TABLE `admins` (
     admin_id INT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NOT NULL,
     full_name VARCHAR(120) NOT NULL,
-    phone VARCHAR(25) NULL,
+    phone VARCHAR(20) NULL,
 
     PRIMARY KEY (admin_id),
     UNIQUE KEY uk_admins_user_id (user_id),
@@ -53,7 +59,7 @@ CREATE TABLE `batches` (
     department_id INT NOT NULL,
     intake_year YEAR NOT NULL,
     programme VARCHAR(100) NOT NULL,
-    batch_code VARCHAR(25) NOT NULL,
+    batch_code VARCHAR(20) NOT NULL,
 
     PRIMARY KEY (batch_id),
     UNIQUE KEY uk_batches_batch_code (batch_code),
@@ -518,7 +524,7 @@ CREATE TABLE `audit_logs` (
     audit_id BIGINT NOT NULL AUTO_INCREMENT,
     user_id BIGINT NULL,
     action VARCHAR(50) NOT NULL,
-    entity_name VARCHAR(100) NOT NULL,
+    entity_name VARCHAR(80) NOT NULL,
     entity_id BIGINT NOT NULL,
     occurred_at DATETIME NOT NULL,
 
