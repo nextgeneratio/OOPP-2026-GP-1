@@ -21,8 +21,8 @@ public final class Assessment {
     public boolean isCaComponent() { return caComponent; }
 
     public void setWeight(double weightPercent) {
-        if (Double.isNaN(weightPercent) || weightPercent <= 0 || weightPercent > 100) {
-            throw new ValidationException("Assessment weight must be greater than 0 and at most 100.");
+        if (Double.isNaN(weightPercent) || weightPercent < 0 || weightPercent > 100) {
+            throw new ValidationException("Assessment weight must be between 0 and 100.");
         }
         this.weightPercent = weightPercent;
     }

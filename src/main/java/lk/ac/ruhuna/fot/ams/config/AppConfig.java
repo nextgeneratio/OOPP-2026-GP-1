@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.math.BigDecimal;
 import java.util.Properties;
 
 public final class AppConfig {
@@ -31,6 +32,20 @@ public final class AppConfig {
         return new AppConfig(properties);
     }
 
+    public static AppConfig loadFromClasspath(String resourceName) throws IOException {
+        if (resourceName == null || resourceName.isBlank()) {
+            throw new IllegalArgumentException("Configuration resource name is required.");
+        }
+        try (InputStream input = AppConfig.class.getClassLoader().getResourceAsStream(resourceName)) {
+            if (input == null) {
+                throw new IOException("Configuration resource not found: " + resourceName);
+            }
+            Properties properties = new Properties();
+            properties.load(input);
+            return new AppConfig(properties);
+        }
+    }
+
     public String environment() {
         return value("app.environment", "development");
     }
@@ -49,6 +64,18 @@ public final class AppConfig {
 
     public int poolSize() {
         return Integer.parseInt(value("db.pool-size", "5"));
+    }
+
+    public BigDecimal attendanceThreshold() {
+        return new BigDecimal(value("academic.attendance-threshold", "80.00"));
+    }
+
+    public String repeatSelectionRule() {
+        return value("academic.cgpa-repeat-selection", "LATEST_COMPLETED_ATTEMPT");
+    }
+
+    public String gradeSchemeVersion() {
+        return value("academic.grade-scheme-version", "UGC-2024-v1");
     }
 
     private String required(String property, String environmentVariable) {

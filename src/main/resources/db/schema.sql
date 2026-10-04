@@ -170,6 +170,7 @@ CREATE TABLE `course_components` (
 
     PRIMARY KEY (component_id),
     INDEX idx_course_components_course_id (course_id),
+    UNIQUE KEY uk_course_components_course_type (course_id, component_type),
 
     CONSTRAINT chk_course_components_credits
         CHECK (credits > 0),
@@ -233,6 +234,25 @@ CREATE TABLE `course_offerings` (
         REFERENCES `lecturers` (lecturer_id)
 );
 
+-- An offering can have multiple lecturers in addition to its coordinator.
+CREATE TABLE `course_offering_lecturers` (
+    offering_id INT NOT NULL,
+    lecturer_id INT NOT NULL,
+
+    PRIMARY KEY (offering_id, lecturer_id),
+    INDEX idx_course_offering_lecturers_lecturer_id (lecturer_id),
+
+    CONSTRAINT fk_course_offering_lecturers_offering
+        FOREIGN KEY (offering_id)
+        REFERENCES `course_offerings` (offering_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_course_offering_lecturers_lecturer
+        FOREIGN KEY (lecturer_id)
+        REFERENCES `lecturers` (lecturer_id)
+        ON DELETE RESTRICT
+);
+
 -- Table: course_enrollments
 CREATE TABLE `course_enrollments` (
     enrollment_id INT NOT NULL AUTO_INCREMENT,
@@ -241,12 +261,19 @@ CREATE TABLE `course_enrollments` (
     attempt_no TINYINT NOT NULL DEFAULT 1,
     student_status ENUM('NORMAL', 'REPEAT', 'BATCH_MISSED') NOT NULL,
     enrollment_status ENUM('ACTIVE', 'COMPLETED', 'WITHDRAWN') NOT NULL,
+    active_offering_guard TINYINT
+        GENERATED ALWAYS AS (CASE WHEN enrollment_status = 'ACTIVE' THEN 1 ELSE NULL END) STORED,
 
     PRIMARY KEY (enrollment_id),
     UNIQUE KEY uk_course_enrollments_attempt (
         student_id,
         offering_id,
         attempt_no
+    ),
+    UNIQUE KEY uk_course_enrollments_one_active_offering (
+        student_id,
+        offering_id,
+        active_offering_guard
     ),
     INDEX idx_course_enrollments_student_id (student_id),
     INDEX idx_course_enrollments_offering_id (offering_id),
@@ -362,6 +389,7 @@ CREATE TABLE `attendance_records` (
         session_id,
         enrollment_id
     ),
+    INDEX idx_attendance_records_enrollment_id (enrollment_id),
 
     CONSTRAINT fk_attendance_records_session
         FOREIGN KEY (session_id)
@@ -382,6 +410,7 @@ CREATE TABLE `medical_records` (
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     reason_details VARCHAR(500) NOT NULL,
+    evidence_reference VARCHAR(255) NULL,
     approval_status ENUM('PENDING', 'APPROVED', 'REJECTED')
         NOT NULL DEFAULT 'PENDING',
     affects_eligibility BOOLEAN NOT NULL DEFAULT FALSE,
@@ -411,6 +440,8 @@ CREATE TABLE `course_materials` (
     file_path VARCHAR(255) NOT NULL,
 
     PRIMARY KEY (material_id),
+    INDEX idx_course_materials_offering_id (offering_id),
+    INDEX idx_course_materials_lecturer_id (lecturer_id),
 
     CONSTRAINT fk_course_materials_offering
         FOREIGN KEY (offering_id)
@@ -427,6 +458,8 @@ CREATE TABLE `notices` (
     title VARCHAR(180) NOT NULL,
     body TEXT NOT NULL,
     audience ENUM('ALL', 'ROLE', 'BATCH') NOT NULL,
+    target_role ENUM('ADMIN', 'LECTURER', 'TECHNICAL_OFFICER', 'UNDERGRADUATE') NULL,
+    target_batch_id INT NULL,
     publish_date DATETIME NOT NULL,
     expiry_date DATETIME NULL,
 
@@ -435,7 +468,18 @@ CREATE TABLE `notices` (
     INDEX idx_notices_expiry_date (expiry_date),
 
     CONSTRAINT chk_notices_expiry_date
-        CHECK (expiry_date IS NULL OR expiry_date > publish_date)
+        CHECK (expiry_date IS NULL OR expiry_date > publish_date),
+
+    CONSTRAINT chk_notices_audience_target
+        CHECK (
+            (audience = 'ALL' AND target_role IS NULL AND target_batch_id IS NULL)
+            OR (audience = 'ROLE' AND target_role IS NOT NULL AND target_batch_id IS NULL)
+            OR (audience = 'BATCH' AND target_role IS NULL AND target_batch_id IS NOT NULL)
+        ),
+
+    CONSTRAINT fk_notices_target_batch
+        FOREIGN KEY (target_batch_id)
+        REFERENCES `batches` (batch_id)
 );
 
 -- Table: timetables
@@ -513,6 +557,47 @@ CREATE TABLE `grades` (
 
     CONSTRAINT chk_grades_grade_point
         CHECK (grade_point BETWEEN 0 AND 4)
+);
+
+-- Persist the grade scheme version and credit snapshot used for each completed attempt.
+CREATE TABLE `course_results` (
+    result_id BIGINT NOT NULL AUTO_INCREMENT,
+    enrollment_id INT NOT NULL,
+    final_mark DECIMAL(5,2) NOT NULL,
+    scheme_version VARCHAR(30) NOT NULL,
+    grade_letter VARCHAR(3) NOT NULL,
+    grade_point DECIMAL(3,2) NOT NULL,
+    credits_counted DECIMAL(3,1) NOT NULL,
+    completed_at DATETIME NOT NULL,
+    recorded_by INT NOT NULL,
+    is_current BOOLEAN NOT NULL DEFAULT TRUE,
+    current_enrollment_guard TINYINT
+        GENERATED ALWAYS AS (CASE WHEN is_current = TRUE THEN 1 ELSE NULL END) STORED,
+
+    PRIMARY KEY (result_id),
+    UNIQUE KEY uk_course_results_one_current (enrollment_id, current_enrollment_guard),
+    INDEX idx_course_results_scheme_version (scheme_version),
+
+    CONSTRAINT chk_course_results_final_mark
+        CHECK (final_mark BETWEEN 0 AND 100),
+
+    CONSTRAINT chk_course_results_grade_point
+        CHECK (grade_point BETWEEN 0 AND 4),
+
+    CONSTRAINT chk_course_results_credits
+        CHECK (credits_counted > 0),
+
+    CONSTRAINT fk_course_results_enrollment
+        FOREIGN KEY (enrollment_id)
+        REFERENCES `course_enrollments` (enrollment_id),
+
+    CONSTRAINT fk_course_results_grade
+        FOREIGN KEY (scheme_version, grade_letter)
+        REFERENCES `grades` (scheme_version, grade_letter),
+
+    CONSTRAINT fk_course_results_recorded_by
+        FOREIGN KEY (recorded_by)
+        REFERENCES `lecturers` (lecturer_id)
 );
 
 -- Table: audit_logs

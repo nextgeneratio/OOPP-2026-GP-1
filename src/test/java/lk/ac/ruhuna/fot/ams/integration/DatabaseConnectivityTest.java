@@ -14,7 +14,7 @@ class DatabaseConnectivityTest {
     void connectsToConfiguredMysqlDatabase() throws Exception {
         AppConfig config;
         try {
-            config = AppConfig.load();
+            config = AppConfig.loadFromClasspath("test-application.properties");
         } catch (RuntimeException | java.io.IOException unavailable) {
             Assumptions.assumeTrue(false, "Database configuration is unavailable");
             return;

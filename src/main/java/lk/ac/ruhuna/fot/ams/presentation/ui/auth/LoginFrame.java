@@ -1,7 +1,7 @@
 package lk.ac.ruhuna.fot.ams.presentation.ui.auth;
 
 import lk.ac.ruhuna.fot.ams.api.controller.AuthController;
-import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
+import lk.ac.ruhuna.fot.ams.api.controller.ApiResponse;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.AppButton;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.MainFrame;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.UiTheme;
@@ -20,15 +20,13 @@ import java.awt.Insets;
 
 public final class LoginFrame extends JFrame {
     private final AuthController authController;
-    private final ApplicationErrorHandler errorHandler;
     private final JTextField usernameField = new JTextField(20);
     private final JPasswordField passwordField = new JPasswordField(20);
     private final JLabel errorLabel = new JLabel(" ");
 
-    public LoginFrame(AuthController authController, ApplicationErrorHandler errorHandler) {
+    public LoginFrame(AuthController authController) {
         super("Academic Management System - Login");
         this.authController = authController;
-        this.errorHandler = errorHandler;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setContentPane(createContent());
         pack();
@@ -68,15 +66,16 @@ public final class LoginFrame extends JFrame {
     }
 
     private void login() {
-        try {
-            AuthenticatedSession session = authController.login(usernameField.getText(), passwordField.getPassword());
-            dispose();
-            MainFrame mainFrame = new MainFrame();
-            mainFrame.setTitle(mainFrame.getTitle() + " - " + session.role());
-            mainFrame.setVisible(true);
-        } catch (RuntimeException failure) {
-            errorHandler.log(failure);
-            errorLabel.setText(errorHandler.userMessage(failure));
+        ApiResponse<AuthController.LoginResponse> response = authController.login(
+                new AuthController.LoginRequest(usernameField.getText(), passwordField.getPassword()));
+        if (!response.successful()) {
+            errorLabel.setText(response.error().message());
+            return;
         }
+        AuthenticatedSession session = response.data().session();
+        dispose();
+        MainFrame mainFrame = new MainFrame();
+        mainFrame.setTitle(mainFrame.getTitle() + " - " + session.role());
+        mainFrame.setVisible(true);
     }
 }

@@ -22,7 +22,7 @@ public final class Application {
             ApplicationComponents components = ApplicationComponents.create(config);
             UiTheme.apply();
             SwingUtilities.invokeLater(() -> new LoginFrame(
-                    components.authController(), components.errorHandler()).setVisible(true));
+                    components.authController()).setVisible(true));
         } catch (Exception failure) {
             LOGGER.error("Application startup failed", failure);
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
