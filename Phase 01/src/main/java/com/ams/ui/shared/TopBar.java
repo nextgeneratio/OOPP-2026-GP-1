@@ -38,4 +38,8 @@ public class TopBar extends JPanel {
     public void setUserInfo(String name, String role) {
         userLabel.setText(String.format("Welcome, %s (%s)", name, role));
     }
+
+    public void addLogoutListener(java.awt.event.ActionListener listener) {
+        logoutButton.addActionListener(listener);
+    }
 }

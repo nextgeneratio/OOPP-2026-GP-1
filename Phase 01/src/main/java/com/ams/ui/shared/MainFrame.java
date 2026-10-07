@@ -37,4 +37,20 @@ public class MainFrame extends JFrame {
         contentPanel.revalidate();
         contentPanel.repaint();
     }
+
+    public void setTopBarVisible(boolean visible) {
+        topBar.setVisible(visible);
+    }
+
+    public void setNavigationVisible(boolean visible) {
+        navigationPanel.setVisible(visible);
+    }
+
+    public TopBar getTopBar() {
+        return topBar;
+    }
+
+    public NavigationPanel getNavigationPanel() {
+        return navigationPanel;
+    }
 }
