@@ -11,9 +11,10 @@ public class MainFrame extends JFrame {
     private JPanel contentPanel;
 
     public MainFrame() {
-        setTitle("Academic Management System");
+        setTitle("Faculty of Technology - Academic Management System (AMS)");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1024, 768);
+        setSize(1200, 800);
+        setMinimumSize(new Dimension(1024, 700));
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
