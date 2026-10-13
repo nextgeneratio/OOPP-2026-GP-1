@@ -16,20 +16,22 @@ Phase 0 — Project setup / planning
 - [x] API/controller layer
 - [x] Swing UI (Foundation)
 - [x] Phase 1: Architecture Audit & Code Decoupling
-- [ ] Unit tests (Full coverage)
+- [x] Phase 2: Domain Unit Tests & Boundary Values
+- [ ] Business logic & service tests
+- [ ] API & controller tests
 - [ ] Integration tests (Full coverage)
 - [ ] System tests
 - [ ] Reports
 - [ ] Audit logging
 
 ## In progress
-- Phase 2: Domain Unit Tests & Boundary Values
+- Phase 3: Business & Service Layer Unit Tests (Mocking DAOs)
 
 ## Blocked
 - None
 
 ## Tests
-- Unit: 9 passed
+- Unit: 68 passed (Marks, CA, Attendance, UGC 12/2024 Grades, SGPA/CGPA, Domain Invariants, Auth)
 - Integration: 1 skipped (live MySQL not configured)
 - System: 0
 
