@@ -18,20 +18,20 @@ Phase 0 — Project setup / planning
 - [x] Phase 1: Architecture Audit & Code Decoupling
 - [x] Phase 2: Domain Unit Tests & Boundary Values
 - [x] Phase 3: Business & Service Layer Unit Tests (Mocking DAOs)
-- [ ] API & controller tests
+- [x] Phase 4: API & Controller Tests
 - [ ] Integration tests (Full coverage)
 - [ ] System tests
 - [ ] Reports
 - [ ] Audit logging
 
 ## In progress
-- Phase 4: API & Controller Tests
+- Phase 5: MySQL Integration & Transaction Testing
 
 ## Blocked
 - None
 
 ## Tests
-- Unit: 95 passed (Domain, Calculators, GradeScheme, AuthService, Audit, Eligibility STU001-STU005, Enrolments, Timetable, Assessment Plan)
+- Unit: 110 passed (Domain, Calculators, GradeScheme, AuthService, Audit, Eligibility STU001-STU005, Enrolments, Timetable, Assessment Plan, API Controllers & DTO Mappers)
 - Integration: 1 skipped (live MySQL not configured)
 - System: 0
 

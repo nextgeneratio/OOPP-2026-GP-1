@@ -127,10 +127,11 @@ JDBC / MySQL
 `src/test/java/.../unit/api`
 
 ### 4.1 Request Validation & Flow Verification
-- [ ] Controller properly validates incoming payload/DTO before dispatching to service.
-- [ ] Valid service invocations map correctly to response models.
-- [ ] Controllers contain no hidden calculation or database logic.
-- [ ] Business and security exceptions are mapped to standardized, safe error responses.
+- [x] Controller properly validates incoming payload/DTO before dispatching to service.
+- [x] Valid service invocations map correctly to response models.
+- [x] Controllers contain no hidden calculation or database logic.
+- [x] Business and security exceptions are mapped to standardized, safe error responses.
+
 
 ---
 
