@@ -100,23 +100,24 @@ JDBC / MySQL
 `src/test/java/.../unit/service`
 
 ### 3.1 Authentication & Authorization Rules
-- [ ] Active valid credentials succeed.
-- [ ] Invalid password fails and triggers failed login audit record.
-- [ ] Inactive / deactivated user is denied access.
-- [ ] Role-based authorization rules (e.g., student attempting admin or lecturer tasks throws `UnauthorizedAccessException`).
+- [x] Active valid credentials succeed.
+- [x] Invalid password fails and triggers failed login audit record.
+- [x] Inactive / deactivated user is denied access.
+- [x] Role-based authorization rules (e.g., student attempting admin or lecturer tasks throws `UnauthorizedAccessException`).
 
 ### 3.2 Academic Rules & SRS Appendix A Scenarios
-- [ ] **STU001:** Theory 13/15, Practical 14/15 ➔ Full eligibility.
-- [ ] **STU002:** Theory 12/15, Practical 12/15 ➔ Evaluated against 80% threshold.
-- [ ] **STU003:** Theory 10/15, Practical 10/15 ➔ Attendance failure scenario.
-- [ ] **STU004:** Theory 13/15 with approved medical absence ➔ Attendance adjusted to satisfy requirement.
-- [ ] **STU005:** Theory 8/15 with approved medical absence ➔ Even after adjustment, fails 80% threshold.
+- [x] **STU001:** Theory 13/15, Practical 14/15 ➔ Full eligibility.
+- [x] **STU002:** Theory 12/15, Practical 12/15 ➔ Evaluated against 80% threshold.
+- [x] **STU003:** Theory 10/15, Practical 10/15 ➔ Attendance failure scenario.
+- [x] **STU004:** Theory 13/15 with approved medical absence ➔ Attendance adjusted to satisfy requirement.
+- [x] **STU005:** Theory 8/15 with approved medical absence ➔ Even after adjustment, fails 80% threshold.
 
 ### 3.3 Enrolment, Timetable & Assessment Scenarios
-- [ ] Repeat enrolment logic & grade capping (if applicable per SRS).
-- [ ] Batch-missed enrolment scenario.
-- [ ] Timetable conflict check: Detect overlapping slot assignments for lecturer/student.
-- [ ] Incomplete assessment configuration: Attempting final grade calculation before all mandatory components are configured.
+- [x] Repeat enrolment logic & grade capping (if applicable per SRS).
+- [x] Batch-missed enrolment scenario.
+- [x] Timetable conflict check: Detect overlapping slot assignments for lecturer/student.
+- [x] Incomplete assessment configuration: Attempting final grade calculation before all mandatory components are configured.
+
 
 ---
 
