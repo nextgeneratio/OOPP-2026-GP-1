@@ -141,21 +141,21 @@ JDBC / MySQL
 `src/test/java/.../integration`
 
 ### 5.1 Test Database Configuration & Fixtures
-- [ ] Dedicated test schema setup (e.g., `oop_sms_test`).
-- [ ] Deterministic seed data loading and tear-down / rollback hooks per test suite.
+- [x] Dedicated test schema setup (e.g., `oop_sms_test`).
+- [x] Deterministic seed data loading and tear-down / rollback hooks per test suite.
 
 ### 5.2 Persistence & Constraint Testing
-- [ ] Insert, Read, Update, and Soft-delete operations via DAO.
-- [ ] Foreign Key (FK) constraint enforcement on orphaned references.
-- [ ] Unique constraint enforcement (e.g., duplicate usernames, duplicate student enrolments).
+- [x] Insert, Read, Update, and Soft-delete operations via DAO.
+- [x] Foreign Key (FK) constraint enforcement on orphaned references.
+- [x] Unique constraint enforcement (e.g., duplicate usernames, duplicate student enrolments).
 
 ### 5.3 Transactional Rollback Tests
-- [ ] Execute multi-step operation (e.g., publish marks + write audit log + update enrolment status).
-- [ ] Deliberately trigger failure at an intermediate step.
-- [ ] Verify all preceding mutations rollback completely without leaving orphan rows.
+- [x] Execute multi-step operation (e.g., publish marks + write audit log + update enrolment status).
+- [x] Deliberately trigger failure at an intermediate step.
+- [x] Verify all preceding mutations rollback completely without leaving orphan rows.
 
 ### 5.4 End-to-End Calculation Verification
-- [ ] Load persisted attendance records and mark sheets; verify service returns exact calculated SGPA/CGPA matching database records.
+- [x] Load persisted attendance records and mark sheets; verify service returns exact calculated SGPA/CGPA matching database records.
 
 ---
 
