@@ -182,19 +182,19 @@ JDBC / MySQL
 ## Phase 7: Performance Smoke Checks & Final Readiness
 
 ### 7.1 Performance Smoke Verification (< 3 Seconds Response)
-- [ ] Authentication / Login response time.
-- [ ] Student list query response time.
-- [ ] Marks summary list response time.
-- [ ] Attendance sheet view response time.
-- [ ] Student grade report / result view generation time.
+- [x] Authentication / Login response time.
+- [x] Student list query response time.
+- [x] Marks summary list response time.
+- [x] Attendance sheet view response time.
+- [x] Student grade report / result view generation time.
 
 ### 7.2 Automated Build Command Verification
-- [ ] Run `mvn test` to ensure 100% test pass rate.
-- [ ] Run `mvn -q test` for clean automated runs.
-- [ ] Confirm no tests are bypassed using `@Disabled`.
+- [x] Run `mvn test` to ensure 100% test pass rate.
+- [x] Run `mvn -q test` for clean automated runs.
+- [x] Confirm no tests are bypassed using `@Disabled`.
 
 ### 7.3 Update `progress.md`
-- [ ] Document unit test count, integration test count, pass rates.
-- [ ] Document performance observation results and security audit sign-off.
-- [ ] Document database reset and re-seed instructions.
-- [ ] Mark Instruction 04 as complete and prepare for Instruction 05 (System Testing).
+- [x] Document unit test count, integration test count, pass rates.
+- [x] Document performance observation results and security audit sign-off.
+- [x] Document database reset and re-seed instructions.
+- [x] Mark Instruction 04 as complete and prepare for Instruction 05 (System Testing).
