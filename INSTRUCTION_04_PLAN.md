@@ -162,12 +162,12 @@ JDBC / MySQL
 ## Phase 6: Security, Audit Logging & Error Handling Audit
 
 ### 6.1 Security Checks
-- [ ] Confirm passwords stored in the database are hashed with salt (e.g., BCrypt).
-- [ ] Verify plain-text passwords never leak into logs or query strings.
-- [ ] Audit that all DAO queries use `PreparedStatement` to avoid SQL injection.
+- [x] Confirm passwords stored in the database are hashed with salt (e.g., BCrypt).
+- [x] Verify plain-text passwords never leak into logs or query strings.
+- [x] Audit that all DAO queries use `PreparedStatement` to avoid SQL injection.
 
 ### 6.2 Audit Logging
-- [ ] Verify audit log entries capture actor ID, timestamp, action type, and target entity for:
+- [x] Verify audit log entries capture actor ID, timestamp, action type, and target entity for:
   - User login attempts (success & failure).
   - Marks creation and update.
   - Attendance recording and modifications.
@@ -175,7 +175,7 @@ JDBC / MySQL
   - Profile and master data creation/modification/deactivation.
 
 ### 6.3 Error Handling & UX Safety
-- [ ] Ensure user-facing UI displays friendly messages and never exposes technical stack traces.
+- [x] Ensure user-facing UI displays friendly messages and never exposes technical stack traces.
 
 ---
 

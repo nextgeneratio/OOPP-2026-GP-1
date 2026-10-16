@@ -20,21 +20,22 @@ Phase 0 — Project setup / planning
 - [x] Phase 3: Business & Service Layer Unit Tests (Mocking DAOs)
 - [x] Phase 4: API & Controller Tests
 - [x] Phase 5: MySQL Integration & Transaction Testing
-- [ ] Phase 6: Security, Audit Logging & Error Handling Audit
+- [x] Phase 6: Security, Audit Logging & Error Handling Audit
+- [ ] Phase 7: Performance Smoke Checks & Final Readiness
 - [ ] System tests
 - [ ] Reports
 - [ ] Audit logging
 
 ## In progress
-- Phase 6: Security, Audit Logging & Error Handling Audit
+- Phase 7: Performance Smoke Checks & Final Readiness
 
 ## Blocked
 - None
 
 ## Tests
-- Unit: 110 passed (Domain, Calculators, GradeScheme, AuthService, Audit, Eligibility STU001-STU005, Enrolments, Timetable, Assessment Plan, API Controllers & DTO Mappers)
+- Unit: 122 passed (Domain, Calculators, GradeScheme, AuthService, Audit, Eligibility STU001-STU005, Enrolments, Timetable, Assessment Plan, API Controllers & DTO Mappers, Security, Error UX Safety)
 - Integration: 7 passed (DatabaseConnectivityTest, PersistenceAndConstraintIntegrationTest, TransactionalRollbackIntegrationTest, CalculationVerificationIntegrationTest)
-- Total: 117 passed, 0 failures, 0 skipped
+- Total: 129 passed, 0 failures, 0 skipped
 
 ## Database
 - Schema: Available at src/main/resources/db/schema.sql
