@@ -2,6 +2,8 @@ package lk.ac.ruhuna.fot.ams.config;
 
 import lk.ac.ruhuna.fot.ams.api.controller.AuthController;
 import lk.ac.ruhuna.fot.ams.api.controller.ApiControllerSupport;
+import lk.ac.ruhuna.fot.ams.api.controller.DashboardController;
+import lk.ac.ruhuna.fot.ams.api.controller.PendingDashboardController;
 import lk.ac.ruhuna.fot.ams.api.controller.AssessmentController;
 import lk.ac.ruhuna.fot.ams.api.controller.AttendanceController;
 import lk.ac.ruhuna.fot.ams.api.controller.ContentController;
@@ -59,6 +61,7 @@ import lk.ac.ruhuna.fot.ams.security.password.PasswordHasher;
 public final class ApplicationComponents {
     private final ConnectionProvider connectionProvider;
     private final AuthController authController;
+    private final DashboardController dashboardController = new PendingDashboardController();
     private final ApplicationErrorHandler errorHandler;
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
@@ -239,6 +242,7 @@ public final class ApplicationComponents {
 
     public ConnectionProvider connectionProvider() { return connectionProvider; }
     public AuthController authController() { return authController; }
+    public DashboardController dashboardController() { return dashboardController; }
     public ApplicationErrorHandler errorHandler() { return errorHandler; }
     public AuthorizationService authorizationService() { return authorizationService; }
     public AuditService auditService() { return auditService; }

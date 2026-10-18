@@ -22,7 +22,8 @@ public final class Application {
             ApplicationComponents components = ApplicationComponents.create(config);
             UiTheme.apply();
             SwingUtilities.invokeLater(() -> new LoginFrame(
-                    components.authController()).setVisible(true));
+                    components.authController(), components.dashboardController(), components.errorHandler())
+                    .setVisible(true));
         } catch (Exception failure) {
             LOGGER.error("Application startup failed", failure);
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(
