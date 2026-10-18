@@ -64,16 +64,27 @@ public final class JdbcUserDao implements UserDao {
     }
 
     @Override
+    public Optional<UserProfile> findProfileById(long userId) {
+        String sql = profileSelect() + "WHERE u.user_id = ?";
+        return jdbc.query(sql, statement -> statement.setLong(1, userId), this::mapProfile)
+                .stream().findFirst();
+    }
+
+    @Override
+    public int updatePassword(
+            Connection connection, long userId, String expectedPasswordHash, String newPasswordHash) {
+        return jdbc.update(connection,
+                "UPDATE users SET password_hash = ? WHERE user_id = ? AND password_hash = ? AND is_active = TRUE",
+                statement -> {
+                    statement.setString(1, newPasswordHash);
+                    statement.setLong(2, userId);
+                    statement.setString(3, expectedPasswordHash);
+                });
+    }
+
+    @Override
     public List<UserProfile> searchUsers(String term, Role role, Boolean active) {
-        String sql = "SELECT u.user_id, u.username, u.password_hash, u.role, u.email, u.is_active, "
-                + "COALESCE(a.full_name, l.full_name, t.full_name, s.full_name) AS full_name, "
-                + "COALESCE(l.phone, t.phone, a.phone) AS phone, "
-                + "COALESCE(l.department_id, t.department_id) AS department_id, "
-                + "s.batch_id, s.student_no, s.profile_picture "
-                + "FROM users u LEFT JOIN admins a ON a.user_id = u.user_id "
-                + "LEFT JOIN lecturers l ON l.user_id = u.user_id "
-                + "LEFT JOIN technical_officers t ON t.user_id = u.user_id "
-                + "LEFT JOIN undergraduates s ON s.user_id = u.user_id "
+        String sql = profileSelect()
                 + "WHERE (? IS NULL OR u.username LIKE ? OR u.email LIKE ? "
                 + "OR COALESCE(a.full_name, l.full_name, t.full_name, s.full_name) LIKE ?) "
                 + "AND (? IS NULL OR u.role = ?) AND (? IS NULL OR u.is_active = ?) "
@@ -106,6 +117,24 @@ public final class JdbcUserDao implements UserDao {
                 statement.setBoolean(8, active);
             }
         }, this::mapProfile);
+    }
+
+    private String profileSelect() {
+        return "SELECT u.user_id, u.username, u.password_hash, u.role, u.email, u.is_active, "
+                + "COALESCE(a.full_name, l.full_name, t.full_name, s.full_name) AS full_name, "
+                + "COALESCE(l.phone, t.phone, a.phone) AS phone, "
+                + "COALESCE(l.department_id, t.department_id) AS department_id, "
+                + "s.batch_id, s.student_no, s.profile_picture, d.name AS department_name, "
+                + "b.batch_code, b.level_no, (SELECT MAX(sem.semester_no) FROM course_enrollments e "
+                + "JOIN course_offerings o ON o.offering_id = e.offering_id "
+                + "JOIN semesters sem ON sem.semester_id = o.semester_id "
+                + "WHERE e.student_id = s.student_id AND e.enrollment_status = 'ACTIVE') AS semester_no "
+                + "FROM users u LEFT JOIN admins a ON a.user_id = u.user_id "
+                + "LEFT JOIN lecturers l ON l.user_id = u.user_id "
+                + "LEFT JOIN technical_officers t ON t.user_id = u.user_id "
+                + "LEFT JOIN undergraduates s ON s.user_id = u.user_id "
+                + "LEFT JOIN batches b ON b.batch_id = s.batch_id "
+                + "LEFT JOIN departments d ON d.department_id = COALESCE(l.department_id, t.department_id, b.department_id) ";
     }
 
     @Override
@@ -243,7 +272,7 @@ public final class JdbcUserDao implements UserDao {
     @Override
     public int updateStaffContact(
             Connection connection, long userId, Role role, String email, String fullName, String phone) {
-        if (role != Role.LECTURER && role != Role.TECHNICAL_OFFICER) {
+        if (role != Role.ADMIN && role != Role.LECTURER && role != Role.TECHNICAL_OFFICER) {
             throw new IllegalArgumentException("Staff profile updates require a staff role.");
         }
         if (!userExists(connection, userId) || !roleProfileExists(connection, userId, role)) {
@@ -254,7 +283,13 @@ public final class JdbcUserDao implements UserDao {
                     statement.setString(1, email);
                     statement.setLong(2, userId);
                 });
-        String table = role == Role.LECTURER ? "lecturers" : "technical_officers";
+        String table = switch (role) {
+            case ADMIN -> "admins";
+            case LECTURER -> "lecturers";
+            case TECHNICAL_OFFICER -> "technical_officers";
+            case UNDERGRADUATE -> throw new IllegalArgumentException(
+                    "Undergraduate profiles use a separate update.");
+        };
         jdbc.update(connection, "UPDATE " + table + " SET full_name = ?, phone = ? WHERE user_id = ?",
                 statement -> {
                     statement.setString(1, fullName);
@@ -292,7 +327,14 @@ public final class JdbcUserDao implements UserDao {
                 result.getString("password_hash"), Role.valueOf(result.getString("role")),
                 result.getString("email"), result.getBoolean("is_active"),
                 result.getString("full_name"), result.getString("phone"), departmentId,
-                batchId, result.getString("student_no"), result.getString("profile_picture"));
+                batchId, result.getString("student_no"), result.getString("profile_picture"),
+                result.getString("department_name"), result.getString("batch_code"),
+                nullableInteger(result, "level_no"), nullableInteger(result, "semester_no"));
+    }
+
+    private Integer nullableInteger(ResultSet result, String column) throws SQLException {
+        int value = result.getInt(column);
+        return result.wasNull() ? null : value;
     }
 
     private String userSelect() {

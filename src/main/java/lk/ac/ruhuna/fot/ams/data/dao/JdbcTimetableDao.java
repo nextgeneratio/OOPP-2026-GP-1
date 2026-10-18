@@ -18,11 +18,12 @@ public final class JdbcTimetableDao implements TimetableDao {
     @Override
     public long insertTimetable(Connection connection, TimetableRow row) {
         return jdbc.insertAndReturnKey(connection,
-                "INSERT INTO timetables (title, department_id, semester_id) VALUES (?, ?, ?)",
+                "INSERT INTO timetables (title, department_id, semester_id, level_no) VALUES (?, ?, ?, ?)",
                 statement -> {
                     statement.setString(1, row.title());
                     statement.setInt(2, row.departmentId());
                     statement.setInt(3, row.semesterId());
+                    statement.setInt(4, row.level());
                 });
     }
 
@@ -52,12 +53,25 @@ public final class JdbcTimetableDao implements TimetableDao {
     }
 
     @Override
+    public int deleteEntriesForTimetable(Connection connection, int timetableId) {
+        return jdbc.update(connection, "DELETE FROM timetable_entries WHERE timetable_id = ?",
+                statement -> statement.setInt(1, timetableId));
+    }
+
+    @Override
+    public int deleteTimetable(Connection connection, int timetableId) {
+        return jdbc.update(connection, "DELETE FROM timetables WHERE timetable_id = ?",
+                statement -> statement.setInt(1, timetableId));
+    }
+
+    @Override
     public Optional<TimetableRow> findTimetable(int timetableId) {
-        return jdbc.query("SELECT timetable_id, title, department_id, semester_id "
+        return jdbc.query("SELECT timetable_id, title, department_id, semester_id, level_no "
                         + "FROM timetables WHERE timetable_id = ?",
                 statement -> statement.setInt(1, timetableId),
                 result -> new TimetableRow(result.getInt("timetable_id"), result.getString("title"),
-                        result.getInt("department_id"), result.getInt("semester_id")))
+                        result.getInt("department_id"), result.getInt("semester_id"),
+                        result.getInt("level_no")))
                 .stream().findFirst();
     }
 
@@ -70,21 +84,22 @@ public final class JdbcTimetableDao implements TimetableDao {
     }
 
     @Override
-    public List<EntryRow> findEntries(int departmentId, int semesterId, String dayOfWeek) {
+    public List<EntryRow> findEntries(int departmentId, int semesterId, int level, String dayOfWeek) {
         String sql = "SELECT e.timetable_entry_id, e.timetable_id, e.offering_id, e.component_id, "
                 + "e.day_of_week, e.start_time, e.end_time, e.location "
                 + "FROM timetable_entries e JOIN timetables t ON t.timetable_id = e.timetable_id "
-                + "WHERE t.department_id = ? AND t.semester_id = ? "
+                + "WHERE t.department_id = ? AND t.semester_id = ? AND t.level_no = ? "
                 + "AND (? IS NULL OR e.day_of_week = ?) ORDER BY e.day_of_week, e.start_time";
         return jdbc.query(sql, statement -> {
             statement.setInt(1, departmentId);
             statement.setInt(2, semesterId);
+            statement.setInt(3, level);
             if (dayOfWeek == null) {
-                statement.setNull(3, java.sql.Types.VARCHAR);
                 statement.setNull(4, java.sql.Types.VARCHAR);
+                statement.setNull(5, java.sql.Types.VARCHAR);
             } else {
-                statement.setString(3, dayOfWeek);
                 statement.setString(4, dayOfWeek);
+                statement.setString(5, dayOfWeek);
             }
         }, this::map);
     }
@@ -140,7 +155,8 @@ public final class JdbcTimetableDao implements TimetableDao {
                         + "JOIN course_components cc ON cc.course_id = c.course_id "
                         + "JOIN timetables t ON t.timetable_id = ? "
                         + "WHERE o.offering_id = ? AND cc.component_id = ? "
-                        + "AND t.department_id = b.department_id AND t.semester_id = o.semester_id",
+                        + "AND t.department_id = b.department_id AND t.semester_id = o.semester_id "
+                        + "AND t.level_no = b.level_no",
                 statement -> {
                     statement.setInt(1, timetableId);
                     statement.setInt(2, offeringId);

@@ -3,6 +3,7 @@ package lk.ac.ruhuna.fot.ams.api.controller;
 import java.util.List;
 import java.util.Objects;
 import lk.ac.ruhuna.fot.ams.business.service.CourseService;
+import lk.ac.ruhuna.fot.ams.business.service.CourseService.CourseCatalog;
 import lk.ac.ruhuna.fot.ams.business.service.CourseService.OfferingSetup;
 import lk.ac.ruhuna.fot.ams.data.dao.CourseDao;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
@@ -69,10 +70,25 @@ public final class CourseController {
         });
     }
 
+    public ApiResponse<Void> updateCourse(AuthenticatedSession actor, CourseDao.CourseRow request) {
+        return support.execute(request, () -> {
+            service.updateCourse(actor, request);
+            return null;
+        });
+    }
+
     public ApiResponse<Void> deactivateCourse(AuthenticatedSession actor, int courseId) {
         return support.execute(() -> {
             service.deactivateCourse(actor, courseId);
             return null;
         });
+    }
+
+    public ApiResponse<List<CourseDao.OfferingRow>> offeringsForActor(AuthenticatedSession actor) {
+        return support.execute(() -> service.offeringsForActor(actor));
+    }
+
+    public ApiResponse<CourseCatalog> catalog(AuthenticatedSession actor) {
+        return support.execute(() -> service.catalog(actor));
     }
 }

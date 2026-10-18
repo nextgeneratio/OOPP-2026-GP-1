@@ -11,17 +11,19 @@ public enum NavigationModule {
     DASHBOARD("Dashboard", Role.values()),
     USER_MANAGEMENT("User Management", Role.ADMIN),
     STUDENT_MANAGEMENT("Student Management", Role.ADMIN),
-    COURSE_MANAGEMENT("Course Management", Role.ADMIN),
-    COURSE_MATERIALS("Course Materials", Role.LECTURER, Role.UNDERGRADUATE),
-    ASSESSMENTS_MARKS("Assessments & Marks", Role.LECTURER),
-    ATTENDANCE("Attendance", Role.TECHNICAL_OFFICER, Role.UNDERGRADUATE),
+    COURSE_MANAGEMENT("Course Management", Role.ADMIN, Role.TECHNICAL_OFFICER),
+    COURSE_OFFERINGS("My Course Offerings", Role.values()),
+    COURSE_MATERIALS("Learning Materials & Activities",
+            Role.LECTURER, Role.TECHNICAL_OFFICER, Role.UNDERGRADUATE),
+    ASSESSMENTS_MARKS("Assessments & Marks", Role.ADMIN, Role.LECTURER, Role.TECHNICAL_OFFICER),
+    ATTENDANCE("Attendance", Role.values()),
     MEDICAL("Medical", Role.TECHNICAL_OFFICER),
     ELIGIBILITY("Eligibility", Role.LECTURER, Role.UNDERGRADUATE),
     GRADES_GPA("Grades & GPA", Role.LECTURER, Role.UNDERGRADUATE),
-    TIMETABLE("Timetable", Role.ADMIN, Role.TECHNICAL_OFFICER, Role.UNDERGRADUATE),
+    TIMETABLE("Timetable", Role.ADMIN, Role.LECTURER, Role.TECHNICAL_OFFICER, Role.UNDERGRADUATE),
     NOTICES("Notices", Role.values()),
     REPORTS("Reports", Role.ADMIN, Role.LECTURER, Role.TECHNICAL_OFFICER),
-    PROFILE("Profile", Role.LECTURER, Role.TECHNICAL_OFFICER, Role.UNDERGRADUATE);
+    PROFILE("Profile", Role.values());
 
     private final String label;
     private final Set<Role> roles;

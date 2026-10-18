@@ -10,8 +10,17 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import lk.ac.ruhuna.fot.ams.api.controller.DashboardController;
+import lk.ac.ruhuna.fot.ams.api.controller.AttendanceController;
+import lk.ac.ruhuna.fot.ams.api.controller.ContentController;
+import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
+import lk.ac.ruhuna.fot.ams.api.controller.LearningActivityController;
+import lk.ac.ruhuna.fot.ams.api.controller.ProfileController;
+import lk.ac.ruhuna.fot.ams.api.controller.TimetableController;
+import lk.ac.ruhuna.fot.ams.api.controller.UserController;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
 import lk.ac.ruhuna.fot.ams.presentation.ui.admin.AdminDashboard;
+import lk.ac.ruhuna.fot.ams.presentation.ui.admin.CourseManagementScreen;
+import lk.ac.ruhuna.fot.ams.presentation.ui.admin.UserManagementScreen;
 import lk.ac.ruhuna.fot.ams.presentation.ui.lecturer.LecturerDashboard;
 import lk.ac.ruhuna.fot.ams.presentation.ui.technical.TechnicalOfficerDashboard;
 import lk.ac.ruhuna.fot.ams.presentation.ui.undergraduate.UndergraduateDashboard;
@@ -21,6 +30,13 @@ import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 public final class MainFrame extends JFrame {
     private final AuthenticatedSession session;
     private final DashboardController dashboards;
+    private final UserController users;
+    private final ProfileController profiles;
+    private final CourseController courses;
+    private final TimetableController timetables;
+    private final ContentController courseContent;
+    private final AttendanceController attendance;
+    private final LearningActivityController learningActivities;
     private final ApplicationErrorHandler errors;
     private final Runnable onLogout;
     private final CardLayout cards = new CardLayout();
@@ -30,10 +46,21 @@ public final class MainFrame extends JFrame {
     private final StatusBar statusBar;
 
     public MainFrame(AuthenticatedSession session, DashboardController dashboards,
+                     UserController users, ProfileController profiles,
+                     CourseController courses, TimetableController timetables,
+                     ContentController courseContent, AttendanceController attendance,
+                     LearningActivityController learningActivities,
                      ApplicationErrorHandler errors, Runnable onLogout) {
         super("Faculty of Technology Academic Management System");
         this.session = session;
         this.dashboards = dashboards;
+        this.users = users;
+        this.profiles = profiles;
+        this.courses = courses;
+        this.timetables = timetables;
+        this.courseContent = courseContent;
+        this.attendance = attendance;
+        this.learningActivities = learningActivities;
         this.errors = errors;
         this.onLogout = onLogout;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -66,6 +93,34 @@ public final class MainFrame extends JFrame {
     }
 
     private JComponent createScreen(NavigationModule module) {
+        if (module == NavigationModule.USER_MANAGEMENT) {
+            return new UserManagementScreen(session, users, errors, null);
+        }
+        if (module == NavigationModule.STUDENT_MANAGEMENT) {
+            return new UserManagementScreen(session, users, errors,
+                    lk.ac.ruhuna.fot.ams.domain.enums.Role.UNDERGRADUATE);
+        }
+        if (module == NavigationModule.PROFILE) {
+            return new ProfileScreen(session, profiles, errors);
+        }
+        if (module == NavigationModule.COURSE_MANAGEMENT) {
+            return new CourseManagementScreen(session, courses);
+        }
+        if (module == NavigationModule.TIMETABLE) {
+            return new TimetableScreen(session, timetables);
+        }
+        if (module == NavigationModule.COURSE_OFFERINGS) {
+            return new CourseOfferingsScreen(session, courses);
+        }
+        if (module == NavigationModule.ATTENDANCE) {
+            return new AttendanceScreen(session, attendance);
+        }
+        if (module == NavigationModule.COURSE_MATERIALS) {
+            javax.swing.JTabbedPane tabs = new javax.swing.JTabbedPane();
+            tabs.addTab("Materials", new CourseMaterialsScreen(session, courseContent));
+            tabs.addTab("Quizzes and assignments", new LearningActivitiesScreen(session, learningActivities));
+            return tabs;
+        }
         if (module != NavigationModule.DASHBOARD) {
             return new PlaceholderScreen(module);
         }

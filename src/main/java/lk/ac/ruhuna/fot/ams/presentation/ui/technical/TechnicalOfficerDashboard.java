@@ -12,7 +12,7 @@ public final class TechnicalOfficerDashboard extends RoleDashboard {
     public TechnicalOfficerDashboard(AuthenticatedSession session, DashboardController controller,
               ApplicationErrorHandler errors, Consumer<NavigationModule> navigate) {
         super("Technical Officer Dashboard", "Attendance, medical and timetable tasks",
-                List.of("Department", "Attendance tasks", "Medical approvals pending", "Timetable"),
+                List.of("Department", "Timetable"),
                 List.of(NavigationModule.ATTENDANCE, NavigationModule.MEDICAL, NavigationModule.TIMETABLE, NavigationModule.REPORTS, NavigationModule.PROFILE),
                 session, controller, errors, navigate);
     }

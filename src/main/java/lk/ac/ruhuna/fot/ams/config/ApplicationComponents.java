@@ -3,7 +3,7 @@ package lk.ac.ruhuna.fot.ams.config;
 import lk.ac.ruhuna.fot.ams.api.controller.AuthController;
 import lk.ac.ruhuna.fot.ams.api.controller.ApiControllerSupport;
 import lk.ac.ruhuna.fot.ams.api.controller.DashboardController;
-import lk.ac.ruhuna.fot.ams.api.controller.PendingDashboardController;
+import lk.ac.ruhuna.fot.ams.api.controller.DefaultDashboardController;
 import lk.ac.ruhuna.fot.ams.api.controller.AssessmentController;
 import lk.ac.ruhuna.fot.ams.api.controller.AttendanceController;
 import lk.ac.ruhuna.fot.ams.api.controller.ContentController;
@@ -11,6 +11,7 @@ import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
 import lk.ac.ruhuna.fot.ams.api.controller.EligibilityController;
 import lk.ac.ruhuna.fot.ams.api.controller.GpaController;
 import lk.ac.ruhuna.fot.ams.api.controller.MarksController;
+import lk.ac.ruhuna.fot.ams.api.controller.LearningActivityController;
 import lk.ac.ruhuna.fot.ams.api.controller.MedicalController;
 import lk.ac.ruhuna.fot.ams.api.controller.ProfileController;
 import lk.ac.ruhuna.fot.ams.api.controller.ReportController;
@@ -28,10 +29,12 @@ import lk.ac.ruhuna.fot.ams.business.service.AuditService;
 import lk.ac.ruhuna.fot.ams.business.service.AuthService;
 import lk.ac.ruhuna.fot.ams.business.service.ContentService;
 import lk.ac.ruhuna.fot.ams.business.service.CourseService;
+import lk.ac.ruhuna.fot.ams.business.service.DashboardService;
 import lk.ac.ruhuna.fot.ams.business.service.EligibilityService;
 import lk.ac.ruhuna.fot.ams.business.service.GpaService;
 import lk.ac.ruhuna.fot.ams.business.service.GradeService;
 import lk.ac.ruhuna.fot.ams.business.service.MarksService;
+import lk.ac.ruhuna.fot.ams.business.service.LearningActivityService;
 import lk.ac.ruhuna.fot.ams.business.service.MedicalService;
 import lk.ac.ruhuna.fot.ams.business.service.ProfileService;
 import lk.ac.ruhuna.fot.ams.business.service.ReportService;
@@ -48,8 +51,10 @@ import lk.ac.ruhuna.fot.ams.data.dao.JdbcAttendanceDao;
 import lk.ac.ruhuna.fot.ams.data.dao.JdbcContentDao;
 import lk.ac.ruhuna.fot.ams.data.dao.JdbcCourseDao;
 import lk.ac.ruhuna.fot.ams.data.dao.JdbcCourseResultDao;
+import lk.ac.ruhuna.fot.ams.data.dao.JdbcDashboardDao;
 import lk.ac.ruhuna.fot.ams.data.dao.JdbcGradeDao;
 import lk.ac.ruhuna.fot.ams.data.dao.JdbcMedicalDao;
+import lk.ac.ruhuna.fot.ams.data.dao.JdbcLearningActivityDao;
 import lk.ac.ruhuna.fot.ams.data.dao.JdbcTimetableDao;
 import lk.ac.ruhuna.fot.ams.data.dao.JdbcUserDao;
 import lk.ac.ruhuna.fot.ams.data.dao.CourseResultDao;
@@ -61,7 +66,7 @@ import lk.ac.ruhuna.fot.ams.security.password.PasswordHasher;
 public final class ApplicationComponents {
     private final ConnectionProvider connectionProvider;
     private final AuthController authController;
-    private final DashboardController dashboardController = new PendingDashboardController();
+    private final DashboardController dashboardController;
     private final ApplicationErrorHandler errorHandler;
     private final AuthorizationService authorizationService;
     private final AuditService auditService;
@@ -92,9 +97,11 @@ public final class ApplicationComponents {
     private final ContentController contentController;
     private final ReportController reportController;
     private final ResultController resultController;
+    private final LearningActivityController learningActivityController;
 
     private ApplicationComponents(ConnectionProvider connectionProvider,
                                  AuthController authController,
+                                 DashboardController dashboardController,
                                  ApplicationErrorHandler errorHandler,
                                  AuthorizationService authorizationService,
                                  AuditService auditService,
@@ -124,9 +131,11 @@ public final class ApplicationComponents {
                                  TimetableController timetableController,
                                  ContentController contentController,
                                  ReportController reportController,
-                                 ResultController resultController) {
+                                 ResultController resultController,
+                                 LearningActivityController learningActivityController) {
         this.connectionProvider = connectionProvider;
         this.authController = authController;
+        this.dashboardController = dashboardController;
         this.errorHandler = errorHandler;
         this.authorizationService = authorizationService;
         this.auditService = auditService;
@@ -157,6 +166,7 @@ public final class ApplicationComponents {
         this.contentController = contentController;
         this.reportController = reportController;
         this.resultController = resultController;
+        this.learningActivityController = learningActivityController;
     }
 
     public static ApplicationComponents create(AppConfig config) {
@@ -172,6 +182,7 @@ public final class ApplicationComponents {
         JdbcMedicalDao medicalDao = new JdbcMedicalDao(jdbc);
         JdbcContentDao contentDao = new JdbcContentDao(jdbc);
         JdbcTimetableDao timetableDao = new JdbcTimetableDao(jdbc);
+        JdbcLearningActivityDao learningActivityDao = new JdbcLearningActivityDao(jdbc);
         JdbcGradeDao gradeDao = new JdbcGradeDao(jdbc);
         CourseResultDao courseResultDao = new JdbcCourseResultDao(jdbc);
         AuditLogDao auditLogDao = new JdbcAuditLogDao(jdbc);
@@ -196,10 +207,13 @@ public final class ApplicationComponents {
                 medicalDao, courseDao, auditLogDao, transactionManager,
                 authorizationService, clock);
         ContentService contentService = new ContentService(
-                contentDao, auditLogDao, transactionManager, authorizationService, clock);
+                contentDao, courseDao, auditLogDao, transactionManager, authorizationService, clock);
         TimetableService timetableService = new TimetableService(
                 timetableDao, courseDao, auditLogDao, transactionManager,
                 authorizationService, clock);
+        LearningActivityService learningActivityService = new LearningActivityService(
+                learningActivityDao, courseDao, auditLogDao, transactionManager,
+                authorizationService, passwordHasher, clock);
         GradeService gradeService = new GradeService(gradeDao);
         GpaService gpaService = new GpaService(
                 new GpaCalculator(),
@@ -211,7 +225,7 @@ public final class ApplicationComponents {
                 userDao, auditLogDao, transactionManager, authorizationService,
                 passwordHasher, clock);
         ProfileService profileService = new ProfileService(
-                userDao, auditLogDao, transactionManager, authorizationService, clock);
+                userDao, auditLogDao, transactionManager, authorizationService, passwordHasher, clock);
         ReportService reportService = new ReportService(
                 courseDao, attendanceDao, assessmentDao, authorizationService);
         AcademicResultService academicResultService = new AcademicResultService(
@@ -220,7 +234,10 @@ public final class ApplicationComponents {
                 config.gradeSchemeVersion());
         ApplicationErrorHandler errorHandler = new ApplicationErrorHandler();
         ApiControllerSupport apiSupport = new ApiControllerSupport(errorHandler);
+        DashboardController dashboardController = new DefaultDashboardController(
+                new DashboardService(new JdbcDashboardDao(jdbc)));
         return new ApplicationComponents(connectionProvider, new AuthController(authService, apiSupport),
+            dashboardController,
             errorHandler, authorizationService, auditService, courseService,
             assessmentService, marksService, attendanceService, medicalService, contentService,
             timetableService, gradeService, gpaService, eligibilityService, userService,
@@ -237,7 +254,8 @@ public final class ApplicationComponents {
             new TimetableController(timetableService, apiSupport),
             new ContentController(contentService, apiSupport),
             new ReportController(reportService, apiSupport),
-            new ResultController(academicResultService, apiSupport));
+            new ResultController(academicResultService, apiSupport),
+            new LearningActivityController(learningActivityService, apiSupport));
     }
 
     public ConnectionProvider connectionProvider() { return connectionProvider; }
@@ -273,4 +291,5 @@ public final class ApplicationComponents {
     public ContentController contentController() { return contentController; }
     public ReportController reportController() { return reportController; }
     public ResultController resultController() { return resultController; }
+    public LearningActivityController learningActivityController() { return learningActivityController; }
 }

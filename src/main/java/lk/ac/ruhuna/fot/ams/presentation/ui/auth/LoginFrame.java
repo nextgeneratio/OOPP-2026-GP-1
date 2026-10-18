@@ -16,6 +16,13 @@ import javax.swing.SwingWorker;
 import lk.ac.ruhuna.fot.ams.api.controller.ApiResponse;
 import lk.ac.ruhuna.fot.ams.api.controller.AuthController;
 import lk.ac.ruhuna.fot.ams.api.controller.DashboardController;
+import lk.ac.ruhuna.fot.ams.api.controller.ProfileController;
+import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
+import lk.ac.ruhuna.fot.ams.api.controller.TimetableController;
+import lk.ac.ruhuna.fot.ams.api.controller.ContentController;
+import lk.ac.ruhuna.fot.ams.api.controller.AttendanceController;
+import lk.ac.ruhuna.fot.ams.api.controller.LearningActivityController;
+import lk.ac.ruhuna.fot.ams.api.controller.UserController;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.AppButton;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.MainFrame;
@@ -25,17 +32,35 @@ import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 public final class LoginFrame extends JFrame {
     private final AuthController authController;
     private final DashboardController dashboardController;
+    private final UserController userController;
+    private final ProfileController profileController;
     private final ApplicationErrorHandler errorHandler;
+    private final CourseController courseController;
+    private final TimetableController timetableController;
+    private final ContentController contentController;
+    private final AttendanceController attendanceController;
+    private final LearningActivityController learningActivityController;
     private final JTextField usernameField = new JTextField(20);
     private final JPasswordField passwordField = new JPasswordField(20);
     private final JLabel messageLabel = new JLabel(" ");
     private final AppButton loginButton = new AppButton("Login");
 
     public LoginFrame(AuthController authController, DashboardController dashboardController,
+                      UserController userController, ProfileController profileController,
+                      CourseController courseController, TimetableController timetableController,
+                      ContentController contentController, AttendanceController attendanceController,
+                      LearningActivityController learningActivityController,
                       ApplicationErrorHandler errorHandler) {
         super("Academic Management System - Login");
         this.authController = authController;
         this.dashboardController = dashboardController;
+        this.userController = userController;
+        this.profileController = profileController;
+        this.courseController = courseController;
+        this.timetableController = timetableController;
+        this.contentController = contentController;
+        this.attendanceController = attendanceController;
+        this.learningActivityController = learningActivityController;
         this.errorHandler = errorHandler;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setContentPane(createContent());
@@ -141,8 +166,13 @@ public final class LoginFrame extends JFrame {
 
     private void openShell(AuthenticatedSession session) {
         dispose();
-        new MainFrame(session, dashboardController, errorHandler,
-                () -> new LoginFrame(authController, dashboardController, errorHandler).setVisible(true)).setVisible(true);
+        new MainFrame(session, dashboardController, userController, profileController,
+                courseController, timetableController, contentController, attendanceController,
+                learningActivityController, errorHandler,
+                () -> new LoginFrame(authController, dashboardController, userController,
+                        profileController, courseController, timetableController, contentController,
+                        attendanceController, learningActivityController, errorHandler).setVisible(true))
+                .setVisible(true);
     }
 
     private void showMessage(String text, java.awt.Color color) {

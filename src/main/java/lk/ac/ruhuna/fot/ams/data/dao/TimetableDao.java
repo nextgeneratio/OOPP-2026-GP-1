@@ -6,7 +6,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface TimetableDao {
-    record TimetableRow(int id, String title, int departmentId, int semesterId) {
+    record TimetableRow(int id, String title, int departmentId, int semesterId, int level) {
+        public TimetableRow(int id, String title, int departmentId, int semesterId) {
+            this(id, title, departmentId, semesterId, 1);
+        }
     }
 
     record EntryRow(
@@ -25,12 +28,14 @@ public interface TimetableDao {
     long insertEntry(Connection connection, EntryRow row);
 
     int updateEntry(Connection connection, EntryRow row);
+    int deleteEntriesForTimetable(Connection connection, int timetableId);
+    int deleteTimetable(Connection connection, int timetableId);
 
     Optional<TimetableRow> findTimetable(int timetableId);
 
     Optional<EntryRow> findEntry(int entryId);
 
-    List<EntryRow> findEntries(int departmentId, int semesterId, String dayOfWeek);
+    List<EntryRow> findEntries(int departmentId, int semesterId, int level, String dayOfWeek);
 
     List<EntryRow> findConflicts(
             int departmentId, int semesterId, EntryRow candidate, int lecturerId);

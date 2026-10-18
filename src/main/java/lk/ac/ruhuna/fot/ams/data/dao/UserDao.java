@@ -20,7 +20,18 @@ public interface UserDao extends UserLookup {
             Integer departmentId,
             Integer batchId,
             String studentNumber,
-            String profilePicture) {
+            String profilePicture,
+            String departmentName,
+            String batchCode,
+            Integer academicLevel,
+            Integer semesterNumber) {
+        public UserProfile(
+                long id, String username, String passwordHash, Role role, String email,
+                boolean active, String fullName, String phone, Integer departmentId,
+                Integer batchId, String studentNumber, String profilePicture) {
+            this(id, username, passwordHash, role, email, active, fullName, phone,
+                    departmentId, batchId, studentNumber, profilePicture, null, null, null, null);
+        }
     }
 
     long create(Connection connection, UserProfile profile);
@@ -32,6 +43,11 @@ public interface UserDao extends UserLookup {
     Optional<User> findByUsername(String username);
 
     Optional<User> findById(long userId);
+
+    Optional<UserProfile> findProfileById(long userId);
+
+    int updatePassword(
+            Connection connection, long userId, String expectedPasswordHash, String newPasswordHash);
 
     List<UserProfile> searchUsers(String term, Role role, Boolean active);
 

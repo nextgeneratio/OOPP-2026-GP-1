@@ -32,12 +32,14 @@ public final class JdbcCourseDao implements CourseDao {
     @Override
     public long insertBatch(Connection connection, BatchRow row) {
         return jdbc.insertAndReturnKey(connection,
-                "INSERT INTO batches (department_id, intake_year, programme, batch_code) VALUES (?, ?, ?, ?)",
+                "INSERT INTO batches (department_id, intake_year, programme, batch_code, level_no) "
+                        + "VALUES (?, ?, ?, ?, ?)",
                 statement -> {
                     statement.setInt(1, row.departmentId());
                     statement.setInt(2, row.intakeYear());
                     statement.setString(3, row.programme());
                     statement.setString(4, row.code());
+                    statement.setInt(5, row.level());
                 });
     }
 
@@ -186,12 +188,12 @@ public final class JdbcCourseDao implements CourseDao {
 
     @Override
     public List<BatchRow> findBatches(int departmentId) {
-        return jdbc.query("SELECT batch_id, department_id, intake_year, programme, batch_code "
+        return jdbc.query("SELECT batch_id, department_id, intake_year, programme, batch_code, level_no "
                         + "FROM batches WHERE department_id = ? ORDER BY intake_year DESC, batch_code",
                 statement -> statement.setInt(1, departmentId),
                 result -> new BatchRow(result.getInt("batch_id"), result.getInt("department_id"),
                         result.getInt("intake_year"), result.getString("programme"),
-                        result.getString("batch_code")));
+                        result.getString("batch_code"), result.getInt("level_no")));
     }
 
     @Override
@@ -295,6 +297,28 @@ public final class JdbcCourseDao implements CourseDao {
                 statement.setInt(4, semesterId);
             }
         }, this::mapOffering);
+    }
+
+    @Override
+    public List<OfferingRow> findOfferingsForStudent(int studentId) {
+        return jdbc.query("SELECT DISTINCT o.offering_id, o.course_id, o.batch_id, o.semester_id, "
+                        + "o.coordinator_id, o.status FROM course_offerings o "
+                        + "JOIN course_enrollments e ON e.offering_id = o.offering_id "
+                        + "WHERE e.student_id = ? AND e.enrollment_status = 'ACTIVE' "
+                        + "ORDER BY o.semester_id DESC, o.course_id",
+                statement -> statement.setInt(1, studentId), this::mapOffering);
+    }
+
+    @Override
+    public List<OfferingRow> findOfferingsForTechnicalOfficer(long userId) {
+        return jdbc.query("SELECT DISTINCT o.offering_id, o.course_id, o.batch_id, o.semester_id, "
+                        + "o.coordinator_id, o.status FROM technical_officers t "
+                        + "JOIN batches b ON b.department_id = t.department_id "
+                        + "JOIN course_offerings o ON o.batch_id = b.batch_id "
+                        + "JOIN semesters s ON s.semester_id = o.semester_id "
+                        + "WHERE t.user_id = ? AND CURRENT_DATE BETWEEN s.start_date AND s.end_date "
+                        + "ORDER BY o.semester_id DESC, o.offering_id",
+                statement -> statement.setLong(1, userId), this::mapOffering);
     }
 
     @Override

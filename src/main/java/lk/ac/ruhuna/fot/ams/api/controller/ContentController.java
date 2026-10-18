@@ -15,6 +15,9 @@ public final class ContentController {
             int offeringId, int materialId, String title, String filePath) {
     }
 
+    public record MaterialVisibilityRequest(int offeringId, int materialId, boolean visible) {
+    }
+
     public record ContentIdResponse(long id) {
     }
 
@@ -37,6 +40,15 @@ public final class ContentController {
         return support.execute(request, () -> {
             service.updateMaterial(actor, request.offeringId(), request.materialId(),
                     request.title(), request.filePath());
+            return null;
+        });
+    }
+
+    public ApiResponse<Void> setMaterialVisibility(
+            AuthenticatedSession actor, MaterialVisibilityRequest request) {
+        return support.execute(request, () -> {
+            service.setMaterialVisibility(actor, request.offeringId(),
+                    request.materialId(), request.visible());
             return null;
         });
     }
