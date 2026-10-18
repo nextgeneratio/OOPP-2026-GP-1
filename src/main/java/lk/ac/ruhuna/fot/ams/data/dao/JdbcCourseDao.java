@@ -325,6 +325,14 @@ public final class JdbcCourseDao implements CourseDao {
     }
 
     @Override
+    public List<EnrollmentRow> findEnrollmentsForStudent(int studentId) {
+        return jdbc.query("SELECT enrollment_id, student_id, offering_id, attempt_no, "
+                        + "student_status, enrollment_status FROM course_enrollments "
+                        + "WHERE student_id = ? AND enrollment_status = 'ACTIVE' ORDER BY offering_id, attempt_no",
+                statement -> statement.setInt(1, studentId), this::mapEnrollment);
+    }
+
+    @Override
     public boolean hasActiveEnrollment(int studentId, int offeringId) {
         return !jdbc.query("SELECT enrollment_id FROM course_enrollments "
                         + "WHERE student_id = ? AND offering_id = ? AND enrollment_status = 'ACTIVE' LIMIT 1",
@@ -344,6 +352,50 @@ public final class JdbcCourseDao implements CourseDao {
         return new ComponentRow(result.getInt("component_id"), result.getInt("course_id"),
                 ComponentType.valueOf(result.getString("component_type")),
                 result.getDouble("credits"), result.getInt("planned_sessions"));
+    }
+
+    @Override
+    public List<RosterRow> findRoster(int offeringId) {
+        return jdbc.query("SELECT e.enrollment_id, e.student_id, u.student_no, u.full_name "
+                        + "FROM course_enrollments e JOIN undergraduates u ON u.student_id = e.student_id "
+                        + "WHERE e.offering_id = ? AND e.enrollment_status = 'ACTIVE' "
+                        + "ORDER BY u.student_no, e.attempt_no",
+                statement -> statement.setInt(1, offeringId),
+                result -> new RosterRow(result.getInt("enrollment_id"), result.getInt("student_id"),
+                        result.getString("student_no"), result.getString("full_name")));
+    }
+
+    @Override
+    public List<OfferingSummary> findOfferingSummariesForLecturer(int lecturerId) {
+        return jdbc.query("SELECT DISTINCT o.offering_id, o.course_id, c.course_code, c.title, "
+                        + "c.department_id, o.semester_id "
+                        + "FROM course_offerings o JOIN courses c ON c.course_id = o.course_id "
+                        + "LEFT JOIN course_offering_lecturers a ON a.offering_id = o.offering_id "
+                        + "WHERE o.coordinator_id = ? OR a.lecturer_id = ? "
+                        + "ORDER BY o.semester_id, o.offering_id",
+                statement -> {
+                    statement.setInt(1, lecturerId);
+                    statement.setInt(2, lecturerId);
+                }, this::mapOfferingSummary);
+    }
+
+    @Override
+    public List<OfferingSummary> findOfferingSummariesForTechnicalOfficer(int technicalOfficerId) {
+        return jdbc.query("SELECT DISTINCT o.offering_id, o.course_id, c.course_code, c.title, "
+                        + "c.department_id, o.semester_id "
+                        + "FROM technical_officers t JOIN batches b ON b.department_id = t.department_id "
+                        + "JOIN course_offerings o ON o.batch_id = b.batch_id "
+                        + "JOIN courses c ON c.course_id = o.course_id "
+                        + "JOIN semesters s ON s.semester_id = o.semester_id "
+                        + "WHERE t.officer_id = ? AND CURRENT_DATE BETWEEN s.start_date AND s.end_date "
+                        + "ORDER BY o.offering_id",
+                statement -> statement.setInt(1, technicalOfficerId), this::mapOfferingSummary);
+    }
+
+    private OfferingSummary mapOfferingSummary(ResultSet result) throws SQLException {
+        return new OfferingSummary(result.getInt("offering_id"), result.getInt("course_id"),
+                result.getString("course_code"), result.getString("title"),
+                result.getInt("department_id"), result.getInt("semester_id"));
     }
 
     private OfferingRow mapOffering(ResultSet result) throws SQLException {

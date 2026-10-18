@@ -32,6 +32,22 @@ import lk.ac.ruhuna.fot.ams.security.authorization.AuthorizationService.ReportTy
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
 public final class AttendanceService {
+    /** One row the officer marks present/absent for. */
+    public record RosterEntry(int enrollmentId, String studentNumber, String fullName) {
+    }
+
+    /** Everything the attendance screen needs to build and submit one session. */
+    public record SessionSetup(
+            List<CourseDao.ComponentRow> components,
+            List<TimetableDao.EntryRow> entries,
+            List<RosterEntry> roster) {
+        public SessionSetup {
+            components = List.copyOf(components);
+            entries = List.copyOf(entries);
+            roster = List.copyOf(roster);
+        }
+    }
+
     private final AttendanceDao attendanceDao;
     private final CourseDao courseDao;
     private final TimetableDao timetableDao;
@@ -64,6 +80,34 @@ public final class AttendanceService {
         this.calculator = Objects.requireNonNull(calculator);
         this.attendanceThreshold = Objects.requireNonNull(attendanceThreshold);
         this.clock = Objects.requireNonNull(clock);
+    }
+
+    public List<CourseDao.OfferingSummary> offeringsForTechnicalOfficer(AuthenticatedSession actor) {
+        authorization.requireRole(actor, Role.TECHNICAL_OFFICER);
+        return courseDao.findOfferingSummariesForTechnicalOfficer(authorization.technicalOfficerId(actor));
+    }
+
+    public SessionSetup sessionSetup(AuthenticatedSession actor, int offeringId) {
+        authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+        CourseDao.OfferingRow offering = courseDao.findOffering(offeringId)
+                .orElseThrow(() -> new ValidationException("Course offering was not found."));
+        List<CourseDao.ComponentRow> components = courseDao.findComponents(offering.courseId());
+        List<TimetableDao.EntryRow> entries = timetableDao
+                .findEntries(authorizedDepartmentId(actor), offering.semesterId(), null).stream()
+                .filter(entry -> entry.offeringId() == offeringId)
+                .toList();
+        List<RosterEntry> roster = courseDao.findRoster(offeringId).stream()
+                .map(row -> new RosterEntry(row.enrollmentId(), row.studentNumber(), row.fullName()))
+                .toList();
+        return new SessionSetup(components, entries, roster);
+    }
+
+    private int authorizedDepartmentId(AuthenticatedSession actor) {
+        int technicalOfficerId = authorization.technicalOfficerId(actor);
+        return courseDao.findOfferingSummariesForTechnicalOfficer(technicalOfficerId).stream()
+                .findFirst()
+                .map(CourseDao.OfferingSummary::departmentId)
+                .orElseThrow(() -> new ValidationException("Technical officer department could not be resolved."));
     }
 
     public long saveSession(

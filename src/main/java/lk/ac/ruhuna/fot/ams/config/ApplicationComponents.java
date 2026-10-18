@@ -206,7 +206,7 @@ public final class ApplicationComponents {
                 GpaCalculator.RepeatSelectionRule.valueOf(config.repeatSelectionRule()),
                 courseResultDao, authorizationService);
         EligibilityService eligibilityService = new EligibilityService(
-                new FinalExamEligibilityPolicy(), marksService, attendanceService, authorizationService);
+                new FinalExamEligibilityPolicy(), marksService, attendanceService, authorizationService, courseDao);
         UserService userService = new UserService(
                 userDao, auditLogDao, transactionManager, authorizationService,
                 passwordHasher, clock);

@@ -21,6 +21,15 @@ public final class MarksController {
         this.support = Objects.requireNonNull(support);
     }
 
+    public ApiResponse<List<lk.ac.ruhuna.fot.ams.data.dao.CourseDao.OfferingSummary>> myOfferings(
+            AuthenticatedSession actor) {
+        return support.execute(() -> service.offeringsForLecturer(actor));
+    }
+
+    public ApiResponse<MarksService.MarkSheet> sheet(AuthenticatedSession actor, int offeringId) {
+        return support.execute(() -> service.sheet(actor, offeringId));
+    }
+
     public ApiResponse<SaveMarksResponse> saveMarks(
             AuthenticatedSession actor, SaveMarksRequest request) {
         return support.execute(request, () -> new SaveMarksResponse(

@@ -69,7 +69,26 @@ public final class MainFrame extends JFrame {
         return switch (module) {
             case DASHBOARD -> createDashboard();
             case USER_MANAGEMENT -> new UserManagementScreen(session, services.users());
+            case ASSESSMENTS_MARKS -> new lk.ac.ruhuna.fot.ams.presentation.ui.lecturer.MarksScreen(session, services.marks());
+            case ATTENDANCE -> buildAttendanceScreen();
+            case ELIGIBILITY -> buildEligibilityScreen();
             default -> new PlaceholderScreen(module);
+        };
+    }
+
+    private JComponent buildAttendanceScreen() {
+        return switch (session.role()) {
+            case TECHNICAL_OFFICER -> new lk.ac.ruhuna.fot.ams.presentation.ui.technical.AttendanceScreen(
+                    session, services.attendance());
+            default -> new PlaceholderScreen(NavigationModule.ATTENDANCE);
+        };
+    }
+
+    private JComponent buildEligibilityScreen() {
+        return switch (session.role()) {
+            case LECTURER, UNDERGRADUATE ->
+                    new lk.ac.ruhuna.fot.ams.presentation.ui.common.EligibilityScreen(session, services.eligibility());
+            default -> new PlaceholderScreen(NavigationModule.ELIGIBILITY);
         };
     }
 

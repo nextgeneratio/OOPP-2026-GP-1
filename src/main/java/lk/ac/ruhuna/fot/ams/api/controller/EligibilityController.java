@@ -9,6 +9,9 @@ public final class EligibilityController {
     public record EligibilityRequest(int studentId, int enrollmentId, int offeringId) {
     }
 
+    public record OwnEligibilityRequest(int enrollmentId, int offeringId) {
+    }
+
     public record EligibilityResponse(
             boolean eligible,
             boolean caEligible,
@@ -32,9 +35,30 @@ public final class EligibilityController {
         this.support = Objects.requireNonNull(support);
     }
 
+    public ApiResponse<java.util.List<lk.ac.ruhuna.fot.ams.data.dao.CourseDao.OfferingSummary>> myOfferings(
+            AuthenticatedSession actor) {
+        return support.execute(() -> service.offeringsForLecturer(actor));
+    }
+
+    public ApiResponse<java.util.List<lk.ac.ruhuna.fot.ams.data.dao.CourseDao.RosterRow>> roster(
+            AuthenticatedSession actor, int offeringId) {
+        return support.execute(() -> service.rosterForOffering(actor, offeringId));
+    }
+
+    public ApiResponse<java.util.List<EligibilityService.StudentOffering>> myOfferingsAsStudent(
+            AuthenticatedSession actor) {
+        return support.execute(() -> service.offeringsForStudent(actor));
+    }
+
     public ApiResponse<EligibilityResponse> evaluate(
             AuthenticatedSession actor, EligibilityRequest request) {
         return support.execute(request, () -> EligibilityResponse.from(service.evaluateForEnrollment(
                 actor, request.studentId(), request.enrollmentId(), request.offeringId())));
+    }
+
+    public ApiResponse<EligibilityResponse> evaluateOwn(
+            AuthenticatedSession actor, OwnEligibilityRequest request) {
+        return support.execute(request, () -> EligibilityResponse.from(service.evaluateForOwnEnrollment(
+                actor, request.enrollmentId(), request.offeringId())));
     }
 }

@@ -25,6 +25,15 @@ public final class AttendanceController {
         this.support = Objects.requireNonNull(support);
     }
 
+    public ApiResponse<java.util.List<lk.ac.ruhuna.fot.ams.data.dao.CourseDao.OfferingSummary>> myOfferings(
+            AuthenticatedSession actor) {
+        return support.execute(() -> service.offeringsForTechnicalOfficer(actor));
+    }
+
+    public ApiResponse<AttendanceService.SessionSetup> sessionSetup(AuthenticatedSession actor, int offeringId) {
+        return support.execute(() -> service.sessionSetup(actor, offeringId));
+    }
+
     public ApiResponse<SavedSessionResponse> saveSession(
             AuthenticatedSession actor, SaveAttendanceRequest request) {
         return support.execute(request, () -> new SavedSessionResponse(service.saveSession(

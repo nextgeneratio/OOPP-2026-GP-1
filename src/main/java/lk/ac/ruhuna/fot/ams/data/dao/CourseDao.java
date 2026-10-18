@@ -29,6 +29,34 @@ public interface CourseDao {
             int id, int studentId, int offeringId, int attemptNumber, String studentStatus, String enrollmentStatus) {
     }
 
+    record RosterRow(int enrollmentId, int studentId, String studentNumber, String fullName) {
+    }
+
+    record OfferingSummary(
+            int offeringId, int courseId, String courseCode, String courseTitle,
+            int departmentId, int semesterId) {
+    }
+
+    /** Active enrolled students with display identity. Default keeps existing implementations compiling. */
+    default List<RosterRow> findRoster(int offeringId) {
+        throw new UnsupportedOperationException("findRoster is not implemented");
+    }
+
+    /** Offerings a lecturer teaches, with course code and title for selectors. */
+    default List<OfferingSummary> findOfferingSummariesForLecturer(int lecturerId) {
+        throw new UnsupportedOperationException("findOfferingSummariesForLecturer is not implemented");
+    }
+
+    /** Current-semester offerings in a technical officer's department, for attendance session selectors. */
+    default List<OfferingSummary> findOfferingSummariesForTechnicalOfficer(int technicalOfficerId) {
+        throw new UnsupportedOperationException("findOfferingSummariesForTechnicalOfficer is not implemented");
+    }
+
+    /** A student's own active enrolments, across every offering. */
+    default List<EnrollmentRow> findEnrollmentsForStudent(int studentId) {
+        throw new UnsupportedOperationException("findEnrollmentsForStudent is not implemented");
+    }
+
     long insertDepartment(Connection connection, DepartmentRow row);
 
     long insertBatch(Connection connection, BatchRow row);

@@ -24,7 +24,9 @@ public final class Application {
             UiTheme.apply();
             SwingUtilities.invokeLater(() -> new LoginFrame(
                     components.authController(),
-                    new UiServices(components.dashboardController(), components.userController()),
+                    new UiServices(components.dashboardController(), components.userController(),
+                            components.marksController(), components.attendanceController(),
+                            components.eligibilityController()),
                     components.errorHandler())
                     .setVisible(true));
         } catch (Exception failure) {
