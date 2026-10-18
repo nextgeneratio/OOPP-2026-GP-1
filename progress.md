@@ -1,70 +1,78 @@
 # Project Progress
 
 ## Current phase
-Phase 0 — Project setup / planning
+Phase 5 — Final system-test attempt (NOT READY; full database/UI acceptance blocked)
 
 ## Completed
-- [ ] Project structure created
-- [ ] Maven configuration
-- [ ] Database schema
-- [ ] Seed data
-- [ ] Domain model
-- [ ] Error handling
-- [ ] Security/authentication
-- [ ] Data/DAO layer
-- [ ] Business logic layer
-- [ ] API/controller layer
-- [ ] Swing UI
-- [ ] Unit tests
-- [ ] Integration tests
-- [ ] System tests
-- [ ] Reports
-- [ ] Audit logging
+- [x] Project structure created
+- [x] Maven configuration
+- [x] Database schema source
+- [x] Seed data source
+- [x] Domain model
+- [x] Error handling
+- [x] Security/authentication
+- [x] Data/DAO layer
+- [x] Business logic layer
+- [x] API/controller layer
+- [ ] Complete Swing UI (shell and dashboards exist; module screens remain placeholders)
+- [x] Unit tests (current automated suite passes)
+- [ ] Integration tests (database-backed tests not executed)
+- [ ] System tests (not executed end to end)
+- [ ] Complete reports (attendance/marks service coverage only)
+- [x] Audit logging implementation
 
 ## In progress
-- None
+- Final system acceptance after a dedicated test database and UI modules are available
 
 ## Blocked
-- None
+- Full test database (`university_management_test`) is not created; only JDBC access to existing `university_management` was verified
 
 ## Tests
-- Unit:
-- Integration:
-- System:
+- Unit: 39 passed
+- Integration: JDBC connection test passed against existing `university_management`; dedicated test-schema persistence/transaction behavior unverified
+- System: not run end to end; see `docs/system-test-results.md`
+- Build: `mvn clean test` passed with live JDBC enabled (40 tests, 0 failures, 0 errors, 0 skipped); `mvn -q test` passed previously with connectivity skipped
 
 ## Database
-- Schema:
-- Seed data:
-- Test database:
-- Connection:
+- Schema: `src/main/resources/db/schema.sql` present; not executed in this environment
+- Seed data: `src/main/resources/db/seed.sql` present; not executed in this environment
+- Test database: isolated test profile points to `university_management_test`; database does not exist yet and schema/seed were not applied
+- Connection: JDBC verified read-only against existing `university_management`; no database writes performed
 
 ## Architecture status
-- Presentation:
-- API:
-- Business:
-- Data:
-- Error:
-- Security:
-- Audit:
-- Reporting:
+- Presentation: shared shell and four role dashboards; module screens are placeholders
+- API: internal controllers and structured responses implemented for core modules
+- Business: core services/calculators/policies implemented; report coverage is partial
+- Data: JDBC DAOs and transactions implemented; live database behavior unverified
+- Error: centralized safe error mapping implemented and unit-tested
+- Security: salted password hashing and service-layer authorization implemented and unit-tested
+- Audit: audit services implemented; database audit workflows unverified
+- Reporting: attendance and marks only; full SRS report set remains incomplete
 
 ## SRS traceability
-- FR-001 to FR-014:
-- FR-015/FR-016:
-- BR-001 to BR-015:
-- NFR-001 to NFR-014:
+- FR-001 to FR-014: core implementation exists, but full CRUD/report/system workflows are not acceptance-tested
+- FR-015/FR-016: service-layer scope authorization has unit coverage; end-to-end role checks remain unverified
+- BR-001 to BR-015: calculation boundaries and selected rules have unit coverage; database scenarios remain unverified
+- NFR-001 to NFR-014: architecture spot checks passed; performance, usability, and full operational checks remain pending
 
 ## Known issues
-- None
+- No dedicated test MySQL is available, so schema/seed, persistence, transactions, and audit integration are unverified.
+- Dashboard summaries use `PendingDashboardController`; most role navigation targets placeholder screens.
+- Full report coverage, UI smoke tests, performance checks, and Appendix A database scenarios remain outstanding.
 
 ## Files changed
-- None
+- Branch integration: Anjana business/API/data modules and Nirmal role-dashboard shell
+- `src/test/java/lk/ac/ruhuna/fot/ams/integration/DatabaseConnectivityTest.java`
+- `src/test/java/lk/ac/ruhuna/fot/ams/unit/ErrorHandlingAndUxSafetyTest.java`
+- `README.md`
+- `docs/system-test-results.md`
+- `progress.md`
 
 ## Next task
-Start Phase 1 using `01-instruction-foundation.md`.
+Configure an isolated test MySQL database and credentials; finish UI module integration and execute the blocked database/system acceptance cases.
 
 ## Last updated
-2026-09-30
+2026-10-18 08:55
 
 ## Structure Execution Update — 2026-09-30
 - Executed `00-project-structure-prompt.md` only.
@@ -208,3 +216,38 @@ Start Phase 1 using `01-instruction-foundation.md`.
 - UI smoke tests (AssertJ Swing / Mockito) and the AssertJ Swing dependency are still to be added.
 
 **Next:** implement module controllers, then replace each PlaceholderScreen.
+
+## Branch Review, Integration, and Final System-Test Attempt — 2026-10-18
+- Fetched GitHub updates and fast-forwarded local `Nirmal`, `Anjana`, and `Kalhara`; created local tracking branch `Kalhara-V2`. Returned to `Amjad`.
+- Reviewed each branch against `Amjad`. Merged `Anjana` for the business/API/data layer and `Nirmal` for the role dashboard/navigation shell. Resolved the login conflict by retaining the structured API response while wiring asynchronous sign-in to the role-based shell.
+- Excluded `Kalhara`'s separate legacy `Phase 01` implementation and excluded `Kalhara-V2` wholesale because it has unrelated Git history and overlapping/incompatible domain/API/test implementations. Reviewed its test additions; current academic-rule tests cover the equivalent calculation cases. Added focused safe-error-mapping tests for compatible coverage.
+- Excluded the nonessential `.idea` module metadata from the merge. No changes were pushed to GitHub.
+- Ran architecture spot checks: no JDBC/SQL in Swing UI, no Swing in DAOs, no Swing/JDBC in domain classes or controllers.
+- Made the database-connectivity integration test skip explicitly when test credentials are absent; an actual connection failure still fails when credentials are configured.
+- Validation at the initial integration stage: `mvn clean test` passed with 40 tests (39 passed, 1 database-connectivity test skipped); later the live connection was verified with all 40 tests passing. `git diff --check` passed.
+- System test outcome: NOT READY. Role dashboards still show pending figures while module navigation uses placeholders. No database schema/seed, end-to-end role workflows, audit transactions, performance checks, or complete GUI workflows were claimed as tested.
+- Detailed acceptance execution record: `docs/system-test-results.md`.
+- Next task: provision a dedicated test database, connect the UI modules, then rerun the blocked acceptance cases in `05-instruction-final-system-test.md`.
+
+## MySQL Availability Follow-up — 2026-10-18
+- User confirmed the MySQL server is started. Server responds locally, but passwordless `root` access is denied and no DB credential variables are present in the workspace command environment.
+- Added support for a local ignored `test-credentials.properties` file containing only `db.username` and `db.password`; created an empty ignored template. Test database URL remains fixed to `university_management_test`.
+- Removed hard-coded database selection from shared `schema.sql` and `seed.sql`, and moved production DB creation to `scripts/create_database.sql`. This prevents test imports from switching to `university_management`.
+- Documented test DB setup in `docs/testing-strategy.md`. No schema, seed, or user data was applied.
+- Validation: `mvn clean test` passed (39 passed, 1 skipped for missing test credentials); SQL target safety check confirmed shared schema/seed contain no `CREATE DATABASE` or `USE` directives; `git diff --check` passed.
+- The user selected local ignored configuration, but a non-disclosing check found the test credentials file blank; the connectivity test skipped for the test-schema profile.
+- No DB commands were run beyond the denied passwordless-root probe; no schema/seed/data was changed.
+- Next task: save credentials into the exact repository-root `test-credentials.properties`, then verify connectivity and run test schema/seed before database-backed tests.
+
+## Live MySQL Connectivity and Run Instructions — 2026-10-18
+- Used the credentials supplied in chat for a read-only JDBC connectivity check against the existing `university_management` database. `DatabaseConnectivityTest` passed with catalog validation; `mvn clean test` passed all 40 tests with zero skips.
+- Verified via `information_schema` that `OOP_G01` has no global privileges and has privileges only on `university_management`. The account has no default schema on connect; this is expected. No grants were changed by this session.
+- The dedicated `university_management_test` database does not exist. No DDL, seed, or data modifications were executed.
+- Added README run instructions for configuring ignored local `application.properties`, launching `Application` from IntelliJ, and running Maven tests. Warned that the seed script truncates tables.
+- Added the Maven `exec:java` launch target. `mvn clean package` passed (40 tests, no skips); `mvn exec:java` remained running for a 15-second Swing startup smoke check and was then stopped by the timeout.
+- Verified the current `OOP_G01` account has no global privileges and has schema privileges only on `university_management`; root grant changes were not run by this session.
+- No database schema/seed or user data was changed. The local test credentials file remains ignored and contains no persisted credentials.
+- The database credentials shared in chat are exposed; rotate them and keep any replacement only in ignored local configuration.
+- Full system status remains NOT READY: role dashboards use pending metrics and most module screens are placeholders; database-backed persistence/transaction and UI acceptance are not covered by current tests.
+- Latest verified test outcome: `mvn clean test` with JDBC enabled against existing `university_management`: 40 tests, 0 failures, 0 errors, 0 skipped.
+- Next task: create/seed an isolated test database using a least-privileged account and complete UI module integration before claiming final system readiness.

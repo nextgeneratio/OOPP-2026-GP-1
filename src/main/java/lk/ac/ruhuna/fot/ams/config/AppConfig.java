@@ -42,7 +42,25 @@ public final class AppConfig {
             }
             Properties properties = new Properties();
             properties.load(input);
+            if ("test-application.properties".equals(resourceName)) {
+                Path localCredentials = Path.of("test-credentials.properties");
+                if (Files.isRegularFile(localCredentials)) {
+                    Properties credentials = new Properties();
+                    try (InputStream credentialInput = Files.newInputStream(localCredentials)) {
+                        credentials.load(credentialInput);
+                    }
+                    copyCredential(credentials, properties, "db.username");
+                    copyCredential(credentials, properties, "db.password");
+                }
+            }
             return new AppConfig(properties);
+        }
+    }
+
+    private static void copyCredential(Properties source, Properties target, String key) {
+        String value = source.getProperty(key);
+        if (value != null && !value.isBlank()) {
+            target.setProperty(key, value);
         }
     }
 

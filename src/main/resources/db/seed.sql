@@ -1,5 +1,3 @@
-USE `university_management`;
-
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE `audit_logs`;
 TRUNCATE TABLE `grades`;

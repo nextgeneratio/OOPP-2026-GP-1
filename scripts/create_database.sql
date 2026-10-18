@@ -1,1 +1,3 @@
--- Database creation script is implemented during Phase 1.
+CREATE DATABASE IF NOT EXISTS `university_management`
+    DEFAULT CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
