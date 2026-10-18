@@ -1,7 +1,7 @@
 # Project Progress
 
 ## Current phase
-Phase 5 — Final system-test attempt (NOT READY; full database/UI acceptance blocked)
+Phase 5 — Demo data loaded; final system acceptance remains NOT READY
 
 ## Completed
 - [x] Project structure created
@@ -16,7 +16,7 @@ Phase 5 — Final system-test attempt (NOT READY; full database/UI acceptance bl
 - [x] API/controller layer
 - [ ] Complete Swing UI (shell and dashboards exist; module screens remain placeholders)
 - [x] Unit tests (current automated suite passes)
-- [ ] Integration tests (database-backed tests not executed)
+- [ ] Integration tests (seeded database roles verified; CRUD/transaction tests not executed)
 - [ ] System tests (not executed end to end)
 - [ ] Complete reports (attendance/marks service coverage only)
 - [x] Audit logging implementation
@@ -25,19 +25,20 @@ Phase 5 — Final system-test attempt (NOT READY; full database/UI acceptance bl
 - Final system acceptance after a dedicated test database and UI modules are available
 
 ## Blocked
-- Full test database (`university_management_test`) is not created; only JDBC access to existing `university_management` was verified
+- Full test database (`university_management_test`) is not created; the existing `university_management` schema is older than the current source schema
 
 ## Tests
 - Unit: 39 passed
-- Integration: JDBC connection test passed against existing `university_management`; dedicated test-schema persistence/transaction behavior unverified
+- Integration: JDBC connection and seeded role profiles verified against existing `university_management`; dedicated test-schema persistence/transaction behavior unverified
 - System: not run end to end; see `docs/system-test-results.md`
 - Build: `mvn clean test` passed with live JDBC enabled (40 tests, 0 failures, 0 errors, 0 skipped); `mvn -q test` passed previously with connectivity skipped
 
 ## Database
-- Schema: `src/main/resources/db/schema.sql` present; not executed in this environment
-- Seed data: `src/main/resources/db/seed.sql` present; not executed in this environment
+- Schema: `src/main/resources/db/schema.sql` is present; the existing DB has an older schema. The missing `course_offering_lecturers` relation required by the seed was added; three other current-schema tables and several columns are still absent.
+- Seed data: loaded into the previously empty `university_management` DB: 20 undergraduates, 1 admin, 5 lecturers, 4 technical officers, 2 course offerings, 2 lecturers assigned to offerings, and 22 enrolments.
 - Test database: isolated test profile points to `university_management_test`; database does not exist yet and schema/seed were not applied
-- Connection: JDBC verified read-only against existing `university_management`; no database writes performed
+- Login verification: 30 seeded account hashes match the app's PBKDF2 hasher; admin, student, lecturer, and technical-officer profile joins returned active role records
+- Connection: JDBC connectivity was previously verified against `university_management`; this task added demo records there, without applying the full schema
 
 ## Architecture status
 - Presentation: shared shell and four role dashboards; module screens are placeholders

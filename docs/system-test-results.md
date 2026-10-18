@@ -4,7 +4,7 @@
 **Branch:** `Amjad`
 **Final status:** NOT READY
 
-The final system-test instruction was attempted after the requested branch review and integration. MySQL was reachable using the credentials supplied by the user, and the application's JDBC connectivity test passed against the existing `university_management` database. The dedicated test database `university_management_test` does not exist, so no schema, seed, CRUD, or transaction tests were run. The role dashboards also still route most modules to placeholder screens. No database was modified.
+The final system-test instruction was attempted after the requested branch review and integration. MySQL was reachable using the credentials supplied by the user, and the application's JDBC connectivity test passed against the existing `university_management` database. The dedicated test database `university_management_test` does not exist. A demo dataset was subsequently loaded into the previously empty `university_management` database, but the full current schema was not applied because that database has schema drift. CRUD/transaction tests were not run, and most role dashboard modules remain placeholders.
 
 ## Test execution
 
@@ -14,7 +14,7 @@ The final system-test instruction was attempted after the requested branch revie
 | ST-002 | FR-001, FR-015/FR-016 role navigation and scope | Maven/JDK available | Run role navigation and authorization unit tests | Only permitted role navigation and service-level scope | Unit tests passed | Pass | `NavigationModuleTest`, `AuthorizationServiceTest`, `AuthorizationScopeServiceTest` |
 | ST-003 | BR-005–BR-015 academic calculations | Maven/JDK available | Run mark, CA, attendance/medical, eligibility, grade-boundary, GPA, and timetable rule tests | Configured thresholds and boundary cases are enforced | Academic rule tests passed | Pass | `AcademicRulesTest` |
 | ST-004 | Safe error handling | Maven/JDK available | Verify authentication, authorization, validation, missing-record, database, and unexpected error messages | Technical details are not shown to users | Safe-message tests passed | Pass | `ErrorHandlingAndUxSafetyTest` |
-| ST-005 | Database connectivity and persistence | MySQL account and target schema | Run `DatabaseConnectivityTest` against the existing `university_management` database | JDBC opens a valid connection to the selected catalog | Passed read-only JDBC connection and catalog check. The isolated `university_management_test` schema is absent; persistence/transaction integration tests were not run. | Partial | `mvn -Dtest=DatabaseConnectivityTest test`; `mvn clean test` |
+| ST-005 | Database connectivity and persistence | MySQL account and target schema | Run `DatabaseConnectivityTest` against the existing `university_management` database | JDBC opens a valid connection to the selected catalog | JDBC catalog check passed. Demo data now includes 20 students and active admin/lecturer/technical-officer accounts; role-profile joins and password-hash compatibility were verified. Dedicated test schema, general CRUD, and transaction integration tests remain unverified. | Partial | `mvn -Dtest=DatabaseConnectivityTest test`; direct read-only account/profile/count checks after demo seed |
 | ST-006 | FR-002–FR-014 CRUD and academic user workflows | Test database seeded with controlled role accounts and Appendix A data | Exercise user/course/assessment/marks/attendance/medical/results/notices/materials/reports workflows as each role | Expected records/calculations, authorization, and audit records | Not executed; no live test database or complete connected UI modules | Blocked | No end-to-end evidence |
 | ST-007 | Error recovery and transactions | Test database and controllable failure injection | Trigger duplicate, invalid, unauthorized, unavailable-database, and mid-transaction failures | Safe messages, rollback, logged technical details, recoverable application | Not executed against the running application/database | Blocked | Unit error mapping passed; integration/system behavior unverified |
 | ST-008 | NFR performance and UI accessibility | Seeded class-size test data and graphical session | Measure login/list/result operations and check keyboard, focus, dialogs, and role dashboards | Operations within the SRS target; usable role-based UI | Not executed. Current dashboard figures are pending, and module navigation remains placeholder-based. | Blocked | No performance/UI execution evidence |
@@ -34,8 +34,7 @@ The final system-test instruction was attempted after the requested branch revie
 
 ## Known limitations
 
-- MySQL schema/seed execution, DAO persistence, transaction rollback, and database-backed workflows remain unverified.
-- `university_management_test` is not present. The JDBC connectivity test was run read-only against the existing `university_management` database; schema/seed imports and database mutation tests remain outstanding.
+- `university_management_test` is not present. Demo data was loaded into `university_management`, but its schema is older than the current source: three current tables and several columns remain absent. Full schema application, DAO CRUD, transaction rollback, and database-backed workflows are still unverified.
 - The supplied account was verified to have no global privileges and privileges only on `university_management`. Rotate the exposed credential and use a separate least-privileged account limited to the dedicated test database for future integration testing.
 - The ignored repository-root `test-credentials.properties` template is present and owner-readable only, but remains blank in the workspace despite the user's confirmation; no database connection was attempted with it.
 - Role dashboards use a pending summary controller, and module navigation still opens placeholders. User/course/attendance/marks/results/reports workflows are not demonstrated end to end.
@@ -44,7 +43,8 @@ The final system-test instruction was attempted after the requested branch revie
 
 ## Evidence
 
-- Test data: no database test data was loaded or changed.
+- Test data: 20 undergraduates, 1 admin, 5 lecturers, 4 technical officers, and supporting department/batch/semester/course/offering/enrolment/grade rows were loaded into `university_management`. The seed operation did not execute its `TRUNCATE` statements; all pre-existing tables were verified empty first.
+- Demo account IDs: `ADM001`, `STU001`–`STU020`, `LEC001`–`LEC005`, and `TO001`–`TO004`. All seeded accounts use the demo password provided to the user in chat.
 - Screenshots: none.
 - Test report: Maven Surefire reports under `target/surefire-reports`.
 - Logs: local Maven output only; no database/application workflow logs.

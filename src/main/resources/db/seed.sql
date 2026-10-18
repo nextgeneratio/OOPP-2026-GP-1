@@ -10,6 +10,7 @@ TRUNCATE TABLE `course_enrollments`;
 TRUNCATE TABLE `course_materials`;
 TRUNCATE TABLE `timetable_entries`;
 TRUNCATE TABLE `timetables`;
+TRUNCATE TABLE `course_offering_lecturers`;
 TRUNCATE TABLE `course_offerings`;
 TRUNCATE TABLE `course_components`;
 TRUNCATE TABLE `courses`;
@@ -33,21 +34,21 @@ INSERT INTO `semesters` (semester_id, academic_year, semester_no, start_date, en
 	(1, '2026/2027', 1, '2026-09-01', '2027-01-31');
 
 INSERT INTO `users` (user_id, username, password_hash, role, email, created_at) VALUES
-	(1, 'ADM001', 'PBKDF2$210000$16hClb3Y3vZenhG1M1npKA==$WpOYYvegPT4KC2qPJ7/zjICjB8Be2pxl36vDO2Khl9Q=', 'ADMIN', 'adm001@example.edu', NOW()),
-	(2, 'LEC001', 'PBKDF2$210000$16hClb3Y3vZenhG1M1npKA==$WpOYYvegPT4KC2qPJ7/zjICjB8Be2pxl36vDO2Khl9Q=', 'LECTURER', 'lec001@example.edu', NOW()),
-	(3, 'LEC002', 'PBKDF2$210000$16hClb3Y3vZenhG1M1npKA==$WpOYYvegPT4KC2qPJ7/zjICjB8Be2pxl36vDO2Khl9Q=', 'LECTURER', 'lec002@example.edu', NOW()),
-	(4, 'LEC003', 'PBKDF2$210000$16hClb3Y3vZenhG1M1npKA==$WpOYYvegPT4KC2qPJ7/zjICjB8Be2pxl36vDO2Khl9Q=', 'LECTURER', 'lec003@example.edu', NOW()),
-	(5, 'LEC004', 'PBKDF2$210000$16hClb3Y3vZenhG1M1npKA==$WpOYYvegPT4KC2qPJ7/zjICjB8Be2pxl36vDO2Khl9Q=', 'LECTURER', 'lec004@example.edu', NOW()),
-	(6, 'LEC005', 'PBKDF2$210000$16hClb3Y3vZenhG1M1npKA==$WpOYYvegPT4KC2qPJ7/zjICjB8Be2pxl36vDO2Khl9Q=', 'LECTURER', 'lec005@example.edu', NOW()),
-	(7, 'TO001', 'PBKDF2$210000$16hClb3Y3vZenhG1M1npKA==$WpOYYvegPT4KC2qPJ7/zjICjB8Be2pxl36vDO2Khl9Q=', 'TECHNICAL_OFFICER', 'to001@example.edu', NOW()),
-	(8, 'TO002', 'PBKDF2$210000$16hClb3Y3vZenhG1M1npKA==$WpOYYvegPT4KC2qPJ7/zjICjB8Be2pxl36vDO2Khl9Q=', 'TECHNICAL_OFFICER', 'to002@example.edu', NOW()),
-	(9, 'TO003', 'PBKDF2$210000$16hClb3Y3vZenhG1M1npKA==$WpOYYvegPT4KC2qPJ7/zjICjB8Be2pxl36vDO2Khl9Q=', 'TECHNICAL_OFFICER', 'to003@example.edu', NOW()),
-	(10, 'TO004', 'PBKDF2$210000$16hClb3Y3vZenhG1M1npKA==$WpOYYvegPT4KC2qPJ7/zjICjB8Be2pxl36vDO2Khl9Q=', 'TECHNICAL_OFFICER', 'to004@example.edu', NOW());
+	(1, 'ADM001', 'PBKDF2$210000$PVmZ6jHLNLVK99q2nzMCyw==$altqmpHwgzsSSVIMPjF6ZAAe76bZa/bYaDq2le2NBY8=', 'ADMIN', 'adm001@example.edu', NOW()),
+	(2, 'LEC001', 'PBKDF2$210000$PVmZ6jHLNLVK99q2nzMCyw==$altqmpHwgzsSSVIMPjF6ZAAe76bZa/bYaDq2le2NBY8=', 'LECTURER', 'lec001@example.edu', NOW()),
+	(3, 'LEC002', 'PBKDF2$210000$PVmZ6jHLNLVK99q2nzMCyw==$altqmpHwgzsSSVIMPjF6ZAAe76bZa/bYaDq2le2NBY8=', 'LECTURER', 'lec002@example.edu', NOW()),
+	(4, 'LEC003', 'PBKDF2$210000$PVmZ6jHLNLVK99q2nzMCyw==$altqmpHwgzsSSVIMPjF6ZAAe76bZa/bYaDq2le2NBY8=', 'LECTURER', 'lec003@example.edu', NOW()),
+	(5, 'LEC004', 'PBKDF2$210000$PVmZ6jHLNLVK99q2nzMCyw==$altqmpHwgzsSSVIMPjF6ZAAe76bZa/bYaDq2le2NBY8=', 'LECTURER', 'lec004@example.edu', NOW()),
+	(6, 'LEC005', 'PBKDF2$210000$PVmZ6jHLNLVK99q2nzMCyw==$altqmpHwgzsSSVIMPjF6ZAAe76bZa/bYaDq2le2NBY8=', 'LECTURER', 'lec005@example.edu', NOW()),
+	(7, 'TO001', 'PBKDF2$210000$PVmZ6jHLNLVK99q2nzMCyw==$altqmpHwgzsSSVIMPjF6ZAAe76bZa/bYaDq2le2NBY8=', 'TECHNICAL_OFFICER', 'to001@example.edu', NOW()),
+	(8, 'TO002', 'PBKDF2$210000$PVmZ6jHLNLVK99q2nzMCyw==$altqmpHwgzsSSVIMPjF6ZAAe76bZa/bYaDq2le2NBY8=', 'TECHNICAL_OFFICER', 'to002@example.edu', NOW()),
+	(9, 'TO003', 'PBKDF2$210000$PVmZ6jHLNLVK99q2nzMCyw==$altqmpHwgzsSSVIMPjF6ZAAe76bZa/bYaDq2le2NBY8=', 'TECHNICAL_OFFICER', 'to003@example.edu', NOW()),
+	(10, 'TO004', 'PBKDF2$210000$PVmZ6jHLNLVK99q2nzMCyw==$altqmpHwgzsSSVIMPjF6ZAAe76bZa/bYaDq2le2NBY8=', 'TECHNICAL_OFFICER', 'to004@example.edu', NOW());
 
 INSERT INTO `users` (user_id, username, password_hash, role, email, created_at)
 SELECT 10 + sequence_no,
 	   CONCAT('STU', LPAD(sequence_no, 3, '0')),
-	   'PBKDF2$210000$16hClb3Y3vZenhG1M1npKA==$WpOYYvegPT4KC2qPJ7/zjICjB8Be2pxl36vDO2Khl9Q=',
+	   'PBKDF2$210000$PVmZ6jHLNLVK99q2nzMCyw==$altqmpHwgzsSSVIMPjF6ZAAe76bZa/bYaDq2le2NBY8=',
 	   'UNDERGRADUATE',
 	   CONCAT('stu', LPAD(sequence_no, 3, '0'), '@example.edu'),
 	   NOW()
