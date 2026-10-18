@@ -4,3 +4,6 @@ db.url=jdbc:mysql://localhost:3306/university_management
 db.username=your_username
 db.password=your_password
 db.pool-size=5
+academic.attendance-threshold=80.00
+academic.cgpa-repeat-selection=LATEST_COMPLETED_ATTEMPT
+academic.grade-scheme-version=UGC-2024-v1

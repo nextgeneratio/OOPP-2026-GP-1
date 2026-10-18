@@ -9,6 +9,7 @@ logs/
 uploads/
 application.properties
 test-application.properties
+!src/test/resources/test-application.properties
 
 ### Eclipse ###
 .apt_generated

@@ -99,6 +99,9 @@ INSERT INTO `course_components` (component_id, course_id, component_type, credit
 INSERT INTO `course_offerings` (offering_id, course_id, batch_id, semester_id, coordinator_id) VALUES
 	(1, 1, 1, 1, 1), (2, 2, 1, 1, 2);
 
+INSERT INTO `course_offering_lecturers` (offering_id, lecturer_id) VALUES
+	(1, 1), (2, 2);
+
 INSERT INTO `course_enrollments` (enrollment_id, student_id, offering_id, attempt_no, student_status, enrollment_status)
 SELECT student_id, student_id, 1, 1, 'NORMAL', 'ACTIVE'
 FROM `undergraduates`;
