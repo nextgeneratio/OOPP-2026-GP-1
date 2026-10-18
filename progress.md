@@ -14,7 +14,7 @@ Phase 5 — Demo data loaded; final system acceptance remains NOT READY
 - [x] Data/DAO layer
 - [x] Business logic layer
 - [x] API/controller layer
-- [ ] Complete Swing UI (shell and dashboards exist; module screens remain placeholders)
+- [ ] Complete Swing UI (shell, dashboards, common components and User Management exist; other module screens remain placeholders)
 - [x] Unit tests (current automated suite passes)
 - [ ] Integration tests (seeded database roles verified; CRUD/transaction tests not executed)
 - [ ] System tests (not executed end to end)
@@ -252,3 +252,15 @@ Configure an isolated test MySQL database and credentials; finish UI module inte
 - Full system status remains NOT READY: role dashboards use pending metrics and most module screens are placeholders; database-backed persistence/transaction and UI acceptance are not covered by current tests.
 - Latest verified test outcome: `mvn clean test` with JDBC enabled against existing `university_management`: 40 tests, 0 failures, 0 errors, 0 skipped.
 - Next task: create/seed an isolated test database using a least-privileged account and complete UI module integration before claiming final system readiness.
+
+## UI module screens (branch `Nirmal`)
+| Screen | Status |
+|---|---|
+| Common components (ApiCall, Dialogs, FormField, ObjectTableModel, UiServices) | Done |
+| User Management (search, role/status filters, create, update, deactivate with confirmation) | Done — compiles, awaiting live run |
+| Student, Course, Attendance, Medical, Marks, Eligibility, Grades/GPA, Timetable, Notices, Materials, Profile, Reports | Placeholder |
+
+- New screens are registered in `MainFrame.createScreen` and receive controllers through `UiServices` (built in `Application`).
+- Known gap: `CourseController` has no list/search methods, so Course Management cannot show existing courses, departments, batches or semesters until read methods are added to the business/API layer.
+- Department and batch are entered as IDs in User Management because no lookup controller exists yet.
+- New tests: `ObjectTableModelTest`, `UserManagementScreenTest` (Mockito mock controller).

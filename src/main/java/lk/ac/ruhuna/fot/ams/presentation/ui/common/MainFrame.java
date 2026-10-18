@@ -9,9 +9,9 @@ import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import lk.ac.ruhuna.fot.ams.api.controller.DashboardController;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
 import lk.ac.ruhuna.fot.ams.presentation.ui.admin.AdminDashboard;
+import lk.ac.ruhuna.fot.ams.presentation.ui.admin.UserManagementScreen;
 import lk.ac.ruhuna.fot.ams.presentation.ui.lecturer.LecturerDashboard;
 import lk.ac.ruhuna.fot.ams.presentation.ui.technical.TechnicalOfficerDashboard;
 import lk.ac.ruhuna.fot.ams.presentation.ui.undergraduate.UndergraduateDashboard;
@@ -20,7 +20,7 @@ import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 /** Application shell: top bar, role-filtered navigation, content area and status bar. */
 public final class MainFrame extends JFrame {
     private final AuthenticatedSession session;
-    private final DashboardController dashboards;
+    private final UiServices services;
     private final ApplicationErrorHandler errors;
     private final Runnable onLogout;
     private final CardLayout cards = new CardLayout();
@@ -29,11 +29,11 @@ public final class MainFrame extends JFrame {
     private final NavigationPanel navigation;
     private final StatusBar statusBar;
 
-    public MainFrame(AuthenticatedSession session, DashboardController dashboards,
+    public MainFrame(AuthenticatedSession session, UiServices services,
                      ApplicationErrorHandler errors, Runnable onLogout) {
         super("Faculty of Technology Academic Management System");
         this.session = session;
-        this.dashboards = dashboards;
+        this.services = services;
         this.errors = errors;
         this.onLogout = onLogout;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -66,14 +66,19 @@ public final class MainFrame extends JFrame {
     }
 
     private JComponent createScreen(NavigationModule module) {
-        if (module != NavigationModule.DASHBOARD) {
-            return new PlaceholderScreen(module);
-        }
+        return switch (module) {
+            case DASHBOARD -> createDashboard();
+            case USER_MANAGEMENT -> new UserManagementScreen(session, services.users());
+            default -> new PlaceholderScreen(module);
+        };
+    }
+
+    private JComponent createDashboard() {
         return switch (session.role()) {
-            case ADMIN -> new AdminDashboard(session, dashboards, errors, this::navigateTo);
-            case LECTURER -> new LecturerDashboard(session, dashboards, errors, this::navigateTo);
-            case TECHNICAL_OFFICER -> new TechnicalOfficerDashboard(session, dashboards, errors, this::navigateTo);
-            case UNDERGRADUATE -> new UndergraduateDashboard(session, dashboards, errors, this::navigateTo);
+            case ADMIN -> new AdminDashboard(session, services.dashboard(), errors, this::navigateTo);
+            case LECTURER -> new LecturerDashboard(session, services.dashboard(), errors, this::navigateTo);
+            case TECHNICAL_OFFICER -> new TechnicalOfficerDashboard(session, services.dashboard(), errors, this::navigateTo);
+            case UNDERGRADUATE -> new UndergraduateDashboard(session, services.dashboard(), errors, this::navigateTo);
         };
     }
 

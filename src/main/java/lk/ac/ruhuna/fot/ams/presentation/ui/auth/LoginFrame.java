@@ -15,27 +15,27 @@ import javax.swing.JTextField;
 import javax.swing.SwingWorker;
 import lk.ac.ruhuna.fot.ams.api.controller.ApiResponse;
 import lk.ac.ruhuna.fot.ams.api.controller.AuthController;
-import lk.ac.ruhuna.fot.ams.api.controller.DashboardController;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.AppButton;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.MainFrame;
+import lk.ac.ruhuna.fot.ams.presentation.ui.common.UiServices;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.UiTheme;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
 public final class LoginFrame extends JFrame {
     private final AuthController authController;
-    private final DashboardController dashboardController;
+    private final UiServices services;
     private final ApplicationErrorHandler errorHandler;
     private final JTextField usernameField = new JTextField(20);
     private final JPasswordField passwordField = new JPasswordField(20);
     private final JLabel messageLabel = new JLabel(" ");
     private final AppButton loginButton = new AppButton("Login");
 
-    public LoginFrame(AuthController authController, DashboardController dashboardController,
+    public LoginFrame(AuthController authController, UiServices services,
                       ApplicationErrorHandler errorHandler) {
         super("Academic Management System - Login");
         this.authController = authController;
-        this.dashboardController = dashboardController;
+        this.services = services;
         this.errorHandler = errorHandler;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setContentPane(createContent());
@@ -141,8 +141,8 @@ public final class LoginFrame extends JFrame {
 
     private void openShell(AuthenticatedSession session) {
         dispose();
-        new MainFrame(session, dashboardController, errorHandler,
-                () -> new LoginFrame(authController, dashboardController, errorHandler).setVisible(true)).setVisible(true);
+        new MainFrame(session, services, errorHandler,
+                () -> new LoginFrame(authController, services, errorHandler).setVisible(true)).setVisible(true);
     }
 
     private void showMessage(String text, java.awt.Color color) {
