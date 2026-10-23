@@ -323,3 +323,12 @@ Sections below were written on the Nirmal branch before it was merged with Amjad
 - Read layer: `ScreenLookupService` + `ScreenLookupController` + `ScreenLookupModule` + `JdbcTimetableLookupDao` (one SELECT). Checked with fake DAOs: officer/student scoping, admin-only editor, day ordering.
 - Tests added: `TimetableGridModelTest`, `ScreenLookupServiceTest`.
 - Known limits: editing or deleting an existing timetable entry has no screen yet; Notices has no edit/unpublish; dates and times are typed as text (yyyy-MM-dd, HH:mm).
+
+## Login page redesign
+- `LoginFrame` now only hosts `LoginPanel` and opens the main window after a successful sign-in.
+- `LoginPanel`: faculty banner (`BannerPanel`) on the left, sign-in form on the right. Field-level messages ("Enter your username." / "Enter your password.") appear under the field, typing clears them, Show password toggle, Caps Lock warning, "Signing in…" busy state, first field focused on open, Enter moves username to password and submits from password. Sign-in problems still show only the controller's safe message.
+- `BannerPanel` scales `images/faculty-banner.jpg` to fill its area (cropping on the right so the headline stays visible) and falls back to a plain branded block if the image is missing.
+- Banner stored as JPEG (about 450 KB) under `src/main/resources/images/`.
+- Tests: `LoginPanelTest` (empty fields, typing clears messages, show password, valid login hands on the session, failed login shows only the safe message) and `BannerPanelTest` (banner packaged and readable, cover scaling).
+- Checked layout by rendering the panel off-screen at 1100x660 and 900x560 (Metal look-and-feel, not FlatLaf); placeholder hints, Caps Lock detection and real focus behaviour still need a look on a real desktop.
+
