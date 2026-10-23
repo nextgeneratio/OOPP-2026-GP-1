@@ -52,11 +52,31 @@ explicitly when applying `src/main/resources/db/schema.sql`.
 
 The seed script truncates existing academic/user tables before inserting its
 development sample data. Only run it against a database you intend to reset.
+For the existing demo database, do not rerun that destructive seed. Its schema
+was brought forward with the one-time additive
+[live-schema-compatibility.sql](./src/main/resources/db/live-schema-compatibility.sql)
+migration, and synthetic academic records were added with the rerunnable,
+non-destructive [demo-data-additive.sql](./src/main/resources/db/demo-data-additive.sql)
+script. Those scripts assume the demo users and base course records already
+exist; historical course results are finalized through the application service.
 For isolated test database instructions, see [docs/testing-strategy.md](./docs/testing-strategy.md).
+The in-progress academic workflow changes also include
+[academic-workflow-compatibility.sql](./src/main/resources/db/academic-workflow-compatibility.sql).
+Do not apply it to a live database until existing department codes and batch
+levels and timetable levels have been reviewed; it adds the ICT/BST/ET-only
+constraint, and existing batch/timetable rows otherwise default to level 1.
 
 ## Current UI scope
 
-The login, shared application shell, and four role dashboards are present. Most
-module navigation destinations remain placeholders; see [progress.md](./progress.md)
-and [docs/system-test-results.md](./docs/system-test-results.md) for current
-implementation and test status.
+The shared shell includes role-specific dashboards, administrator user/student
+account management, and self-service profiles/password changes. Course
+management, course offering lookup, level/semester timetables, course materials,
+MCQ quizzes, assignment submission, and attendance have role-gated workflows.
+Quiz submissions are one-attempt per student, server-scored, and password checked;
+assignment uploads allow PDF/Office/text/image files up to 10 MB, with updates
+allowed before the deadline. Use “My Course Offerings” to look up offering IDs
+for these screens. These database-backed workflows require
+[academic-workflow-compatibility.sql](./src/main/resources/db/academic-workflow-compatibility.sql)
+to be reviewed and applied to the target database first. Medical, marks, and
+report screens remain outside this workflow integration; see [progress.md](./progress.md)
+and [docs/system-test-results.md](./docs/system-test-results.md).
