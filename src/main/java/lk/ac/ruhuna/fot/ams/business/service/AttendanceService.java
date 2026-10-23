@@ -18,6 +18,7 @@ import lk.ac.ruhuna.fot.ams.data.dao.AttendanceDao.AttendanceRow;
 import lk.ac.ruhuna.fot.ams.data.dao.AttendanceDao.SessionRow;
 import lk.ac.ruhuna.fot.ams.data.dao.AuditLogDao;
 import lk.ac.ruhuna.fot.ams.data.dao.CourseDao;
+import lk.ac.ruhuna.fot.ams.data.dao.CourseDao.EnrollmentRow;
 import lk.ac.ruhuna.fot.ams.data.dao.MedicalDao;
 import lk.ac.ruhuna.fot.ams.data.dao.MedicalDao.MedicalRow;
 import lk.ac.ruhuna.fot.ams.data.dao.TimetableDao;
@@ -92,8 +93,12 @@ public final class AttendanceService {
         CourseDao.OfferingRow offering = courseDao.findOffering(offeringId)
                 .orElseThrow(() -> new ValidationException("Course offering was not found."));
         List<CourseDao.ComponentRow> components = courseDao.findComponents(offering.courseId());
+        int departmentId = authorizedDepartmentId(actor);
+        int level = courseDao.findBatches(departmentId).stream()
+                .filter(batch -> batch.id() == offering.batchId())
+                .map(CourseDao.BatchRow::level).findFirst().orElse(1);
         List<TimetableDao.EntryRow> entries = timetableDao
-                .findEntries(authorizedDepartmentId(actor), offering.semesterId(), null).stream()
+                .findEntries(departmentId, offering.semesterId(), level, null).stream()
                 .filter(entry -> entry.offeringId() == offeringId)
                 .toList();
         List<RosterEntry> roster = courseDao.findRoster(offeringId).stream()
@@ -114,10 +119,19 @@ public final class AttendanceService {
             AuthenticatedSession actor,
             SessionRow request,
             Map<Integer, Boolean> attendanceByEnrollment) {
+        if (actor == null) {
+            throw new AuthorizationException("A signed-in user is required to record attendance.");
+        }
         if (request == null) {
             throw new ValidationException("Attendance session details are required.");
         }
-        authorization.requireTechnicalOfficerForOffering(actor, request.offeringId());
+        if (actor.role() == Role.LECTURER) {
+            authorization.requireLecturerForOffering(actor, request.offeringId());
+        } else if (actor.role() == Role.TECHNICAL_OFFICER) {
+            authorization.requireTechnicalOfficerForOffering(actor, request.offeringId());
+        } else {
+            throw new AuthorizationException("Only an assigned lecturer or technical officer may record attendance.");
+        }
         if (request.date() == null || request.date().isAfter(LocalDate.now(clock))) {
             throw new ValidationException("Attendance session date cannot be in the future.");
         }
@@ -141,11 +155,14 @@ public final class AttendanceService {
                 || attendanceByEnrollment.values().stream().anyMatch(Objects::isNull)) {
             throw new ValidationException("Attendance must be recorded for every active enrolment exactly once.");
         }
-        int officerId = authorization.technicalOfficerId(actor);
+        Integer officerId = actor.role() == Role.TECHNICAL_OFFICER
+                ? authorization.technicalOfficerId(actor) : null;
+        Integer lecturerId = actor.role() == Role.LECTURER
+                ? authorization.lecturerId(actor) : null;
         return transactions.execute(connection -> {
             long sessionId = attendanceDao.insertSession(connection,
                     new SessionRow(0, request.offeringId(), request.componentId(), request.date(),
-                            request.timetableEntryId(), officerId));
+                            request.timetableEntryId(), officerId, lecturerId));
             for (Map.Entry<Integer, Boolean> record : attendanceByEnrollment.entrySet()) {
                 attendanceDao.insertRecord(connection,
                         new AttendanceRow(0, Math.toIntExact(sessionId), record.getKey(), record.getValue()));
@@ -155,6 +172,98 @@ public final class AttendanceService {
                     sessionId, LocalDateTime.now(clock)));
             return sessionId;
         });
+    }
+
+    public void reviseRecord(AuthenticatedSession actor, AttendanceRow record) {
+        if (actor == null) {
+            throw new AuthorizationException("A signed-in user is required to revise attendance.");
+        }
+        if (record == null || record.sessionId() <= 0 || record.enrollmentId() <= 0) {
+            throw new ValidationException("Attendance record details are invalid.");
+        }
+        SessionRow session = attendanceDao.findSessionsForSessionId(record.sessionId())
+                .orElseThrow(() -> new ValidationException("Attendance session was not found."));
+        if (actor.role() == Role.ADMIN) {
+            authorization.requireAdmin(actor);
+        } else if (actor.role() == Role.TECHNICAL_OFFICER) {
+            authorization.requireTechnicalOfficerForOffering(actor, session.offeringId());
+        } else {
+            throw new AuthorizationException("Only an administrator or technical officer may revise attendance.");
+        }
+        if (courseDao.findEnrollments(session.offeringId()).stream()
+                .noneMatch(enrollment -> enrollment.id() == record.enrollmentId())) {
+            throw new ValidationException("Attendance record does not belong to this offering.");
+        }
+        transactions.execute(connection -> {
+            int updated = attendanceDao.reviseRecord(connection, record);
+            if (updated != 1) {
+                throw new ValidationException("Attendance record was not found.");
+            }
+            auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
+                    0, actor.userId(), "ATTENDANCE_RECORD_UPDATE", "ATTENDANCE_SESSION",
+                    record.sessionId(), LocalDateTime.now(clock)));
+            return null;
+        });
+    }
+
+    public void deleteSession(AuthenticatedSession actor, int sessionId) {
+        authorization.requireAdmin(actor);
+        if (sessionId <= 0) {
+            throw new ValidationException("Attendance session identifier is invalid.");
+        }
+        transactions.execute(connection -> {
+            int deleted = attendanceDao.deleteSession(connection, sessionId);
+            if (deleted != 1) {
+                throw new ValidationException("Attendance session was not found.");
+            }
+            auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
+                    0, actor.userId(), "ATTENDANCE_SESSION_DELETE", "ATTENDANCE_SESSION",
+                    sessionId, LocalDateTime.now(clock)));
+            return null;
+        });
+    }
+
+    public List<SessionRow> sessionsForOffering(AuthenticatedSession actor, int offeringId) {
+        if (actor == null) {
+            throw new AuthorizationException("Sign in to view attendance sessions.");
+        }
+        if (actor.role() == Role.LECTURER) {
+            authorization.requireLecturerForOffering(actor, offeringId);
+        } else if (actor.role() == Role.TECHNICAL_OFFICER) {
+            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+        } else if (actor.role() != Role.ADMIN) {
+            throw new AuthorizationException("You do not have permission to view attendance sessions.");
+        }
+        return attendanceDao.findSessions(offeringId);
+    }
+
+    public List<EnrollmentRow> activeEnrollments(AuthenticatedSession actor, int offeringId) {
+        if (actor == null) {
+            throw new AuthorizationException("Sign in to view course enrolments.");
+        }
+        if (actor.role() == Role.LECTURER) {
+            authorization.requireLecturerForOffering(actor, offeringId);
+        } else if (actor.role() == Role.TECHNICAL_OFFICER) {
+            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+        } else if (actor.role() == Role.UNDERGRADUATE) {
+            authorization.requireUndergraduateForOffering(actor, offeringId);
+            int studentId = authorization.studentId(actor);
+            return courseDao.findActiveEnrollments(offeringId).stream()
+                    .filter(enrollment -> enrollment.studentId() == studentId).toList();
+        } else if (actor.role() != Role.ADMIN) {
+            throw new AuthorizationException("You do not have permission to view course enrolments.");
+        }
+        return courseDao.findActiveEnrollments(offeringId);
+    }
+
+    public AttendanceSummary calculateForCurrentStudent(AuthenticatedSession actor, int offeringId) {
+        authorization.requireRole(actor, Role.UNDERGRADUATE);
+        int studentId = authorization.studentId(actor);
+        EnrollmentRow enrollment = courseDao.findActiveEnrollments(offeringId).stream()
+                .filter(row -> row.studentId() == studentId)
+                .findFirst().orElseThrow(() -> new AuthorizationException(
+                        "You do not have an active enrolment in this offering."));
+        return calculateForEnrollment(actor, studentId, enrollment.id(), offeringId);
     }
 
     public AttendanceSummary calculateForEnrollment(

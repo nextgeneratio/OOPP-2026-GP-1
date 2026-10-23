@@ -11,15 +11,17 @@ class NavigationModuleTest {
     void everyRoleSeesDashboardAndNotices() {
         for (Role role : Role.values()) {
             assertThat(NavigationModule.forRole(role))
-                    .contains(NavigationModule.DASHBOARD, NavigationModule.NOTICES);
+                    .contains(NavigationModule.DASHBOARD, NavigationModule.NOTICES,
+                            NavigationModule.COURSE_OFFERINGS);
         }
     }
 
     @Test
     void adminSeesManagementModulesOnly() {
         assertThat(NavigationModule.forRole(Role.ADMIN)).contains(NavigationModule.USER_MANAGEMENT,
-                NavigationModule.STUDENT_MANAGEMENT, NavigationModule.COURSE_MANAGEMENT, NavigationModule.REPORTS)
-                .doesNotContain(NavigationModule.ASSESSMENTS_MARKS, NavigationModule.MEDICAL);
+                NavigationModule.STUDENT_MANAGEMENT, NavigationModule.COURSE_MANAGEMENT,
+                NavigationModule.ASSESSMENTS_MARKS, NavigationModule.REPORTS)
+                .doesNotContain(NavigationModule.MEDICAL);
     }
 
     @Test
@@ -32,7 +34,8 @@ class NavigationModuleTest {
     @Test
     void technicalOfficerSeesAttendanceAndMedical() {
         assertThat(NavigationModule.forRole(Role.TECHNICAL_OFFICER)).contains(NavigationModule.ATTENDANCE,
-                NavigationModule.MEDICAL).doesNotContain(NavigationModule.ASSESSMENTS_MARKS);
+                NavigationModule.MEDICAL, NavigationModule.COURSE_MANAGEMENT,
+                NavigationModule.ASSESSMENTS_MARKS, NavigationModule.COURSE_MATERIALS);
     }
 
     @Test

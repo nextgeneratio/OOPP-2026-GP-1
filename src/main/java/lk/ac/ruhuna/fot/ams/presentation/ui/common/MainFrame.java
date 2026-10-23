@@ -9,8 +9,10 @@ import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
 import lk.ac.ruhuna.fot.ams.presentation.ui.admin.AdminDashboard;
+import lk.ac.ruhuna.fot.ams.presentation.ui.admin.CourseManagementScreen;
 import lk.ac.ruhuna.fot.ams.presentation.ui.admin.UserManagementScreen;
 import lk.ac.ruhuna.fot.ams.presentation.ui.lecturer.LecturerDashboard;
 import lk.ac.ruhuna.fot.ams.presentation.ui.technical.TechnicalOfficerDashboard;
@@ -68,26 +70,34 @@ public final class MainFrame extends JFrame {
     private JComponent createScreen(NavigationModule module) {
         return switch (module) {
             case DASHBOARD -> createDashboard();
-            case USER_MANAGEMENT -> new UserManagementScreen(session, services.users());
+            case USER_MANAGEMENT -> new UserManagementScreen(session, services.users(), errors, null);
+            case STUDENT_MANAGEMENT -> new UserManagementScreen(session, services.users(), errors, Role.UNDERGRADUATE);
+            case PROFILE -> new ProfileScreen(session, services.profiles(), errors);
+            case COURSE_MANAGEMENT -> new CourseManagementScreen(session, services.courses());
+            case COURSE_OFFERINGS -> new CourseOfferingsScreen(session, services.courses());
+            case TIMETABLE -> new TimetableScreen(session, services.timetable());
+            case ATTENDANCE -> new AttendanceScreen(session, services.attendance());
+            case COURSE_MATERIALS -> buildMaterialsScreen();
             case ASSESSMENTS_MARKS -> new lk.ac.ruhuna.fot.ams.presentation.ui.lecturer.MarksScreen(session, services.marks());
-            case ATTENDANCE -> buildAttendanceScreen();
             case ELIGIBILITY -> buildEligibilityScreen();
+            case NOTICES -> new NoticesScreen(session, services.content());
+            case MEDICAL -> new lk.ac.ruhuna.fot.ams.presentation.ui.technical.MedicalScreen(
+                    session, services.attendance(), services.medical(), services.screens());
+            case GRADES_GPA -> new GradesGpaScreen(session, services.grades(), services.eligibility());
             default -> new PlaceholderScreen(module);
         };
     }
 
-    private JComponent buildAttendanceScreen() {
-        return switch (session.role()) {
-            case TECHNICAL_OFFICER -> new lk.ac.ruhuna.fot.ams.presentation.ui.technical.AttendanceScreen(
-                    session, services.attendance());
-            default -> new PlaceholderScreen(NavigationModule.ATTENDANCE);
-        };
+    private JComponent buildMaterialsScreen() {
+        javax.swing.JTabbedPane tabs = new javax.swing.JTabbedPane();
+        tabs.addTab("Materials", new CourseMaterialsScreen(session, services.content()));
+        tabs.addTab("Quizzes and assignments", new LearningActivitiesScreen(session, services.learningActivities()));
+        return tabs;
     }
 
     private JComponent buildEligibilityScreen() {
         return switch (session.role()) {
-            case LECTURER, UNDERGRADUATE ->
-                    new lk.ac.ruhuna.fot.ams.presentation.ui.common.EligibilityScreen(session, services.eligibility());
+            case LECTURER, UNDERGRADUATE -> new EligibilityScreen(session, services.eligibility());
             default -> new PlaceholderScreen(NavigationModule.ELIGIBILITY);
         };
     }

@@ -1,6 +1,7 @@
 package lk.ac.ruhuna.fot.ams.api.controller;
 
 import java.util.Objects;
+import java.util.List;
 import lk.ac.ruhuna.fot.ams.business.service.TimetableService;
 import lk.ac.ruhuna.fot.ams.data.dao.TimetableDao.EntryRow;
 import lk.ac.ruhuna.fot.ams.data.dao.TimetableDao.TimetableRow;
@@ -34,6 +35,18 @@ public final class TimetableController {
     public ApiResponse<Void> updateEntry(AuthenticatedSession actor, EntryRequest request) {
         return support.execute(request, () -> {
             service.updateEntry(actor, request.entry());
+            return null;
+        });
+    }
+
+    public ApiResponse<List<EntryRow>> listEntries(
+            AuthenticatedSession actor, int departmentId, int semesterId, int level, String day) {
+        return support.execute(() -> service.listEntries(actor, departmentId, semesterId, level, day));
+    }
+
+    public ApiResponse<Void> delete(AuthenticatedSession actor, int timetableId) {
+        return support.execute(timetableId, () -> {
+            service.deleteTimetable(actor, timetableId);
             return null;
         });
     }

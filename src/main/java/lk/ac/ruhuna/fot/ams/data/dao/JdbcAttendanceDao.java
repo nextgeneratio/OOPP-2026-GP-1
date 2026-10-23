@@ -19,8 +19,8 @@ public final class JdbcAttendanceDao implements AttendanceDao {
     public long insertSession(Connection connection, SessionRow row) {
         return jdbc.insertAndReturnKey(connection,
                 "INSERT INTO attendance_sessions "
-                        + "(offering_id, component_id, session_date, timetable_entry_id, recorded_by) "
-                        + "VALUES (?, ?, ?, ?, ?)",
+                        + "(offering_id, component_id, session_date, timetable_entry_id, recorded_by, "
+                        + "recorded_by_lecturer) VALUES (?, ?, ?, ?, ?, ?)",
                 statement -> {
                     statement.setInt(1, row.offeringId());
                     statement.setInt(2, row.componentId());
@@ -30,7 +30,16 @@ public final class JdbcAttendanceDao implements AttendanceDao {
                     } else {
                         statement.setInt(4, row.timetableEntryId());
                     }
-                    statement.setInt(5, row.recordedBy());
+                    if (row.recordedBy() == null) {
+                        statement.setNull(5, java.sql.Types.INTEGER);
+                    } else {
+                        statement.setInt(5, row.recordedBy());
+                    }
+                    if (row.recordedByLecturer() == null) {
+                        statement.setNull(6, java.sql.Types.INTEGER);
+                    } else {
+                        statement.setInt(6, row.recordedByLecturer());
+                    }
                 });
     }
 
@@ -57,17 +66,45 @@ public final class JdbcAttendanceDao implements AttendanceDao {
     }
 
     @Override
+    public int deleteSession(Connection connection, int sessionId) {
+        return jdbc.update(connection, "DELETE FROM attendance_sessions WHERE session_id = ?",
+                statement -> statement.setInt(1, sessionId));
+    }
+
+    @Override
     public List<SessionRow> findSessions(int offeringId) {
         return jdbc.query("SELECT session_id, offering_id, component_id, session_date, "
-                        + "timetable_entry_id, recorded_by FROM attendance_sessions "
+                        + "timetable_entry_id, recorded_by, recorded_by_lecturer FROM attendance_sessions "
                         + "WHERE offering_id = ? ORDER BY session_date, component_id",
                 statement -> statement.setInt(1, offeringId), result -> {
                     int timetableEntry = result.getInt("timetable_entry_id");
                     Integer timetableEntryId = result.wasNull() ? null : timetableEntry;
+                    int officerId = result.getInt("recorded_by");
+                    Integer recordedBy = result.wasNull() ? null : officerId;
+                    int lecturerId = result.getInt("recorded_by_lecturer");
+                    Integer recordedByLecturer = result.wasNull() ? null : lecturerId;
                     return new SessionRow(result.getInt("session_id"), result.getInt("offering_id"),
                             result.getInt("component_id"), result.getDate("session_date").toLocalDate(),
-                            timetableEntryId, result.getInt("recorded_by"));
+                            timetableEntryId, recordedBy, recordedByLecturer);
                 });
+    }
+
+    @Override
+    public java.util.Optional<SessionRow> findSessionsForSessionId(int sessionId) {
+        return jdbc.query("SELECT session_id, offering_id, component_id, session_date, "
+                        + "timetable_entry_id, recorded_by, recorded_by_lecturer "
+                        + "FROM attendance_sessions WHERE session_id = ?",
+                statement -> statement.setInt(1, sessionId), result -> {
+                    int timetableEntry = result.getInt("timetable_entry_id");
+                    Integer timetableEntryId = result.wasNull() ? null : timetableEntry;
+                    int officerId = result.getInt("recorded_by");
+                    Integer recordedBy = result.wasNull() ? null : officerId;
+                    int lecturerId = result.getInt("recorded_by_lecturer");
+                    Integer recordedByLecturer = result.wasNull() ? null : lecturerId;
+                    return new SessionRow(result.getInt("session_id"), result.getInt("offering_id"),
+                            result.getInt("component_id"), result.getDate("session_date").toLocalDate(),
+                            timetableEntryId, recordedBy, recordedByLecturer);
+                }).stream().findFirst();
     }
 
     @Override

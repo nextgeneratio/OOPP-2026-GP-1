@@ -9,7 +9,10 @@ public interface CourseDao {
     record DepartmentRow(int id, String code, String name, String officeLocation, boolean active) {
     }
 
-    record BatchRow(int id, int departmentId, int intakeYear, String programme, String code) {
+    record BatchRow(int id, int departmentId, int intakeYear, String programme, String code, int level) {
+        public BatchRow(int id, int departmentId, int intakeYear, String programme, String code) {
+            this(id, departmentId, intakeYear, programme, code, 1);
+        }
     }
 
     record CourseRow(int id, int departmentId, String code, String title, double credits, boolean active) {
@@ -104,6 +107,10 @@ public interface CourseDao {
     List<ComponentRow> findComponents(int courseId);
 
     List<OfferingRow> findOfferingsForLecturer(int lecturerId, Integer semesterId);
+
+    List<OfferingRow> findOfferingsForStudent(int studentId);
+
+    List<OfferingRow> findOfferingsForTechnicalOfficer(long userId);
 
     List<Integer> findLecturersForOffering(int offeringId);
 

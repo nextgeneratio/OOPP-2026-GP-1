@@ -79,8 +79,9 @@ public final class AssessmentService {
     }
 
     private void authorizeOffering(AuthenticatedSession actor, int offeringId) {
-        if (actor != null && actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.ADMIN) {
-            authorization.requireAdmin(actor);
+        if (actor != null && (actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.ADMIN
+                || actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.TECHNICAL_OFFICER)) {
+            authorization.requireAdminOrTechnicalOfficer(actor);
         } else {
             authorization.requireLecturerForOffering(actor, offeringId);
         }

@@ -44,6 +44,10 @@ public final class AuthorizationService {
         requireRole(session, Role.ADMIN);
     }
 
+    public void requireAdminOrTechnicalOfficer(AuthenticatedSession session) {
+        requireRole(session, Role.ADMIN, Role.TECHNICAL_OFFICER);
+    }
+
     public void requireLecturerForOffering(AuthenticatedSession session, int offeringId) {
         requireRole(session, Role.LECTURER);
         if (offeringId <= 0 || !lookup().lecturerAssignedToOffering(session.userId(), offeringId)) {

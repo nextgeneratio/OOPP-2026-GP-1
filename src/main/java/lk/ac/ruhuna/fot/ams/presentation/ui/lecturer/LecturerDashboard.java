@@ -12,7 +12,7 @@ public final class LecturerDashboard extends RoleDashboard {
     public LecturerDashboard(AuthenticatedSession session, DashboardController controller,
               ApplicationErrorHandler errors, Consumer<NavigationModule> navigate) {
         super("Lecturer Dashboard", "Your course offerings and academic tasks",
-                List.of("Assigned offerings", "Recent notices", "Pending mark tasks", "Eligibility views"),
+                List.of("Assigned offerings", "Notices", "Assessments", "Enrolled students"),
                 List.of(NavigationModule.COURSE_MATERIALS, NavigationModule.ASSESSMENTS_MARKS, NavigationModule.ELIGIBILITY, NavigationModule.GRADES_GPA, NavigationModule.REPORTS, NavigationModule.PROFILE),
                 session, controller, errors, navigate);
     }

@@ -18,12 +18,14 @@ public final class JdbcContentDao implements ContentDao {
     @Override
     public long insertMaterial(Connection connection, MaterialRow row) {
         return jdbc.insertAndReturnKey(connection,
-                "INSERT INTO course_materials (offering_id, lecturer_id, title, file_path) VALUES (?, ?, ?, ?)",
+                "INSERT INTO course_materials (offering_id, lecturer_id, title, file_path, is_visible) "
+                        + "VALUES (?, ?, ?, ?, ?)",
                 statement -> {
                     statement.setInt(1, row.offeringId());
                     statement.setInt(2, row.lecturerId());
                     statement.setString(3, row.title());
                     statement.setString(4, row.filePath());
+                    statement.setBoolean(5, row.visible());
                 });
     }
 
@@ -42,17 +44,32 @@ public final class JdbcContentDao implements ContentDao {
     }
 
     @Override
+    public int setMaterialVisibility(
+            Connection connection, int materialId, int lecturerId, int offeringId, boolean visible) {
+        return jdbc.update(connection,
+                "UPDATE course_materials SET is_visible = ? "
+                        + "WHERE material_id = ? AND lecturer_id = ? AND offering_id = ?",
+                statement -> {
+                    statement.setBoolean(1, visible);
+                    statement.setInt(2, materialId);
+                    statement.setInt(3, lecturerId);
+                    statement.setInt(4, offeringId);
+                });
+    }
+
+    @Override
     public List<MaterialRow> findMaterialsForOffering(int offeringId) {
-        return jdbc.query("SELECT material_id, offering_id, lecturer_id, title, file_path "
+        return jdbc.query("SELECT material_id, offering_id, lecturer_id, title, file_path, is_visible "
                         + "FROM course_materials WHERE offering_id = ? ORDER BY material_id DESC",
                 statement -> statement.setInt(1, offeringId), this::mapMaterial);
     }
 
     @Override
     public List<MaterialRow> findMaterialsForStudent(int studentId, int offeringId) {
-        return jdbc.query("SELECT m.material_id, m.offering_id, m.lecturer_id, m.title, m.file_path "
+        return jdbc.query("SELECT m.material_id, m.offering_id, m.lecturer_id, m.title, m.file_path, m.is_visible "
                         + "FROM course_materials m JOIN course_enrollments e ON e.offering_id = m.offering_id "
                         + "WHERE e.student_id = ? AND e.offering_id = ? AND e.enrollment_status = 'ACTIVE' "
+                        + "AND m.is_visible = TRUE "
                         + "ORDER BY m.material_id DESC",
                 statement -> {
                     statement.setInt(1, studentId);
@@ -108,7 +125,8 @@ public final class JdbcContentDao implements ContentDao {
 
     private MaterialRow mapMaterial(ResultSet result) throws SQLException {
         return new MaterialRow(result.getInt("material_id"), result.getInt("offering_id"),
-                result.getInt("lecturer_id"), result.getString("title"), result.getString("file_path"));
+                result.getInt("lecturer_id"), result.getString("title"), result.getString("file_path"),
+                result.getBoolean("is_visible"));
     }
 
     private NoticeRow mapNotice(ResultSet result) throws SQLException {

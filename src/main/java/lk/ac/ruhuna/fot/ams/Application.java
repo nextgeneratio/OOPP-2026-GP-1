@@ -2,6 +2,8 @@ package lk.ac.ruhuna.fot.ams;
 
 import lk.ac.ruhuna.fot.ams.config.AppConfig;
 import lk.ac.ruhuna.fot.ams.config.ApplicationComponents;
+import lk.ac.ruhuna.fot.ams.config.GradesModule;
+import lk.ac.ruhuna.fot.ams.config.ScreenLookupModule;
 import lk.ac.ruhuna.fot.ams.presentation.ui.auth.LoginFrame;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.UiServices;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.UiTheme;
@@ -26,7 +28,11 @@ public final class Application {
                     components.authController(),
                     new UiServices(components.dashboardController(), components.userController(),
                             components.marksController(), components.attendanceController(),
-                            components.eligibilityController()),
+                            components.eligibilityController(), GradesModule.create(components),
+                            components.contentController(), components.medicalController(),
+                            components.timetableController(), ScreenLookupModule.create(components),
+                            components.profileController(), components.courseController(),
+                            components.learningActivityController()),
                     components.errorHandler())
                     .setVisible(true));
         } catch (Exception failure) {

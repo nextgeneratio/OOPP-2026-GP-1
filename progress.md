@@ -1,7 +1,7 @@
 # Project Progress
 
 ## Current phase
-Phase 5 — Demo data loaded; final system acceptance remains NOT READY
+Phase 5 — Demo dataset and password self-service added; final system acceptance remains NOT READY
 
 ## Completed
 - [x] Project structure created
@@ -14,9 +14,9 @@ Phase 5 — Demo data loaded; final system acceptance remains NOT READY
 - [x] Data/DAO layer
 - [x] Business logic layer
 - [x] API/controller layer
-- [ ] Complete Swing UI (shell, dashboards, common components and User Management exist; other module screens remain placeholders)
+- [ ] Complete Swing UI (admin account CRUD, role dashboards, and self-profile/password screens connected; academic module screens remain placeholders)
 - [x] Unit tests (current automated suite passes)
-- [ ] Integration tests (seeded database roles verified; CRUD/transaction tests not executed)
+- [ ] Integration tests (live additive seed and result-finalization smoke checks completed; broader CRUD/rollback tests not executed)
 - [ ] System tests (not executed end to end)
 - [ ] Complete reports (attendance/marks service coverage only)
 - [x] Audit logging implementation
@@ -28,23 +28,24 @@ Phase 5 — Demo data loaded; final system acceptance remains NOT READY
 - Full test database (`university_management_test`) is not created; the existing `university_management` schema is older than the current source schema
 
 ## Tests
-- Unit: 39 passed
-- Integration: JDBC connection and seeded role profiles verified against existing `university_management`; dedicated test-schema persistence/transaction behavior unverified
+- Unit: 45 passed (including password-change, profile, and dashboard tests)
+- Integration: live database schema/data checks passed; 40 historical results were finalized through `AcademicResultService`; the dedicated test-schema CRUD/rollback suite remains unavailable
 - System: not run end to end; see `docs/system-test-results.md`
-- Build: `mvn clean test` passed with live JDBC enabled (40 tests, 0 failures, 0 errors, 0 skipped); `mvn -q test` passed previously with connectivity skipped
+- Build: latest `mvn clean test` passed (46 tests: 45 passed, 0 failures, 0 errors, 1 skipped because dedicated test DB credentials are absent)
 
 ## Database
-- Schema: `src/main/resources/db/schema.sql` is present; the existing DB has an older schema. The missing `course_offering_lecturers` relation required by the seed was added; three other current-schema tables and several columns are still absent.
-- Seed data: loaded into the previously empty `university_management` DB: 20 undergraduates, 1 admin, 5 lecturers, 4 technical officers, 2 course offerings, 2 lecturers assigned to offerings, and 22 enrolments.
+- Schema: `src/main/resources/db/schema.sql` remains canonical. The live demo database now has the missing current tables/columns via `live-schema-compatibility.sql`; existing rows were retained.
+- Seed data: all 25 tables now contain data in `university_management`: 30 users, 62 enrolments (22 existing active plus 40 historical completed), 12 assessments, 186 marks, 100 attendance sessions, 1,748 attendance records, 8 materials, 3 notices, 2 medical records, and 40 course results, along with the existing master/profile/audit data. All 5 lecturers are assigned to demo offerings; all 4 technical officers recorded attendance sessions.
+- Data safety: `demo-data-additive.sql` reran with zero inserted rows after the initial load. Foreign-key/linkage checks returned zero invalid rows. The original 22 active enrolments and all 30 user accounts were retained.
 - Test database: isolated test profile points to `university_management_test`; database does not exist yet and schema/seed were not applied
 - Login verification: 30 seeded account hashes match the app's PBKDF2 hasher; admin, student, lecturer, and technical-officer profile joins returned active role records
-- Connection: JDBC connectivity was previously verified against `university_management`; this task added demo records there, without applying the full schema
+- Connection: JDBC connectivity and live schema/data checks were verified against `university_management`; general UI CRUD and transaction rollback remain unverified
 
 ## Architecture status
-- Presentation: shared shell and four role dashboards; module screens are placeholders
+- Presentation: shared shell, live role-specific dashboard metrics, admin user/student account CRUD, and self-profile/password screens; academic module screens remain placeholders
 - API: internal controllers and structured responses implemented for core modules
 - Business: core services/calculators/policies implemented; report coverage is partial
-- Data: JDBC DAOs and transactions implemented; live database behavior unverified
+- Data: JDBC DAOs and transactions implemented; historical results were exercised through the live application service, but general CRUD/rollback behavior remains unverified
 - Error: centralized safe error mapping implemented and unit-tested
 - Security: salted password hashing and service-layer authorization implemented and unit-tested
 - Audit: audit services implemented; database audit workflows unverified
@@ -57,8 +58,8 @@ Phase 5 — Demo data loaded; final system acceptance remains NOT READY
 - NFR-001 to NFR-014: architecture spot checks passed; performance, usability, and full operational checks remain pending
 
 ## Known issues
-- No dedicated test MySQL is available, so schema/seed, persistence, transactions, and audit integration are unverified.
-- Dashboard summaries use `PendingDashboardController`; most role navigation targets placeholder screens.
+- No dedicated test MySQL is available, so isolated schema/seed, broad persistence, transaction rollback, and audit integration suites remain unverified. The existing development DB has been compatibility-migrated and populated.
+- Academic module navigation targets remain placeholders; attendance, medical, marks, timetable, notices, and report workflows are not connected to Swing UI.
 - Full report coverage, UI smoke tests, performance checks, and Appendix A database scenarios remain outstanding.
 
 ## Files changed
@@ -74,6 +75,25 @@ Configure an isolated test MySQL database and credentials; finish UI module inte
 
 ## Last updated
 2026-10-18 08:55
+
+## Role Account UI Follow-up — 2026-10-18
+- Connected Admin User Management and Student Management navigation to searchable account tables backed by `UserController`; administrators can create, edit, filter, and deactivate accounts, with server-side authorization retained.
+- Added a self-profile view for all four roles. Admin, lecturer, and technical-officer users can edit their own contact fields; undergraduates can update their email while student identifiers remain read-only.
+- Replaced the pending dashboard controller with database-backed role metrics using the existing user, department, batch, course, offering, enrolment, notice, and timetable tables. Cards only show metrics the current schema can provide.
+- Updated progress and run documentation to identify which academic module destinations remain placeholders. Attendance, medical, marks, timetable editing, reports, and other academic CRUD workflows are not complete.
+- Added unit tests for self-profile field safety and dashboard service delegation. `mvn clean test`: 42 passed, 0 failures, 0 errors, 1 skipped (dedicated test DB credentials unavailable).
+- No database credentials or application properties were changed. Live GUI/database CRUD smoke testing remains outstanding.
+- Follow-up: see the Password and Additive Demo Dataset update below; isolated integration tests and academic UI acceptance remain.
+
+## Password and Additive Demo Dataset Follow-up — 2026-10-18
+- Added a Change Password form to the shared profile screen, available to every active signed-in role. The flow verifies the current password, validates confirmation and minimum length, rejects password reuse, updates the PBKDF2 hash conditionally, writes an audit event transactionally, and clears password character buffers.
+- Added unit coverage for successful password updates/auditing, incorrect current passwords, mismatched/short/reused passwords, and buffer clearing.
+- Added `src/main/resources/db/live-schema-compatibility.sql` for the reviewed additive live-schema changes and `src/main/resources/db/demo-data-additive.sql` for rerunnable synthetic records. Neither script truncates, updates, or replaces existing users.
+- Applied the schema compatibility changes and added demo records to the local `university_management` database. The set-based data script reran with zero inserted rows.
+- Finalized 40 historical demo course results through the application's `AcademicResultService`, preserving attendance/CA eligibility and grading rules. Existing current enrollments remain active.
+- Verified all 25 tables are populated and checked attendance, marks, enrollments, and results for valid links; integrity queries returned zero violations. All 5 lecturers have offering assignments and all 4 technical officers have recorded sessions.
+- `mvn clean test`: 46 tests, 45 passed, 0 failures, 0 errors, 1 skipped (isolated test DB credentials unavailable).
+- Remaining: interactive password UI verification, isolated integration/rollback tests, academic UI modules, and full system acceptance.
 
 ## Structure Execution Update — 2026-09-30
 - Executed `00-project-structure-prompt.md` only.
@@ -253,6 +273,30 @@ Configure an isolated test MySQL database and credentials; finish UI module inte
 - Latest verified test outcome: `mvn clean test` with JDBC enabled against existing `university_management`: 40 tests, 0 failures, 0 errors, 0 skipped.
 - Next task: create/seed an isolated test database using a least-privileged account and complete UI module integration before claiming final system readiness.
 
+## Academic Workflow Permissions and Compatibility — 2026-10-18
+- Expanded the feature-layer authorization/navigation for technical officers to include course management, assessment access, and attendance; attendance recording is scoped to assigned offerings, technical officers may revise attendance, and only admins may delete a session.
+- Added lecturer-aware attendance recording fields in the canonical schema and an additive compatibility migration. Added `batches.level_no` support, validation for levels 1–4, and normalized department codes limited to ICT/BST/ET.
+- Added student profile fields for department, batch, academic level, and semester; new course materials default to hidden and student material queries filter to visible items.
+- Fixed Java compilation errors in attendance workflow placement and aligned navigation tests with the expanded admin/technical-officer permissions.
+- Validation: `mvn -q test` passed (46 tests, 0 failures, 0 errors, 1 skipped); `git diff --check` passed.
+- No live database migration was applied. Before applying `academic-workflow-compatibility.sql`, inspect existing department codes and batch levels; old department codes will prevent the new three-department constraint from being added, and existing batch levels default to 1 until explicitly verified/backfilled.
+- Scope is still INCOMPLETE: course/timetable/content/attendance navigation screens remain placeholders; timetable level/semester CRUD and deletion are not wired to UI; quiz authoring/attempts/password verification/automatic scoring and assignment uploads/submissions are not implemented. This is not a completed final-system test and no readiness claim is made.
+- Next task: implement and test the missing quiz, assignment, timetable, and attendance UI/service workflows, then apply reviewed migrations to an isolated database and execute `05-instruction-final-system-test.md`.
+
+## Academic Platform Workflow Implementation — 2026-10-18
+- Replaced navigation placeholders with working Swing flows for course/department/batch/semester/offering management, technical-officer course administration, level-specific timetable creation/listing/update/removal, learning materials, quizzes, assignments, and attendance.
+- Added a role-scoped course-offering catalog so users can discover offering IDs; lecturer/technical-officer screens support material upload/edit/publish, MCQ quiz authoring (four choices per question, password-protected, hidden until published), assignment authoring/publishing, attendance recording, roster lookup, and revision where authorized. Students can view published materials/quizzes/assignments, attempt a quiz once, submit/update assignment files before the deadline, view their own attendance percentage, and list their enrolled offerings.
+- Added quiz/assignment persistence and service authorization. Quiz passwords use PBKDF2 hashes; answer keys remain server-side; scores are computed server-side; a database uniqueness rule enforces one quiz attempt per student. Assignment files are stored under generated names, limited to 10 MB and PDF/Office/text/image formats, and replacements are accepted before the deadline.
+- Timetables are now keyed by department, level 1–4, and semester. Timetable deletion removes entries transactionally and remains blocked by FK-protected attendance history.
+- Extended `academic-workflow-compatibility.sql` with the timetable level column and quiz/assignment tables. This migration remains unapplied; inspect existing department codes, batches, timetable level assignments, and attendance recorder rows before applying.
+- No live database migration, schema application, seed operation, Swing end-to-end run, or final system-test instruction was executed. Other existing modules (medical, marks, reports/notices) remain outside this feature integration.
+- Validation: `mvn -q -DskipTests package` passed; focused quiz and attendance permission tests passed; `mvn -q -Dnet.bytebuddy.experimental=true test` passed (52 tests, 0 failures, 0 errors, 1 skipped); `git diff --check` passed. The Maven test configuration now enables the Byte Buddy experimental mode required by the Java 25 runtime, so the default `mvn test` command can be validated without an extra property.
+- The skipped test is database connectivity/integration: test DB credentials and schema are not configured in this worktree. Database-backed behavior still requires applying the reviewed migration to an isolated test database and running the application acceptance flow.
+- Next task: apply the compatibility migration to a verified isolated database, exercise the role-based UI with representative seeded courses and enrolments, then update `docs/system-test-results.md` with actual acceptance outcomes.
+
+## Nirmal UI branch (merged)
+Sections below were written on the Nirmal branch before it was merged with Amjad. Where Nirmal and Amjad both built a screen (User Management, Timetable, Attendance), Amjad's version is kept.
+
 ## UI module screens (branch `Nirmal`)
 | Screen | Status |
 |---|---|
@@ -264,3 +308,18 @@ Configure an isolated test MySQL database and credentials; finish UI module inte
 - Known gap: `CourseController` has no list/search methods, so Course Management cannot show existing courses, departments, batches or semesters until read methods are added to the business/API layer.
 - Department and batch are entered as IDs in User Management because no lookup controller exists yet.
 - New tests: `ObjectTableModelTest`, `UserManagementScreenTest` (Mockito mock controller).
+
+## Grades & GPA screen
+- `GradesGpaScreen` (tabs: Course Results, GPA) for Lecturer (offering then student) and Undergraduate (own record only).
+- Read layer: `GradesService` + `GradesController` + `GradesModule` (composition). Marks, grades, weighted totals, SGPA and CGPA are all calculated and rounded to 2 d.p. in the business layer; Swing only displays them.
+- Undergraduates always see their own record; a supplied student id is ignored. Lecturers must pick an in-scope student.
+- Test: `GradesServiceTest` (Mockito). Logic also checked with fake DAOs: weighted total 18.00, SGPA 3.60 for a 2-course sample.
+- Known limits: needs completed (finalized) results in the database; the demo seed has none, so the screens show empty states until results are finalized.
+
+## Notices, Medical and Timetable screens
+- `NoticesScreen`: every role lists current notices with a detail view; Administrators compose and publish (audience: everyone, a role or a batch; publish and optional expiry). Expired notices are not listed (service behaviour).
+- `MedicalScreen` (Technical Officer): offering, then student, then records; approve/reject with confirmation; new record form. Date, overlap and reason rules come back from MedicalService as inline messages.
+- `TimetableScreen`: day/time grid for Administrator, Technical Officer and Undergraduate (each limited to their own offerings); Administrators also create timetables and add entries, with conflicts checked by TimetableService.
+- Read layer: `ScreenLookupService` + `ScreenLookupController` + `ScreenLookupModule` + `JdbcTimetableLookupDao` (one SELECT). Checked with fake DAOs: officer/student scoping, admin-only editor, day ordering.
+- Tests added: `TimetableGridModelTest`, `ScreenLookupServiceTest`.
+- Known limits: editing or deleting an existing timetable entry has no screen yet; Notices has no edit/unpublish; dates and times are typed as text (yyyy-MM-dd, HH:mm).

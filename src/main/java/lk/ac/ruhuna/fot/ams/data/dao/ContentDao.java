@@ -6,7 +6,10 @@ import java.util.List;
 import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 
 public interface ContentDao {
-    record MaterialRow(int id, int offeringId, int lecturerId, String title, String filePath) {
+    record MaterialRow(int id, int offeringId, int lecturerId, String title, String filePath, boolean visible) {
+        public MaterialRow(int id, int offeringId, int lecturerId, String title, String filePath) {
+            this(id, offeringId, lecturerId, title, filePath, true);
+        }
     }
 
     record NoticeRow(
@@ -23,6 +26,8 @@ public interface ContentDao {
     long insertMaterial(Connection connection, MaterialRow row);
 
     int updateMaterial(Connection connection, MaterialRow row);
+
+    int setMaterialVisibility(Connection connection, int materialId, int lecturerId, int offeringId, boolean visible);
 
     List<MaterialRow> findMaterialsForOffering(int offeringId);
 

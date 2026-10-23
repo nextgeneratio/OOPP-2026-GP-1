@@ -9,6 +9,7 @@ import lk.ac.ruhuna.fot.ams.data.dao.AuditLogDao;
 import lk.ac.ruhuna.fot.ams.data.dao.ContentDao;
 import lk.ac.ruhuna.fot.ams.data.dao.ContentDao.MaterialRow;
 import lk.ac.ruhuna.fot.ams.data.dao.ContentDao.NoticeRow;
+import lk.ac.ruhuna.fot.ams.data.dao.CourseDao;
 import lk.ac.ruhuna.fot.ams.data.transaction.TransactionManager;
 import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 import lk.ac.ruhuna.fot.ams.error.exception.AuthorizationException;
@@ -18,6 +19,7 @@ import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
 public final class ContentService {
     private final ContentDao contentDao;
+    private final CourseDao courseDao;
     private final AuditLogDao auditLogDao;
     private final TransactionManager transactions;
     private final AuthorizationService authorization;
@@ -25,11 +27,13 @@ public final class ContentService {
 
     public ContentService(
             ContentDao contentDao,
+            CourseDao courseDao,
             AuditLogDao auditLogDao,
             TransactionManager transactions,
             AuthorizationService authorization,
             Clock clock) {
         this.contentDao = Objects.requireNonNull(contentDao);
+        this.courseDao = Objects.requireNonNull(courseDao);
         this.auditLogDao = Objects.requireNonNull(auditLogDao);
         this.transactions = Objects.requireNonNull(transactions);
         this.authorization = Objects.requireNonNull(authorization);
@@ -37,15 +41,14 @@ public final class ContentService {
     }
 
     public long addMaterial(AuthenticatedSession actor, int offeringId, String title, String filePath) {
-        authorization.requireLecturerForOffering(actor, offeringId);
+        int lecturerId = contentManagerLecturerId(actor, offeringId);
         if (title == null || title.isBlank()) {
             throw new ValidationException("Course material title is required.");
         }
         String normalizedPath = validateControlledPath(filePath);
-        int lecturerId = authorization.lecturerId(actor);
         return transactions.execute(connection -> {
             long materialId = contentDao.insertMaterial(connection,
-                    new MaterialRow(0, offeringId, lecturerId, title.trim(), normalizedPath));
+                    new MaterialRow(0, offeringId, lecturerId, title.trim(), normalizedPath, false));
             auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
                     0, actor.userId(), "MATERIAL_CREATE", "COURSE_MATERIAL",
                     materialId, LocalDateTime.now(clock)));
@@ -53,21 +56,37 @@ public final class ContentService {
         });
     }
 
+    public void setMaterialVisibility(
+            AuthenticatedSession actor, int offeringId, int materialId, boolean visible) {
+        int lecturerId = contentManagerLecturerId(actor, offeringId);
+        if (materialId <= 0) {
+            throw new ValidationException("Course material identifier is invalid.");
+        }
+        MaterialRow material = contentDao.findMaterialsForOffering(offeringId).stream()
+                .filter(row -> row.id() == materialId)
+                .findFirst().orElseThrow(() -> new ValidationException("Course material was not found."));
+        transactions.execute(connection -> {
+            contentDao.setMaterialVisibility(connection, materialId, material.lecturerId(), offeringId, visible);
+            auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
+                    0, actor.userId(), visible ? "MATERIAL_PUBLISH" : "MATERIAL_HIDE",
+                    "COURSE_MATERIAL", materialId, LocalDateTime.now(clock)));
+            return null;
+        });
+    }
+
     public void updateMaterial(
             AuthenticatedSession actor, int offeringId, int materialId, String title, String filePath) {
-        authorization.requireLecturerForOffering(actor, offeringId);
+        contentManagerLecturerId(actor, offeringId);
         if (materialId <= 0 || title == null || title.isBlank()) {
             throw new ValidationException("Course material details are invalid.");
         }
         String normalizedPath = validateControlledPath(filePath);
-        int lecturerId = authorization.lecturerId(actor);
+        MaterialRow existing = contentDao.findMaterialsForOffering(offeringId).stream()
+                .filter(row -> row.id() == materialId)
+                .findFirst().orElseThrow(() -> new ValidationException("Course material was not found."));
         transactions.execute(connection -> {
-            int updated = contentDao.updateMaterial(connection,
-                    new MaterialRow(materialId, offeringId, lecturerId, title.trim(), normalizedPath));
-            if (updated == 0 && contentDao.findMaterialsForOffering(offeringId).stream()
-                    .noneMatch(material -> material.id() == materialId && material.lecturerId() == lecturerId)) {
-                throw new ValidationException("Course material was not found for this lecturer and offering.");
-            }
+            contentDao.updateMaterial(connection,
+                    new MaterialRow(materialId, offeringId, existing.lecturerId(), title.trim(), normalizedPath));
             auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
                     0, actor.userId(), "MATERIAL_UPDATE", "COURSE_MATERIAL",
                     materialId, LocalDateTime.now(clock)));
@@ -82,8 +101,22 @@ public final class ContentService {
     }
 
     public List<MaterialRow> materialsForLecturer(AuthenticatedSession actor, int offeringId) {
-        authorization.requireLecturerForOffering(actor, offeringId);
+        contentManagerLecturerId(actor, offeringId);
         return contentDao.findMaterialsForOffering(offeringId);
+    }
+
+    private int contentManagerLecturerId(AuthenticatedSession actor, int offeringId) {
+        if (actor != null && actor.role() == Role.LECTURER) {
+            authorization.requireLecturerForOffering(actor, offeringId);
+            return authorization.lecturerId(actor);
+        }
+        if (actor != null && actor.role() == Role.TECHNICAL_OFFICER) {
+            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+            return courseDao.findLecturersForOffering(offeringId).stream().findFirst()
+                    .orElseThrow(() -> new ValidationException(
+                            "Assign a lecturer to this offering before adding learning materials."));
+        }
+        throw new AuthorizationException("Only an assigned lecturer or technical officer may manage materials.");
     }
 
     public long createNotice(AuthenticatedSession actor, NoticeRow notice) {
