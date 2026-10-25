@@ -14,6 +14,7 @@ import lk.ac.ruhuna.fot.ams.api.controller.AttendanceController;
 import lk.ac.ruhuna.fot.ams.api.controller.ContentController;
 import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
 import lk.ac.ruhuna.fot.ams.api.controller.LearningActivityController;
+import lk.ac.ruhuna.fot.ams.api.controller.MedicalController;
 import lk.ac.ruhuna.fot.ams.api.controller.ProfileController;
 import lk.ac.ruhuna.fot.ams.api.controller.TimetableController;
 import lk.ac.ruhuna.fot.ams.api.controller.UserController;
@@ -37,6 +38,7 @@ public final class MainFrame extends JFrame {
     private final ContentController courseContent;
     private final AttendanceController attendance;
     private final LearningActivityController learningActivities;
+    private final MedicalController medical;
     private final ApplicationErrorHandler errors;
     private final Runnable onLogout;
     private final CardLayout cards = new CardLayout();
@@ -49,7 +51,7 @@ public final class MainFrame extends JFrame {
                      UserController users, ProfileController profiles,
                      CourseController courses, TimetableController timetables,
                      ContentController courseContent, AttendanceController attendance,
-                     LearningActivityController learningActivities,
+                     LearningActivityController learningActivities, MedicalController medical,
                      ApplicationErrorHandler errors, Runnable onLogout) {
         super("Faculty of Technology Academic Management System");
         this.session = session;
@@ -61,6 +63,7 @@ public final class MainFrame extends JFrame {
         this.courseContent = courseContent;
         this.attendance = attendance;
         this.learningActivities = learningActivities;
+        this.medical = medical;
         this.errors = errors;
         this.onLogout = onLogout;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -113,13 +116,19 @@ public final class MainFrame extends JFrame {
             return new CourseOfferingsScreen(session, courses);
         }
         if (module == NavigationModule.ATTENDANCE) {
-            return new AttendanceScreen(session, attendance);
+            return new AttendanceScreen(session, attendance, courses);
         }
         if (module == NavigationModule.COURSE_MATERIALS) {
             javax.swing.JTabbedPane tabs = new javax.swing.JTabbedPane();
-            tabs.addTab("Materials", new CourseMaterialsScreen(session, courseContent));
+            tabs.addTab("Materials", new CourseMaterialsScreen(session, courseContent, courses));
             tabs.addTab("Quizzes and assignments", new LearningActivitiesScreen(session, learningActivities));
             return tabs;
+        }
+        if (module == NavigationModule.NOTICES) {
+            return new NoticesScreen(session, courseContent);
+        }
+        if (module == NavigationModule.MEDICAL) {
+            return new MedicalScreen(session, medical);
         }
         if (module != NavigationModule.DASHBOARD) {
             return new PlaceholderScreen(module);

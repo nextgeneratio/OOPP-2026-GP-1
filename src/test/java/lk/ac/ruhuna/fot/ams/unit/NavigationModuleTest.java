@@ -25,23 +25,24 @@ class NavigationModuleTest {
     }
 
     @Test
-    void lecturerCannotSeeAdminOrMedical() {
+    void lecturerCanViewMedicalButCannotSeeAdminModules() {
         assertThat(NavigationModule.forRole(Role.LECTURER)).contains(NavigationModule.ASSESSMENTS_MARKS,
-                NavigationModule.ELIGIBILITY, NavigationModule.GRADES_GPA)
-                .doesNotContain(NavigationModule.USER_MANAGEMENT, NavigationModule.MEDICAL);
+                NavigationModule.ELIGIBILITY, NavigationModule.GRADES_GPA, NavigationModule.MEDICAL)
+                .doesNotContain(NavigationModule.USER_MANAGEMENT);
     }
 
     @Test
     void technicalOfficerSeesAttendanceAndMedical() {
         assertThat(NavigationModule.forRole(Role.TECHNICAL_OFFICER)).contains(NavigationModule.ATTENDANCE,
-                NavigationModule.MEDICAL, NavigationModule.COURSE_MANAGEMENT,
-                NavigationModule.ASSESSMENTS_MARKS, NavigationModule.COURSE_MATERIALS);
+                NavigationModule.MEDICAL, NavigationModule.TIMETABLE)
+                .doesNotContain(NavigationModule.COURSE_MANAGEMENT,
+                        NavigationModule.ASSESSMENTS_MARKS, NavigationModule.COURSE_MATERIALS);
     }
 
     @Test
     void undergraduateIsReadOnlyModulesOnly() {
         assertThat(NavigationModule.forRole(Role.UNDERGRADUATE)).contains(NavigationModule.ATTENDANCE,
-                NavigationModule.GRADES_GPA).doesNotContain(NavigationModule.USER_MANAGEMENT,
-                NavigationModule.ASSESSMENTS_MARKS, NavigationModule.MEDICAL, NavigationModule.REPORTS);
+                NavigationModule.GRADES_GPA, NavigationModule.MEDICAL).doesNotContain(NavigationModule.USER_MANAGEMENT,
+                NavigationModule.ASSESSMENTS_MARKS, NavigationModule.REPORTS);
     }
 }

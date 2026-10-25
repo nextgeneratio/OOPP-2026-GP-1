@@ -12,6 +12,7 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import lk.ac.ruhuna.fot.ams.api.controller.ApiResponse;
 import lk.ac.ruhuna.fot.ams.api.controller.AttendanceController;
+import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
 import lk.ac.ruhuna.fot.ams.business.calculator.AttendanceCalculator.AttendanceSummary;
 import lk.ac.ruhuna.fot.ams.data.dao.AttendanceDao.AttendanceRow;
 import lk.ac.ruhuna.fot.ams.data.dao.AttendanceDao.SessionRow;
@@ -21,11 +22,13 @@ import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 public final class AttendanceScreen extends JPanel {
     private final AuthenticatedSession actor;
     private final AttendanceController attendance;
+    private final CourseController courses;
 
-    public AttendanceScreen(AuthenticatedSession actor, AttendanceController attendance) {
+    public AttendanceScreen(AuthenticatedSession actor, AttendanceController attendance, CourseController courses) {
         super(new BorderLayout(12, 12));
         this.actor = actor;
         this.attendance = attendance;
+        this.courses = courses;
         setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 20, 20, 20));
         add(new JLabel("<html><h2>Attendance</h2>Use active enrolment IDs for marking. Session creation "
                 + "requires a timetable entry on the same weekday. Students can view their own percentage.</html>"),
@@ -43,7 +46,7 @@ public final class AttendanceScreen extends JPanel {
             button(actions, "Delete attendance session", this::deleteSession);
         }
         if (actor.role() == Role.UNDERGRADUATE) {
-            button(actions, "View attendance summary", this::viewSummary);
+            button(actions, "View my attendance for all courses", this::viewAllSummaries);
         }
         add(actions, BorderLayout.CENTER);
     }
@@ -154,6 +157,26 @@ public final class AttendanceScreen extends JPanel {
         text.append(String.format("Combined: %s%% | Required: %s%% | Eligible: %s",
                 summary.combined().percentage(), summary.threshold(), summary.eligible()));
         JOptionPane.showMessageDialog(this, text.toString(), "Attendance summary",
+                JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void viewAllSummaries() {
+        ApiResponse<java.util.List<lk.ac.ruhuna.fot.ams.business.service.CourseService.OfferingView>> offerings =
+                courses.offeringViewsForActor(actor);
+        if (!offerings.successful()) { error(offerings.error().message()); return; }
+        JTextArea output = new JTextArea(14, 60);
+        output.setEditable(false);
+        for (var offering : offerings.data()) {
+            ApiResponse<AttendanceSummary> result = attendance.calculateForCurrentStudent(actor, offering.offering().id());
+            if (result.successful()) {
+                AttendanceSummary summary = result.data();
+                output.append(String.format("%s — %s: %s%% | %s%n", offering.course().code(),
+                        offering.course().title(), summary.combined().percentage(),
+                        summary.eligible() ? "Eligible" : "Below attendance requirement"));
+            }
+        }
+        if (output.getText().isBlank()) output.setText("No attendance records are available for your enrolled courses yet.");
+        JOptionPane.showMessageDialog(this, new javax.swing.JScrollPane(output), "My attendance",
                 JOptionPane.INFORMATION_MESSAGE);
     }
 

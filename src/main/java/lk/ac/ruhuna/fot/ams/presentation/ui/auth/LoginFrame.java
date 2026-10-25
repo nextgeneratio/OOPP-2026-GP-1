@@ -22,6 +22,7 @@ import lk.ac.ruhuna.fot.ams.api.controller.TimetableController;
 import lk.ac.ruhuna.fot.ams.api.controller.ContentController;
 import lk.ac.ruhuna.fot.ams.api.controller.AttendanceController;
 import lk.ac.ruhuna.fot.ams.api.controller.LearningActivityController;
+import lk.ac.ruhuna.fot.ams.api.controller.MedicalController;
 import lk.ac.ruhuna.fot.ams.api.controller.UserController;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.AppButton;
@@ -40,6 +41,7 @@ public final class LoginFrame extends JFrame {
     private final ContentController contentController;
     private final AttendanceController attendanceController;
     private final LearningActivityController learningActivityController;
+    private final MedicalController medicalController;
     private final JTextField usernameField = new JTextField(20);
     private final JPasswordField passwordField = new JPasswordField(20);
     private final JLabel messageLabel = new JLabel(" ");
@@ -49,7 +51,7 @@ public final class LoginFrame extends JFrame {
                       UserController userController, ProfileController profileController,
                       CourseController courseController, TimetableController timetableController,
                       ContentController contentController, AttendanceController attendanceController,
-                      LearningActivityController learningActivityController,
+                      LearningActivityController learningActivityController, MedicalController medicalController,
                       ApplicationErrorHandler errorHandler) {
         super("Academic Management System - Login");
         this.authController = authController;
@@ -61,6 +63,7 @@ public final class LoginFrame extends JFrame {
         this.contentController = contentController;
         this.attendanceController = attendanceController;
         this.learningActivityController = learningActivityController;
+        this.medicalController = medicalController;
         this.errorHandler = errorHandler;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setContentPane(createContent());
@@ -168,10 +171,10 @@ public final class LoginFrame extends JFrame {
         dispose();
         new MainFrame(session, dashboardController, userController, profileController,
                 courseController, timetableController, contentController, attendanceController,
-                learningActivityController, errorHandler,
+                learningActivityController, medicalController, errorHandler,
                 () -> new LoginFrame(authController, dashboardController, userController,
                         profileController, courseController, timetableController, contentController,
-                        attendanceController, learningActivityController, errorHandler).setVisible(true))
+                        attendanceController, learningActivityController, medicalController, errorHandler).setVisible(true))
                 .setVisible(true);
     }
 

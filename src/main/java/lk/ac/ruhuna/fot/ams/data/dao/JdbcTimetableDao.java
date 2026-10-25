@@ -105,6 +105,18 @@ public final class JdbcTimetableDao implements TimetableDao {
     }
 
     @Override
+    public List<EntryRow> findEntriesForOfferings(List<Integer> offeringIds) {
+        if (offeringIds == null || offeringIds.isEmpty()) return List.of();
+        String placeholders = String.join(",", java.util.Collections.nCopies(offeringIds.size(), "?"));
+        String sql = "SELECT e.timetable_entry_id, e.timetable_id, e.offering_id, e.component_id, "
+                + "e.day_of_week, e.start_time, e.end_time, e.location FROM timetable_entries e "
+                + "WHERE e.offering_id IN (" + placeholders + ") ORDER BY e.day_of_week, e.start_time";
+        return jdbc.query(sql, statement -> {
+            for (int i = 0; i < offeringIds.size(); i++) statement.setInt(i + 1, offeringIds.get(i));
+        }, this::map);
+    }
+
+    @Override
     public List<EntryRow> findConflicts(
             int departmentId, int semesterId, EntryRow candidate, int lecturerId) {
         String sql = "SELECT e.timetable_entry_id, e.timetable_id, e.offering_id, e.component_id, "

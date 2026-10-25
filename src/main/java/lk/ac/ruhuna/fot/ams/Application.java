@@ -26,7 +26,7 @@ public final class Application {
                     components.userController(), components.profileController(),
                     components.courseController(), components.timetableController(),
                     components.contentController(), components.attendanceController(),
-                    components.learningActivityController(), components.errorHandler())
+                    components.learningActivityController(), components.medicalController(), components.errorHandler())
                     .setVisible(true));
         } catch (Exception failure) {
             LOGGER.error("Application startup failed", failure);

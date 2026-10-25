@@ -15,6 +15,7 @@ import lk.ac.ruhuna.fot.ams.api.controller.TimetableController;
 import lk.ac.ruhuna.fot.ams.data.dao.TimetableDao.EntryRow;
 import lk.ac.ruhuna.fot.ams.data.dao.TimetableDao.TimetableRow;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
+import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 
 public final class TimetableScreen extends JPanel {
     private final AuthenticatedSession actor;
@@ -25,14 +26,18 @@ public final class TimetableScreen extends JPanel {
         this.actor = actor;
         this.timetables = timetables;
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        add(new JLabel("<html><h2>Timetable</h2>Timetables are separated by department, level, and semester. "
-                + "Enter IDs from course management.</html>"), BorderLayout.NORTH);
+        add(new JLabel(actor.role() == Role.ADMIN
+                ? "<html><h2>Timetable management</h2>Create and maintain department timetables.</html>"
+                : "<html><h2>My timetable</h2>You have view-only access to timetable entries authorised for your department and course offerings.</html>"), BorderLayout.NORTH);
         JPanel actions = new JPanel(new GridLayout(0, 2, 10, 10));
-        addButton(actions, "View department / semester", this::view);
-        addButton(actions, "Create timetable", this::createTimetable);
-        addButton(actions, "Add timetable entry", this::addEntry);
-        addButton(actions, "Update timetable entry", this::updateEntry);
-        addButton(actions, "Remove timetable", this::deleteTimetable);
+        addButton(actions, actor.role() == Role.ADMIN ? "View department / semester" : "View my timetable",
+                actor.role() == Role.ADMIN ? this::view : this::viewMine);
+        if (actor.role() == Role.ADMIN) {
+            addButton(actions, "Create timetable", this::createTimetable);
+            addButton(actions, "Add timetable entry", this::addEntry);
+            addButton(actions, "Update timetable entry", this::updateEntry);
+            addButton(actions, "Remove timetable", this::deleteTimetable);
+        }
         add(actions, BorderLayout.CENTER);
     }
 
@@ -57,6 +62,22 @@ public final class TimetableScreen extends JPanel {
                 entry.id(), entry.timetableId(), entry.offeringId(), entry.componentId(),
                 entry.dayOfWeek(), entry.start(), entry.end(), entry.location())));
         JOptionPane.showMessageDialog(this, new javax.swing.JScrollPane(output), "Timetable",
+                JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void viewMine() {
+        ApiResponse<java.util.List<EntryRow>> response = timetables.myEntries(actor);
+        if (!response.successful()) { showError(response.error().message()); return; }
+        displayEntries(response.data(), "My timetable");
+    }
+
+    private void displayEntries(java.util.List<EntryRow> entries, String title) {
+        JTextArea output = new JTextArea(16, 70);
+        output.setEditable(false);
+        entries.forEach(entry -> output.append(String.format(
+                "%s %s-%s | %s%n", entry.dayOfWeek(), entry.start(), entry.end(), entry.location())));
+        if (entries.isEmpty()) output.setText("No timetable entries are published for your current authorised courses.");
+        JOptionPane.showMessageDialog(this, new javax.swing.JScrollPane(output), title,
                 JOptionPane.INFORMATION_MESSAGE);
     }
 

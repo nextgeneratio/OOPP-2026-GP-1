@@ -37,6 +37,8 @@ public interface TimetableDao {
 
     List<EntryRow> findEntries(int departmentId, int semesterId, int level, String dayOfWeek);
 
+    List<EntryRow> findEntriesForOfferings(List<Integer> offeringIds);
+
     List<EntryRow> findConflicts(
             int departmentId, int semesterId, EntryRow candidate, int lecturerId);
 

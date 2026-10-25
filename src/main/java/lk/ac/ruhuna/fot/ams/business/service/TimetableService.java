@@ -41,7 +41,7 @@ public final class TimetableService {
     }
 
     public long createTimetable(AuthenticatedSession actor, TimetableRow timetable) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorization.requireAdmin(actor);
         if (timetable == null || timetable.title() == null || timetable.title().isBlank()
                 || timetable.departmentId() <= 0 || timetable.semesterId() <= 0
                 || timetable.level() < 1 || timetable.level() > 4) {
@@ -55,7 +55,7 @@ public final class TimetableService {
     }
 
     public long addEntry(AuthenticatedSession actor, EntryRow entry) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorization.requireAdmin(actor);
         validateEntry(entry);
         return transactions.execute(connection -> {
             checkConflicts(entry);
@@ -66,7 +66,7 @@ public final class TimetableService {
     }
 
     public void updateEntry(AuthenticatedSession actor, EntryRow entry) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorization.requireAdmin(actor);
         validateEntry(entry);
         transactions.execute(connection -> {
             EntryRow existing = timetableDao.findEntry(entry.id())
@@ -111,8 +111,25 @@ public final class TimetableService {
         throw new AuthorizationException("You do not have permission to view this timetable.");
     }
 
+    /** Signed-in non-admin users never supply department, semester, or level identifiers. */
+    public List<EntryRow> myEntries(AuthenticatedSession actor) {
+        if (actor == null || actor.role() == Role.ADMIN) {
+            throw new AuthorizationException("Choose a department timetable from the administrator view.");
+        }
+        List<Integer> offeringIds = switch (actor.role()) {
+            case UNDERGRADUATE -> courseDao.findOfferingsForStudent(authorization.studentId(actor)).stream()
+                    .map(CourseDao.OfferingRow::id).toList();
+            case LECTURER -> courseDao.findOfferingsForLecturer(authorization.lecturerId(actor), null).stream()
+                    .map(CourseDao.OfferingRow::id).toList();
+            case TECHNICAL_OFFICER -> courseDao.findOfferingsForTechnicalOfficer(actor.userId()).stream()
+                    .map(CourseDao.OfferingRow::id).toList();
+            default -> List.of();
+        };
+        return timetableDao.findEntriesForOfferings(offeringIds);
+    }
+
     public void deleteTimetable(AuthenticatedSession actor, int timetableId) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorization.requireAdmin(actor);
         if (timetableId <= 0 || timetableDao.findTimetable(timetableId).isEmpty()) {
             throw new ValidationException("Timetable was not found.");
         }
