@@ -12,6 +12,7 @@ import lk.ac.ruhuna.fot.ams.api.controller.MarksController;
 import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
 import lk.ac.ruhuna.fot.ams.api.controller.LearningActivityController;
 import lk.ac.ruhuna.fot.ams.api.controller.ProfileController;
+import lk.ac.ruhuna.fot.ams.api.controller.ReportController;
 import lk.ac.ruhuna.fot.ams.api.controller.UserController;
 
 /** The API controllers the screens may call. Swing never receives services, DAOs or connections. */
@@ -20,5 +21,5 @@ public record UiServices(
         AttendanceController attendance, EligibilityController eligibility, GradesController grades,
         ContentController content, MedicalController medical, TimetableController timetable,
         ScreenLookupController screens, ProfileController profiles, CourseController courses,
-        LearningActivityController learningActivities) {
+        LearningActivityController learningActivities, ReportController reports) {
 }

@@ -32,7 +32,7 @@ public final class Application {
                             components.contentController(), components.medicalController(),
                             components.timetableController(), ScreenLookupModule.create(components),
                             components.profileController(), components.courseController(),
-                            components.learningActivityController()),
+                            components.learningActivityController(), components.reportController()),
                     components.errorHandler())
                     .setVisible(true));
         } catch (Exception failure) {

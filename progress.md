@@ -332,3 +332,19 @@ Sections below were written on the Nirmal branch before it was merged with Amjad
 - Tests: `LoginPanelTest` (empty fields, typing clears messages, show password, valid login hands on the session, failed login shows only the safe message) and `BannerPanelTest` (banner packaged and readable, cover scaling).
 - Checked layout by rendering the panel off-screen at 1100x660 and 900x560 (Metal look-and-feel, not FlatLaf); placeholder hints, Caps Lock detection and real focus behaviour still need a look on a real desktop.
 
+## Reports screen
+- `ReportScreen`: one shell for every report: choose a report, offering and student, Run report, preview table, Export CSV, Print. Loading, empty and error states are shown as text.
+- Reports offered per role (mirrors the service permissions): Admin: Student profile. Lecturer: all eight (student attendance, batch/course attendance, CA and final marks, final exam eligibility, course results, SGPA and CGPA, medical records, student profile). Technical Officer: student attendance, batch/course attendance, medical records.
+- `ReportRunner` asks the existing controllers (ReportController, EligibilityController, GradesController, MedicalController, AttendanceController, UserController); `ReportFormatters` only arranges what they return; the attendance threshold test uses `ComponentResult.meets`. Nothing is calculated in Swing.
+- CSV export neutralises cells that start with = + - @ so spreadsheets do not run them as formulas.
+- Checked against the demo database as Admin, Lecturer and Technical Officer: all offered reports return data; a Technical Officer asking for the eligibility report directly is refused (FORBIDDEN).
+- Tests: `ReportFormattersTest`, `CsvWriterTest`, `ReportCategoryTest`.
+
+## UI completion gate (checked on the merged code)
+- Every one of the 15 navigation modules opens a real screen (no placeholder left).
+- No SQL, JDBC or DAO calls anywhere in the presentation package.
+- No colours defined outside `UiTheme`; no stack traces or `printStackTrace` shown to users.
+- All 76 unit tests pass (run with the JUnit console launcher against the merged code).
+- Known gaps: (1) screens import DAO record types such as `OfferingSummary`, `RosterRow`, `MedicalRow`, `NoticeRow` as plain data carriers; moving them to DTOs would make the layering strict. (2) `MarksScreen` rounds the CA contribution for display with `setScale(2)`. (3) Unexpected errors show a safe generic message but no log reference. (4) Dashboard Notices count includes expired and not-yet-published notices. (5) Undergraduates have no Reports menu entry; their own reports are reachable through Attendance, Eligibility and Grades & GPA. (6) AssertJ Swing tests, a keyboard-only walkthrough and a real-desktop visual check were not done.
+- Next phase: final quality and system testing.
+

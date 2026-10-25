@@ -80,6 +80,7 @@ public final class MainFrame extends JFrame {
             case COURSE_MATERIALS -> buildMaterialsScreen();
             case ASSESSMENTS_MARKS -> new lk.ac.ruhuna.fot.ams.presentation.ui.lecturer.MarksScreen(session, services.marks());
             case ELIGIBILITY -> buildEligibilityScreen();
+            case REPORTS -> new ReportScreen(session, services);
             case NOTICES -> new NoticesScreen(session, services.content());
             case MEDICAL -> new lk.ac.ruhuna.fot.ams.presentation.ui.technical.MedicalScreen(
                     session, services.attendance(), services.medical(), services.screens());
