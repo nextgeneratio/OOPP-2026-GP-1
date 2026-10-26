@@ -37,6 +37,8 @@ public final class MedicalScreen extends JPanel {
             addButton(actions, "Submit medical request (PDF proof)", this::recordMedical);
         }
         if (actor.role() == Role.TECHNICAL_OFFICER || actor.role() == Role.ADMIN) {
+            addButton(actions, "View pending review queue", this::viewPending);
+            addButton(actions, "Open submitted PDF proof", this::openProof);
             addButton(actions, "Approve or reject medical", this::decideMedical);
         }
         add(actions, BorderLayout.CENTER);
@@ -62,9 +64,11 @@ public final class MedicalScreen extends JPanel {
         JTextArea output = new JTextArea(14, 70);
         output.setEditable(false);
         response.data().forEach(row -> output.append(String.format(
-                "Medical %d | offering %s | %s to %s | %s%n%s%nEvidence: %s%n%n",
+                "Medical %d | offering %s | %s to %s | %s%n%s%s%n%n",
                 row.id(), row.offeringId() == null ? "all courses" : row.offeringId(), row.startDate(), row.endDate(),
-                row.status(), row.reason(), row.evidenceReference() == null ? "not recorded" : row.evidenceReference())));
+                row.status(), row.reason(), row.status() == ApprovalStatus.REJECTED
+                        ? "\nDecision reason: " + (row.rejectionReason() == null || row.rejectionReason().isBlank()
+                                ? "No reason recorded (legacy request)." : row.rejectionReason()) : "")));
         if (response.data().isEmpty()) output.setText("No medical records match this student.");
         JOptionPane.showMessageDialog(this, new JScrollPane(output), "Medical records", JOptionPane.INFORMATION_MESSAGE);
     }
@@ -86,16 +90,34 @@ public final class MedicalScreen extends JPanel {
         ApiResponse<?> response = medical.submitPdf(actor, new MedicalRow(0, 0, offeringId,
                 LocalDate.parse(medicalDate.getText().trim()), LocalDate.parse(start.getText().trim()),
                 LocalDate.parse(end.getText().trim()), reason.getText().trim(), "pending",
-                ApprovalStatus.PENDING, false), chooser.getSelectedFile().toPath());
+                ApprovalStatus.PENDING, false, null), chooser.getSelectedFile().toPath());
         show(response, "Medical request submitted as pending approval.");
     }
 
     private void decideMedical() {
         JTextField id = field();
         JComboBox<ApprovalStatus> decision = new JComboBox<>(new ApprovalStatus[]{ApprovalStatus.APPROVED, ApprovalStatus.REJECTED});
-        if (!form("Decide medical", new String[]{"Medical ID", "Decision"}, id, decision)) return;
+        JTextArea reason = new JTextArea(3, 22);
+        if (!form("Decide medical", new String[]{"Medical ID", "Decision", "Reason (required for rejection)"},
+                id, decision, new JScrollPane(reason))) return;
         show(medical.decide(actor, new MedicalController.DecideMedicalRequest(integer(id),
-                (ApprovalStatus) decision.getSelectedItem())), "Medical decision saved.");
+                (ApprovalStatus) decision.getSelectedItem(), reason.getText())), "Medical decision saved.");
+    }
+
+    private void viewPending() {
+        showRecords(medical.pendingForReviewer(actor));
+    }
+
+    private void openProof() {
+        JTextField id = field();
+        if (!form("Open submitted PDF proof", new String[]{"Medical ID"}, id)) return;
+        ApiResponse<java.nio.file.Path> response = medical.evidenceFor(actor, integer(id));
+        if (!response.successful()) { error(response.error().message()); return; }
+        try {
+            PdfViewerDialog.show(this, "Medical proof", response.data());
+        } catch (java.io.IOException invalidPdf) {
+            error("The stored medical proof could not be opened.");
+        }
     }
 
     private boolean form(String title, String[] labels, java.awt.Component... fields) {

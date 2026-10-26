@@ -73,7 +73,7 @@ public final class MedicalService {
         }
         MedicalRow pending = new MedicalRow(0, request.studentId(), request.offeringId(),
                 request.medicalDate(), request.startDate(), request.endDate(), request.reason(),
-                request.evidenceReference(), ApprovalStatus.PENDING, false);
+                request.evidenceReference(), ApprovalStatus.PENDING, false, null);
         return transactions.execute(connection -> {
             long medicalId = medicalDao.insert(connection, pending);
             auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
@@ -104,7 +104,7 @@ public final class MedicalService {
         try {
             MedicalRow securedRequest = new MedicalRow(request.id(), authorization.studentId(actor), request.offeringId(),
                     request.medicalDate(), request.startDate(), request.endDate(), request.reason(),
-                    EVIDENCE_DIRECTORY + "/" + stored.getFileName(), request.status(), request.affectsEligibility());
+                    EVIDENCE_DIRECTORY + "/" + stored.getFileName(), request.status(), request.affectsEligibility(), null);
             return submit(actor, securedRequest);
         } catch (RuntimeException exception) {
             try {
@@ -116,7 +116,7 @@ public final class MedicalService {
         }
     }
 
-    public void decide(AuthenticatedSession actor, int medicalId, ApprovalStatus decision) {
+    public void decide(AuthenticatedSession actor, int medicalId, ApprovalStatus decision, String rejectionReason) {
         if (decision != ApprovalStatus.APPROVED && decision != ApprovalStatus.REJECTED) {
             throw new ValidationException("A medical record must be approved or rejected.");
         }
@@ -126,8 +126,9 @@ public final class MedicalService {
         if (medical.status() != ApprovalStatus.PENDING) {
             throw new BusinessRuleException("Only pending medical records can be decided.");
         }
+        String normalizedReason = normalizeDecisionReason(decision, rejectionReason);
         transactions.execute(connection -> {
-            int updated = medicalDao.decide(connection, medicalId, decision);
+            int updated = medicalDao.decide(connection, medicalId, decision, normalizedReason);
             if (updated != 1) {
                 throw new BusinessRuleException("Medical record has already been decided.");
             }
@@ -160,6 +161,35 @@ public final class MedicalService {
         return medicalDao.findForStudent(authorization.studentId(actor), null);
     }
 
+    public List<MedicalRow> pendingForReviewer(AuthenticatedSession actor) {
+        if (actor == null || (actor.role() != Role.ADMIN && actor.role() != Role.TECHNICAL_OFFICER)) {
+            throw new AuthorizationException("You do not have permission to review medical requests.");
+        }
+        return medicalDao.findPending().stream().filter(record -> {
+            if (actor.role() == Role.ADMIN) return true;
+            try {
+                authorizeOfficerScope(actor, record.studentId(), record.offeringId());
+                return true;
+            } catch (AuthorizationException denied) {
+                return false;
+            }
+        }).toList();
+    }
+
+    public Path evidenceFor(AuthenticatedSession actor, int medicalId) {
+        MedicalRow medical = medicalDao.findById(medicalId)
+                .orElseThrow(() -> new NotFoundException("Medical record was not found."));
+        if (actor == null) {
+            throw new AuthorizationException("You do not have permission to view medical proof.");
+        }
+        if (actor.role() == Role.UNDERGRADUATE) {
+            authorization.requireUndergraduateForStudent(actor, medical.studentId());
+        } else {
+            authorizeReviewerScope(actor, medical.studentId(), medical.offeringId());
+        }
+        return resolveStoredEvidence(medical.evidenceReference());
+    }
+
     private void authorizeReviewerScope(
             AuthenticatedSession actor, int studentId, Integer offeringId) {
         if (actor != null && actor.role() == Role.ADMIN) {
@@ -173,6 +203,34 @@ public final class MedicalService {
         if (evidenceReference == null || !evidenceReference.matches("medical-evidence/[0-9a-fA-F-]{36}\\.pdf")) {
             throw new ValidationException("A valid PDF medical proof is required.");
         }
+    }
+
+    private String normalizeDecisionReason(ApprovalStatus decision, String rejectionReason) {
+        if (decision == ApprovalStatus.APPROVED) {
+            return null;
+        }
+        if (rejectionReason == null || rejectionReason.isBlank()) {
+            throw new ValidationException("A rejection reason is required.");
+        }
+        String normalized = rejectionReason.trim();
+        if (normalized.length() > 500) {
+            throw new ValidationException("A rejection reason must be 500 characters or fewer.");
+        }
+        return normalized;
+    }
+
+    private Path resolveStoredEvidence(String evidenceReference) {
+        validateEvidenceReference(evidenceReference);
+        Path directory = Path.of("var", EVIDENCE_DIRECTORY).toAbsolutePath().normalize();
+        Path file = directory.resolve(Path.of(evidenceReference).getFileName()).normalize();
+        try {
+            if (!file.startsWith(directory) || !Files.isRegularFile(file) || Files.isSymbolicLink(file)) {
+                throw new NotFoundException("Medical proof is unavailable.");
+            }
+        } catch (java.nio.file.InvalidPathException invalid) {
+            throw new ValidationException("Medical proof reference is invalid.");
+        }
+        return file;
     }
 
     private void validatePdf(Path sourcePdf) {

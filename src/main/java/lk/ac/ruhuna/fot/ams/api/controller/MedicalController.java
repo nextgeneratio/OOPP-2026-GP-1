@@ -9,7 +9,7 @@ import lk.ac.ruhuna.fot.ams.domain.enums.ApprovalStatus;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
 public final class MedicalController {
-    public record DecideMedicalRequest(int medicalId, ApprovalStatus decision) {
+    public record DecideMedicalRequest(int medicalId, ApprovalStatus decision, String rejectionReason) {
     }
 
     public record MedicalSearchRequest(int studentId, Integer offeringId) {
@@ -37,7 +37,7 @@ public final class MedicalController {
 
     public ApiResponse<Void> decide(AuthenticatedSession actor, DecideMedicalRequest request) {
         return support.execute(request, () -> {
-            service.decide(actor, request.medicalId(), request.decision());
+            service.decide(actor, request.medicalId(), request.decision(), request.rejectionReason());
             return null;
         });
     }
@@ -50,5 +50,13 @@ public final class MedicalController {
 
     public ApiResponse<List<MedicalRow>> findForCurrentStudent(AuthenticatedSession actor) {
         return support.execute(() -> service.findForCurrentStudent(actor));
+    }
+
+    public ApiResponse<List<MedicalRow>> pendingForReviewer(AuthenticatedSession actor) {
+        return support.execute(() -> service.pendingForReviewer(actor));
+    }
+
+    public ApiResponse<Path> evidenceFor(AuthenticatedSession actor, int medicalId) {
+        return support.execute(medicalId, () -> service.evidenceFor(actor, medicalId));
     }
 }

@@ -76,6 +76,15 @@ public final class AuthorizationService {
         }
     }
 
+    public void requireTechnicalOfficerForTimetable(
+            AuthenticatedSession session, int departmentId, int semesterId) {
+        requireRole(session, Role.TECHNICAL_OFFICER);
+        if (departmentId <= 0 || semesterId <= 0
+                || !lookup().technicalOfficerAuthorizedForTimetable(session.userId(), departmentId, semesterId)) {
+            throw new AuthorizationException("You do not have access to this department timetable.");
+        }
+    }
+
     public void requireUndergraduateForStudent(AuthenticatedSession session, int studentId) {
         requireRole(session, Role.UNDERGRADUATE);
         if (studentId <= 0 || !lookup().undergraduateOwnsStudent(session.userId(), studentId)) {

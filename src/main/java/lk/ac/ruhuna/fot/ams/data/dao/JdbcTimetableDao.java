@@ -18,12 +18,17 @@ public final class JdbcTimetableDao implements TimetableDao {
     @Override
     public long insertTimetable(Connection connection, TimetableRow row) {
         return jdbc.insertAndReturnKey(connection,
-                "INSERT INTO timetables (title, department_id, semester_id, level_no) VALUES (?, ?, ?, ?)",
+                "INSERT INTO timetables (title, department_id, semester_id, level_no, created_by_user_id) VALUES (?, ?, ?, ?, ?)",
                 statement -> {
                     statement.setString(1, row.title());
                     statement.setInt(2, row.departmentId());
                     statement.setInt(3, row.semesterId());
                     statement.setInt(4, row.level());
+                    if (row.createdByUserId() == null) {
+                        statement.setNull(5, java.sql.Types.BIGINT);
+                    } else {
+                        statement.setLong(5, row.createdByUserId());
+                    }
                 });
     }
 
@@ -66,12 +71,14 @@ public final class JdbcTimetableDao implements TimetableDao {
 
     @Override
     public Optional<TimetableRow> findTimetable(int timetableId) {
-        return jdbc.query("SELECT timetable_id, title, department_id, semester_id, level_no "
-                        + "FROM timetables WHERE timetable_id = ?",
+        return jdbc.query("SELECT t.timetable_id, t.title, t.department_id, t.semester_id, t.level_no, "
+                        + "t.created_by_user_id, u.username, u.role FROM timetables t "
+                        + "LEFT JOIN users u ON u.user_id = t.created_by_user_id WHERE t.timetable_id = ?",
                 statement -> statement.setInt(1, timetableId),
                 result -> new TimetableRow(result.getInt("timetable_id"), result.getString("title"),
                         result.getInt("department_id"), result.getInt("semester_id"),
-                        result.getInt("level_no")))
+                        result.getInt("level_no"), nullableLong(result, "created_by_user_id"),
+                        result.getString("username"), role(result.getString("role"))))
                 .stream().findFirst();
     }
 
@@ -195,5 +202,14 @@ public final class JdbcTimetableDao implements TimetableDao {
                 result.getInt("offering_id"), result.getInt("component_id"),
                 result.getString("day_of_week"), result.getTime("start_time").toLocalTime(),
                 result.getTime("end_time").toLocalTime(), result.getString("location"));
+    }
+
+    private Long nullableLong(ResultSet result, String column) throws SQLException {
+        long value = result.getLong(column);
+        return result.wasNull() ? null : value;
+    }
+
+    private lk.ac.ruhuna.fot.ams.domain.enums.Role role(String value) {
+        return value == null ? null : lk.ac.ruhuna.fot.ams.domain.enums.Role.valueOf(value);
     }
 }

@@ -76,6 +76,18 @@ Configure an isolated test MySQL database and credentials; finish UI module inte
 ## Last updated
 2026-10-18 08:55
 
+## Swing acceptance audit — Phase 1 started — 2026-10-26
+- Scope: requirement-driven Swing UI, authorization, JDBC/schema, migration-safety, and persistence acceptance audit. Existing local modifications are preserved; no Git reset/checkout/commit/push or database write has been performed.
+- Initial repository state recorded: branch `Amjad`; prior audit modifications are present in the worktree and are being treated as in-scope changes to verify. Baseline build, schema discovery, and UI capability checks are pending.
+
+## Swing acceptance audit — implementation and verification update — 2026-10-26
+- Baseline/verification: `mvn clean test` passed with 55 tests, 0 failures/errors, and 1 skipped isolated-database connectivity test. `mvn clean package` completed with the same test suite; `git diff --check` passed.
+- Verified code defects fixed: medical reviewers previously had no safe proof-open action and no persisted rejection reason. The medical model/DAO/service/controller/UI now require and persist a rejection reason, show an honest legacy-row message where absent, list the authorized pending queue, and authorise before normalising/constraining a PDF path beneath `var/medical-evidence` (rejecting malformed/traversal/symlink evidence paths).
+- Verified schema gap: canonical schemas had no `medical_records.rejection_reason` and no timetable creator reference. Added the ordered additive `database/migration_20261026_medical_timetable_audit.sql`, updated both checked-in schema sources and database-design documentation, and wired `timetables.created_by_user_id` into timetable creation. The nullable fields preserve existing records; the migration was NOT applied to any database.
+- Technical Officer timetable scope now requires the authenticated officer's department and active semester, and a Technical Officer can alter only a timetable they created; Admin retains cross-timetable management. A new UI action is present for Technical Officer timetable management, but full database/UI execution remains blocked.
+- Added `MedicalServiceSecurityTest`: lecturer medical denial, rejection reason before mutation, and tampered proof-reference denial. No credentials, PDFs, local uploads, or test data were committed.
+- Acceptance result: compile/unit/package checks PASS; JDBC-backed and interactive GUI scenarios are BLOCKED because `university_management_test` credentials/schema were not safely available. Visible Reports, Grades/GPA, and Eligibility navigation are still connected to `PlaceholderScreen`, so those UI workflows are FAIL rather than claimed as complete. Full matrix and reproducible migration commands are in `docs/system-test-results.md`.
+
 ## Permission and medical-workflow audit update — 2026-10-26
 - Audit scope: reviewed the tracked Swing navigation/screens, role dashboards, controllers, authorization service, attendance, medical, content/notice, course-management services, their DAOs/schema references, and existing authorization/navigation tests. Generated `target/` output was excluded from source review.
 - Stack confirmed: Java 17, Maven, Swing UI, JDBC/MySQL with `src/main/resources/db/schema.sql` as the checked-in canonical schema; internal controller/service/DAO layering and role-session authorization are used instead of HTTP routes.

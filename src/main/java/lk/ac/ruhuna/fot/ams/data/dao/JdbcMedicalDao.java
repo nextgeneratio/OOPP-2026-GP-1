@@ -11,7 +11,8 @@ import lk.ac.ruhuna.fot.ams.domain.enums.ApprovalStatus;
 
 public final class JdbcMedicalDao implements MedicalDao {
     private static final String SELECT_COLUMNS = "SELECT medical_id, student_id, offering_id, medical_date, "
-            + "start_date, end_date, reason_details, evidence_reference, approval_status, affects_eligibility "
+            + "start_date, end_date, reason_details, evidence_reference, approval_status, affects_eligibility, "
+            + "rejection_reason "
             + "FROM medical_records ";
 
     private final JdbcExecutor jdbc;
@@ -25,8 +26,8 @@ public final class JdbcMedicalDao implements MedicalDao {
         return jdbc.insertAndReturnKey(connection,
                 "INSERT INTO medical_records "
                         + "(student_id, offering_id, medical_date, start_date, end_date, reason_details, "
-                        + "evidence_reference, approval_status, affects_eligibility) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        + "evidence_reference, approval_status, affects_eligibility, rejection_reason) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 statement -> {
                     statement.setInt(1, row.studentId());
                     if (row.offeringId() == null) {
@@ -41,18 +42,24 @@ public final class JdbcMedicalDao implements MedicalDao {
                     statement.setString(7, row.evidenceReference());
                     statement.setString(8, row.status().name());
                     statement.setBoolean(9, row.affectsEligibility());
+                    statement.setNull(10, java.sql.Types.VARCHAR);
                 });
     }
 
     @Override
-    public int decide(Connection connection, int medicalId, ApprovalStatus status) {
+    public int decide(Connection connection, int medicalId, ApprovalStatus status, String rejectionReason) {
         return jdbc.update(connection,
-                "UPDATE medical_records SET approval_status = ?, affects_eligibility = ? "
+                "UPDATE medical_records SET approval_status = ?, affects_eligibility = ?, rejection_reason = ? "
                         + "WHERE medical_id = ? AND approval_status = 'PENDING'",
                 statement -> {
                     statement.setString(1, status.name());
                     statement.setBoolean(2, status == ApprovalStatus.APPROVED);
-                    statement.setInt(3, medicalId);
+                    if (rejectionReason == null) {
+                        statement.setNull(3, java.sql.Types.VARCHAR);
+                    } else {
+                        statement.setString(3, rejectionReason);
+                    }
+                    statement.setInt(4, medicalId);
                 });
     }
 
@@ -77,6 +84,12 @@ public final class JdbcMedicalDao implements MedicalDao {
                         statement.setInt(3, offeringId);
                     }
                 }, this::map);
+    }
+
+    @Override
+    public List<MedicalRow> findPending() {
+        return jdbc.query(SELECT_COLUMNS + "WHERE approval_status = 'PENDING' ORDER BY medical_date, medical_id",
+                statement -> { }, this::map);
     }
 
     @Override
@@ -124,6 +137,6 @@ public final class JdbcMedicalDao implements MedicalDao {
                 medDate.toLocalDate(), start.toLocalDate(), end.toLocalDate(),
                 result.getString("reason_details"), result.getString("evidence_reference"),
                 ApprovalStatus.valueOf(result.getString("approval_status")),
-                result.getBoolean("affects_eligibility"));
+                result.getBoolean("affects_eligibility"), result.getString("rejection_reason"));
     }
 }

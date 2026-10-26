@@ -26,13 +26,14 @@ public final class TimetableScreen extends JPanel {
         this.actor = actor;
         this.timetables = timetables;
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        add(new JLabel(actor.role() == Role.ADMIN
+        add(new JLabel(actor.role() == Role.ADMIN || actor.role() == Role.TECHNICAL_OFFICER
                 ? "<html><h2>Timetable management</h2>Create and maintain department timetables.</html>"
                 : "<html><h2>My timetable</h2>You have view-only access to timetable entries authorised for your department and course offerings.</html>"), BorderLayout.NORTH);
         JPanel actions = new JPanel(new GridLayout(0, 2, 10, 10));
-        addButton(actions, actor.role() == Role.ADMIN ? "View department / semester" : "View my timetable",
-                actor.role() == Role.ADMIN ? this::view : this::viewMine);
-        if (actor.role() == Role.ADMIN) {
+        boolean manager = actor.role() == Role.ADMIN || actor.role() == Role.TECHNICAL_OFFICER;
+        addButton(actions, manager ? "View department / semester" : "View my timetable",
+                manager ? this::view : this::viewMine);
+        if (actor.role() == Role.ADMIN || actor.role() == Role.TECHNICAL_OFFICER) {
             addButton(actions, "Create timetable", this::createTimetable);
             addButton(actions, "Add timetable entry", this::addEntry);
             addButton(actions, "Update timetable entry", this::updateEntry);
@@ -57,10 +58,12 @@ public final class TimetableScreen extends JPanel {
         }
         JTextArea output = new JTextArea(16, 70);
         output.setEditable(false);
-        response.data().forEach(entry -> output.append(String.format(
-                "Entry %d | timetable %d | offering %d | component %d | %s %s-%s | %s%n",
-                entry.id(), entry.timetableId(), entry.offeringId(), entry.componentId(),
-                entry.dayOfWeek(), entry.start(), entry.end(), entry.location())));
+        for (EntryRow entry : response.data()) {
+            output.append(String.format(
+                    "Entry %d | timetable %d | offering %d | component %d | %s %s-%s | %s%s%n",
+                    entry.id(), entry.timetableId(), entry.offeringId(), entry.componentId(),
+                    entry.dayOfWeek(), entry.start(), entry.end(), entry.location(), creator(entry.timetableId())));
+        }
         JOptionPane.showMessageDialog(this, new javax.swing.JScrollPane(output), "Timetable",
                 JOptionPane.INFORMATION_MESSAGE);
     }
@@ -74,8 +77,11 @@ public final class TimetableScreen extends JPanel {
     private void displayEntries(java.util.List<EntryRow> entries, String title) {
         JTextArea output = new JTextArea(16, 70);
         output.setEditable(false);
-        entries.forEach(entry -> output.append(String.format(
-                "%s %s-%s | %s%n", entry.dayOfWeek(), entry.start(), entry.end(), entry.location())));
+        for (EntryRow entry : entries) {
+            output.append(String.format(
+                    "%s %s-%s | %s%s%n", entry.dayOfWeek(), entry.start(), entry.end(), entry.location(),
+                    creator(entry.timetableId())));
+        }
         if (entries.isEmpty()) output.setText("No timetable entries are published for your current authorised courses.");
         JOptionPane.showMessageDialog(this, new javax.swing.JScrollPane(output), title,
                 JOptionPane.INFORMATION_MESSAGE);
@@ -163,6 +169,15 @@ public final class TimetableScreen extends JPanel {
 
     private int integer(JTextField field) {
         return Integer.parseInt(field.getText().trim());
+    }
+
+    private String creator(int timetableId) {
+        if (actor.role() != Role.ADMIN && actor.role() != Role.TECHNICAL_OFFICER) return "";
+        ApiResponse<TimetableRow> response = timetables.details(actor, timetableId);
+        if (!response.successful()) return " | Creator unavailable";
+        TimetableRow timetable = response.data();
+        return timetable.createdByUserId() == null ? " | Creator: unknown (historical)"
+                : " | Creator: " + timetable.createdByUsername() + " (" + timetable.createdByRole() + ")";
     }
 
     private void show(ApiResponse<?> response) {

@@ -9,6 +9,9 @@ The schema enforces foreign keys, unique identifiers, numeric/date checks, index
 for users/departments/courses, repeat-attempt history, and one active enrolment per student/offering.
 Course offering lecturer assignments are represented separately from the optional coordinator.
 Notice audience targets and controlled medical evidence references are stored explicitly.
+Medical rejections retain an optional reviewer reason; legacy rejected rows may have no reason.
+Timetables retain the nullable authenticated creator user ID, so historical rows may truthfully remain
+unattributed while newly created timetables have an auditable owner.
 Completed results store a grade-scheme version and credit snapshot; re-finalization archives the
 previous result snapshot instead of overwriting its scheme history.
 
