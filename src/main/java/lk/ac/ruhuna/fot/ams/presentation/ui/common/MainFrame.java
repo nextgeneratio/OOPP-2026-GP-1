@@ -18,6 +18,12 @@ import lk.ac.ruhuna.fot.ams.api.controller.MedicalController;
 import lk.ac.ruhuna.fot.ams.api.controller.ProfileController;
 import lk.ac.ruhuna.fot.ams.api.controller.TimetableController;
 import lk.ac.ruhuna.fot.ams.api.controller.UserController;
+import lk.ac.ruhuna.fot.ams.api.controller.AssessmentController;
+import lk.ac.ruhuna.fot.ams.api.controller.MarksController;
+import lk.ac.ruhuna.fot.ams.api.controller.EligibilityController;
+import lk.ac.ruhuna.fot.ams.api.controller.GpaController;
+import lk.ac.ruhuna.fot.ams.api.controller.ReportController;
+import lk.ac.ruhuna.fot.ams.api.controller.ResultController;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
 import lk.ac.ruhuna.fot.ams.presentation.ui.admin.AdminDashboard;
 import lk.ac.ruhuna.fot.ams.presentation.ui.admin.CourseManagementScreen;
@@ -39,6 +45,12 @@ public final class MainFrame extends JFrame {
     private final AttendanceController attendance;
     private final LearningActivityController learningActivities;
     private final MedicalController medical;
+    private final AssessmentController assessments;
+    private final MarksController marks;
+    private final EligibilityController eligibility;
+    private final GpaController gpa;
+    private final ReportController reports;
+    private final ResultController results;
     private final ApplicationErrorHandler errors;
     private final Runnable onLogout;
     private final CardLayout cards = new CardLayout();
@@ -52,6 +64,8 @@ public final class MainFrame extends JFrame {
                      CourseController courses, TimetableController timetables,
                      ContentController courseContent, AttendanceController attendance,
                      LearningActivityController learningActivities, MedicalController medical,
+                     AssessmentController assessments, MarksController marks, EligibilityController eligibility,
+                     GpaController gpa, ReportController reports, ResultController results,
                      ApplicationErrorHandler errors, Runnable onLogout) {
         super("Faculty of Technology Academic Management System");
         this.session = session;
@@ -64,6 +78,8 @@ public final class MainFrame extends JFrame {
         this.attendance = attendance;
         this.learningActivities = learningActivities;
         this.medical = medical;
+        this.assessments = assessments; this.marks = marks; this.eligibility = eligibility;
+        this.gpa = gpa; this.reports = reports; this.results = results;
         this.errors = errors;
         this.onLogout = onLogout;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -130,8 +146,20 @@ public final class MainFrame extends JFrame {
         if (module == NavigationModule.MEDICAL) {
             return new MedicalScreen(session, medical);
         }
+        if (module == NavigationModule.ASSESSMENTS_MARKS) {
+            return new AssessmentsMarksScreen(session, courses, attendance, assessments, marks);
+        }
+        if (module == NavigationModule.ELIGIBILITY) {
+            return new EligibilityScreen(session, courses, attendance, eligibility);
+        }
+        if (module == NavigationModule.GRADES_GPA) {
+            return new GradesGpaScreen(session, courses, attendance, gpa, results);
+        }
+        if (module == NavigationModule.REPORTS) {
+            return new ReportsScreen(session, courses, attendance, reports);
+        }
         if (module != NavigationModule.DASHBOARD) {
-            return new PlaceholderScreen(module);
+            throw new IllegalStateException("No Swing screen is registered for " + module);
         }
         return switch (session.role()) {
             case ADMIN -> new AdminDashboard(session, dashboards, errors, this::navigateTo);

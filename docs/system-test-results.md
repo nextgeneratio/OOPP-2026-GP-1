@@ -1,5 +1,16 @@
 # Final System Test Results
 
+## Swing screen implementation update — 2026-10-26
+
+**Branch/baseline:** `Amjad` / `fbfec84298bae221b21069145b6f205be3f0072a`. The changes below are intentionally uncommitted because this task did not authorize a commit or push.
+
+- PASS — `ApplicationComponents` controllers are now explicitly injected through `Application` and `LoginFrame` into `MainFrame`. Assessments & Marks, Eligibility, Grades & GPA, and Reports now instantiate functional controller-backed screens instead of `PlaceholderScreen`.
+- PASS — assessment entry uses authorized offering/assessment/enrolment selectors and validates score input; eligibility, GPA/finalized-result, and report views call their existing controllers. `AssessmentService` now rejects an Admin direct publish attempt; `AssessmentServiceSecurityTest` proves that regression.
+- PASS — `mvn clean test` and `mvn clean package`: 57 tests, 0 failures, 0 errors, 1 skipped. `git diff --check` passed. The single skipped `DatabaseConnectivityTest` is intentional: both fields in the ignored local test-credentials file are blank.
+- BLOCKED — visible Swing interaction, screenshots, and JDBC persistence confirmation. A graphical display is present, but there is no authenticated, verified `university_management_test` connection. The application was not pointed at the populated development database, and no DDL/DML or migration was executed anywhere.
+
+Current acceptance: Lecturer controller routing/forms PASS by static/build verification but BLOCKED for live persistence; student Eligibility/Grades/GPA routing BLOCKED for live interaction; Reports routing BLOCKED for live data/role testing; medical and timetable UI workflows remain BLOCKED for the same isolated-database prerequisite. There are no new screenshots or `target/ui-test-evidence` artifacts.
+
 ## Acceptance audit update — 2026-10-26
 
 **Branch/HEAD:** `Amjad` / `bf15cad092fc9d062347f5041eba287f783ed64f` at audit start. The audit preserved the existing worktree; no live database operation was performed.

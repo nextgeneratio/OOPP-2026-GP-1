@@ -26,7 +26,9 @@ public final class Application {
                     components.userController(), components.profileController(),
                     components.courseController(), components.timetableController(),
                     components.contentController(), components.attendanceController(),
-                    components.learningActivityController(), components.medicalController(), components.errorHandler())
+                    components.learningActivityController(), components.medicalController(),
+                    components.assessmentController(), components.marksController(), components.eligibilityController(),
+                    components.gpaController(), components.reportController(), components.resultController(), components.errorHandler())
                     .setVisible(true));
         } catch (Exception failure) {
             LOGGER.error("Application startup failed", failure);

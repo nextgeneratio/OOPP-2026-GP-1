@@ -1,5 +1,18 @@
 # Project Progress
 
+## Missing Swing screens — implementation update — 2026-10-26
+- Baseline commit remains `fbfec84298bae221b21069145b6f205be3f0072a` on `Amjad`; this task has uncommitted local implementation changes only. No reset, commit, push, schema change, seed, migration, or live-database access was performed.
+- Fixed the UI root cause by explicitly wiring assessment, marks, eligibility, GPA, report, and result controllers from `ApplicationComponents` through `Application`, `LoginFrame`, and `MainFrame`.
+- Replaced the former placeholder routes with `AssessmentsMarksScreen`, `EligibilityScreen`, `GradesGpaScreen`, and `ReportsScreen`; `MainFrame` now fails fast if a future non-dashboard module lacks a registered screen rather than silently rendering `PlaceholderScreen`.
+- Assessment entry uses authorized offering, assessment, and enrolment dropdowns; eligibility, GPA/finalized results, and reports use existing controller/service calculations and permissions. Direct assessment publishing is now restricted to an assigned Lecturer; `AssessmentServiceSecurityTest` covers the Admin denial.
+- Verification: `mvn clean test` and `mvn clean package` passed with 57 tests, 0 failures, 0 errors, and 1 skipped (`DatabaseConnectivityTest`). `git diff --check` passed.
+- Interactive acceptance remains BLOCKED. A display server is available, but `test-credentials.properties` has blank username/password fields and no verified `university_management_test` target. The development database was deliberately not launched or mutated. No screenshots or GUI/persistence claims were made.
+
+## Missing Swing screen audit — Phase 1 — 2026-10-26
+- Repository verified at `fbfec84298bae221b21069145b6f205be3f0072a` on `Amjad`, matching `origin/Amjad`; worktree was clean before this task.
+- Confirmed root cause: `ApplicationComponents` constructs assessment, marks, eligibility, GPA, report, and result controllers, but `Application`/`LoginFrame`/`MainFrame` do not inject them. `MainFrame` consequently routes `ASSESSMENTS_MARKS`, `ELIGIBILITY`, `GRADES_GPA`, and `REPORTS` to `PlaceholderScreen`.
+- Planned work: preserve controller/service/DAO layers, explicitly inject existing controllers into the UI shell, implement role-appropriate screens, add navigation regression coverage, then run safe non-interactive checks. Real database persistence/UI acceptance remains contingent on a confirmed isolated test database.
+
 ## Current phase
 Phase 5 — Demo dataset and password self-service added; final system acceptance remains NOT READY
 

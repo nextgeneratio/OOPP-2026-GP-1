@@ -24,6 +24,12 @@ import lk.ac.ruhuna.fot.ams.api.controller.AttendanceController;
 import lk.ac.ruhuna.fot.ams.api.controller.LearningActivityController;
 import lk.ac.ruhuna.fot.ams.api.controller.MedicalController;
 import lk.ac.ruhuna.fot.ams.api.controller.UserController;
+import lk.ac.ruhuna.fot.ams.api.controller.AssessmentController;
+import lk.ac.ruhuna.fot.ams.api.controller.MarksController;
+import lk.ac.ruhuna.fot.ams.api.controller.EligibilityController;
+import lk.ac.ruhuna.fot.ams.api.controller.GpaController;
+import lk.ac.ruhuna.fot.ams.api.controller.ReportController;
+import lk.ac.ruhuna.fot.ams.api.controller.ResultController;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.AppButton;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.MainFrame;
@@ -42,6 +48,12 @@ public final class LoginFrame extends JFrame {
     private final AttendanceController attendanceController;
     private final LearningActivityController learningActivityController;
     private final MedicalController medicalController;
+    private final AssessmentController assessmentController;
+    private final MarksController marksController;
+    private final EligibilityController eligibilityController;
+    private final GpaController gpaController;
+    private final ReportController reportController;
+    private final ResultController resultController;
     private final JTextField usernameField = new JTextField(20);
     private final JPasswordField passwordField = new JPasswordField(20);
     private final JLabel messageLabel = new JLabel(" ");
@@ -52,6 +64,9 @@ public final class LoginFrame extends JFrame {
                       CourseController courseController, TimetableController timetableController,
                       ContentController contentController, AttendanceController attendanceController,
                       LearningActivityController learningActivityController, MedicalController medicalController,
+                      AssessmentController assessmentController, MarksController marksController,
+                      EligibilityController eligibilityController, GpaController gpaController,
+                      ReportController reportController, ResultController resultController,
                       ApplicationErrorHandler errorHandler) {
         super("Academic Management System - Login");
         this.authController = authController;
@@ -64,6 +79,10 @@ public final class LoginFrame extends JFrame {
         this.attendanceController = attendanceController;
         this.learningActivityController = learningActivityController;
         this.medicalController = medicalController;
+        this.assessmentController = assessmentController; this.marksController = marksController;
+        this.eligibilityController = eligibilityController; this.gpaController = gpaController;
+        this.reportController = reportController;
+        this.resultController = resultController;
         this.errorHandler = errorHandler;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setContentPane(createContent());
@@ -171,10 +190,13 @@ public final class LoginFrame extends JFrame {
         dispose();
         new MainFrame(session, dashboardController, userController, profileController,
                 courseController, timetableController, contentController, attendanceController,
-                learningActivityController, medicalController, errorHandler,
+                learningActivityController, medicalController, assessmentController, marksController,
+                eligibilityController, gpaController, reportController, resultController, errorHandler,
                 () -> new LoginFrame(authController, dashboardController, userController,
                         profileController, courseController, timetableController, contentController,
-                        attendanceController, learningActivityController, medicalController, errorHandler).setVisible(true))
+                        attendanceController, learningActivityController, medicalController, assessmentController,
+                        marksController, eligibilityController, gpaController, reportController, resultController,
+                        errorHandler).setVisible(true))
                 .setVisible(true);
     }
 
