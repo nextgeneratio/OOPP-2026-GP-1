@@ -86,8 +86,8 @@ public final class GradesGpaScreen extends JPanel {
         Integer semesterId = chooseSemester(results.studentResultsForOffering(
                 actor, selected.studentId(), selected.offeringId()));
         if (semesterId == null) return;
-        showGpa(gpa.calculateSgpa(actor, new GpaController.GpaRequest(selected.studentId(), semesterId)),
-                gpa.calculateCgpa(actor, new GpaController.GpaRequest(selected.studentId(), semesterId)));
+        showGpa(gpa.calculateLecturerSgpa(actor, selected.studentId(), selected.offeringId(), semesterId),
+                gpa.calculateLecturerCgpa(actor, selected.studentId(), selected.offeringId()));
     }
 
     private void calculateOwnGpa() {

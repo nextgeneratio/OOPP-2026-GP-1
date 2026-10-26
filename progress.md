@@ -1,5 +1,12 @@
 # Project Progress
 
+## Final GPA policy and acceptance update — 2026-10-26
+- Verified the requested baseline: branch `Amjad` is at `613878a5ed08306ceef5c6d2868b1e1e062b605f` and matches `origin/Amjad` after fetch. Existing changes were preserved; no commit, push, database connection, DDL, DML, seed, or migration was performed.
+- Preserved the offering-scoped detailed-result fix. A Lecturer's detail request remains restricted by student and selected assigned offering; the unscoped Lecturer detail path remains denied. Undergraduate result access remains self-only.
+- Corrected the GPA policy: an assigned offering plus that offering's enrolment establishes a Lecturer/student relationship for the SRS-authorised aggregate SGPA/CGPA. The aggregate calculation may include the student's other completed results, but the UI/controller returns only the numeric aggregate; it does not use the GPA flow to disclose unrelated rows or marks. Undergraduate GPA remains self-only.
+- Added `GpaAggregateAuthorizationTest` for a cross-course aggregate under an authorised relationship, denial where the selected offering does not enrol the student, student self-only GPA, and a clear empty-result message. The final `mvn clean package` test execution passed with 64 tests, 0 failures, 0 errors, and 1 skipped isolated-database connectivity test; `git diff --check` passed.
+- Real JDBC persistence and interactive Swing acceptance remain **BLOCKED**: the isolated test credential fields are blank/incomplete. The development `university_management` database was not used as a fallback. The canonical schema already includes the medical/timetable audit columns, so the corresponding migration is not needed for this code-only change.
+
 ## Final integration audit — 2026-10-26
 - Verified branch `Amjad` at `8dd0ada82293090cc0147b9ea408f16e7fc1c411`, matching `origin/Amjad` before the local fixes below. Existing work was preserved; no database operation, commit, or push was performed.
 - Confirmed and fixed a result-scope defect: a Lecturer could select one authorised offering then retrieve every finalized result for that student. Lecturer result requests are now offering-scoped in the service and JDBC query. Student self-result access remains a distinct authenticated path.

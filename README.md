@@ -82,3 +82,9 @@ to be reviewed and applied to the target database first. Medical, marks, and
 The four academic screens use controller/service authorization; final Swing and
 persistence acceptance still requires the isolated test database described in
 [docs/testing-strategy.md](./docs/testing-strategy.md).
+
+For results and GPA, a Lecturer selects a student through an offering to which
+they are assigned. Detailed finalized results remain limited to that offering.
+The GPA view deliberately returns only the student's aggregate SGPA/CGPA after
+that relationship is authorised; it does not reveal unrelated course rows or
+marks. An undergraduate can view only their own results and GPA.

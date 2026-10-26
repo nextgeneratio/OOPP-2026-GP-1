@@ -37,18 +37,16 @@ public final class GpaService {
     }
 
     public BigDecimal calculateSgpa(AuthenticatedSession actor, int studentId, int semesterId) {
-        authorizeStudentReport(actor, studentId, ReportType.SGPA_CGPA);
+        authorizeOwnStudentReport(actor, studentId);
         if (semesterId <= 0) {
             throw new lk.ac.ruhuna.fot.ams.error.exception.ValidationException("Semester identifier is invalid.");
         }
-        return calculator.calculateSgpa(toCourseResults(authorizeResultScope(actor,
-                resultDao.findByStudentAndSemester(studentId, semesterId))));
+        return calculator.calculateSgpa(toCourseResults(resultDao.findByStudentAndSemester(studentId, semesterId)));
     }
 
     public BigDecimal calculateCgpa(AuthenticatedSession actor, int studentId) {
-        authorizeStudentReport(actor, studentId, ReportType.SGPA_CGPA);
-        return calculator.calculateCgpa(toCourseResults(authorizeResultScope(actor,
-                resultDao.findByStudent(studentId))), repeatSelectionRule);
+        authorizeOwnStudentReport(actor, studentId);
+        return calculator.calculateCgpa(toCourseResults(resultDao.findByStudent(studentId)), repeatSelectionRule);
     }
 
     public BigDecimal calculateOwnSgpa(AuthenticatedSession actor, int semesterId) {
@@ -59,29 +57,39 @@ public final class GpaService {
         return calculateCgpa(actor, authorization.studentId(actor));
     }
 
-    private void authorizeStudentReport(AuthenticatedSession actor, int studentId, ReportType reportType) {
-        authorization.requireReportAccess(actor, reportType);
-        if (actor.role() == Role.UNDERGRADUATE) {
-            authorization.requireUndergraduateForStudent(actor, studentId);
-        } else if (actor.role() == Role.LECTURER) {
-            authorization.requireLecturerForStudent(actor, studentId);
-        } else {
-            throw new AuthorizationException("You do not have permission to view this GPA report.");
+    /**
+     * The authorised offering establishes a Lecturer's relationship to the student.
+     * Only the aggregate is returned; detailed results remain offering-scoped elsewhere.
+     */
+    public BigDecimal calculateLecturerSgpa(
+            AuthenticatedSession actor, int studentId, int authorisedOfferingId, int semesterId) {
+        authorizeLecturerAggregate(actor, studentId, authorisedOfferingId);
+        if (semesterId <= 0) {
+            throw new lk.ac.ruhuna.fot.ams.error.exception.ValidationException("Semester identifier is invalid.");
         }
+        return calculator.calculateSgpa(toCourseResults(resultDao.findByStudentAndSemester(studentId, semesterId)));
     }
 
-    /** A lecturer may see an aggregate only when every contributing result is from an assigned offering. */
-    private List<StudentResult> authorizeResultScope(
-            AuthenticatedSession actor, List<StudentResult> resultRows) {
-        if (actor.role() == Role.LECTURER) {
-            for (StudentResult result : resultRows) {
-                int offeringId = courseDao.findEnrollment(result.enrollmentId())
-                        .orElseThrow(() -> new AuthorizationException("Result enrolment is unavailable."))
-                        .offeringId();
-                authorization.requireLecturerForOffering(actor, offeringId);
-            }
+    public BigDecimal calculateLecturerCgpa(
+            AuthenticatedSession actor, int studentId, int authorisedOfferingId) {
+        authorizeLecturerAggregate(actor, studentId, authorisedOfferingId);
+        return calculator.calculateCgpa(toCourseResults(resultDao.findByStudent(studentId)), repeatSelectionRule);
+    }
+
+    private void authorizeOwnStudentReport(AuthenticatedSession actor, int studentId) {
+        authorization.requireReportAccess(actor, ReportType.SGPA_CGPA);
+        authorization.requireUndergraduateForStudent(actor, studentId);
+    }
+
+    private void authorizeLecturerAggregate(
+            AuthenticatedSession actor, int studentId, int authorisedOfferingId) {
+        authorization.requireReportAccess(actor, ReportType.SGPA_CGPA);
+        authorization.requireLecturerForOffering(actor, authorisedOfferingId);
+        boolean enrolled = courseDao.findEnrollments(authorisedOfferingId).stream()
+                .anyMatch(enrollment -> enrollment.studentId() == studentId);
+        if (!enrolled) {
+            throw new AuthorizationException("Student is not enrolled in the selected authorised offering.");
         }
-        return resultRows;
     }
 
     private Collection<CourseResult> toCourseResults(List<StudentResult> results) {
