@@ -41,15 +41,21 @@ public final class JdbcCourseResultDao implements CourseResultDao {
 
     @Override
     public List<StudentResult> findByStudent(int studentId) {
-        return findStudentResults(studentId, null);
+        return findStudentResults(studentId, null, null);
     }
 
     @Override
     public List<StudentResult> findByStudentAndSemester(int studentId, int semesterId) {
-        return findStudentResults(studentId, semesterId);
+        return findStudentResults(studentId, semesterId, null);
     }
 
-    private List<StudentResult> findStudentResults(int studentId, Integer semesterId) {
+    @Override
+    public List<StudentResult> findByStudentAndOffering(int studentId, int offeringId) {
+        return findStudentResults(studentId, null, offeringId);
+    }
+
+    private List<StudentResult> findStudentResults(
+            int studentId, Integer semesterId, Integer offeringId) {
         String sql = "SELECT e.enrollment_id, e.student_id, c.course_code, o.semester_id, e.attempt_no, "
                 + "r.credits_counted, r.grade_point, r.completed_at FROM course_results r "
                 + "JOIN course_enrollments e ON e.enrollment_id = r.enrollment_id "
@@ -57,6 +63,7 @@ public final class JdbcCourseResultDao implements CourseResultDao {
                 + "JOIN courses c ON c.course_id = o.course_id "
                 + "WHERE e.student_id = ? AND r.is_current = TRUE AND e.enrollment_status = 'COMPLETED' "
                 + "AND (? IS NULL OR o.semester_id = ?) "
+                + "AND (? IS NULL OR o.offering_id = ?) "
                 + "ORDER BY r.completed_at, e.attempt_no";
         return jdbc.query(sql, statement -> {
             statement.setInt(1, studentId);
@@ -66,6 +73,13 @@ public final class JdbcCourseResultDao implements CourseResultDao {
             } else {
                 statement.setInt(2, semesterId);
                 statement.setInt(3, semesterId);
+            }
+            if (offeringId == null) {
+                statement.setNull(4, java.sql.Types.INTEGER);
+                statement.setNull(5, java.sql.Types.INTEGER);
+            } else {
+                statement.setInt(4, offeringId);
+                statement.setInt(5, offeringId);
             }
         }, result -> new StudentResult(
                 result.getInt("enrollment_id"), result.getInt("student_id"),

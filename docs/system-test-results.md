@@ -1,5 +1,14 @@
 # Final System Test Results
 
+## Final integration audit update — 2026-10-26
+
+**Branch/baseline:** `Amjad` / `8dd0ada82293090cc0147b9ea408f16e7fc1c411`; subsequent fixes are local and uncommitted as requested.
+
+- Fixed a cross-course result disclosure risk: a Lecturer's selected offering now reaches an offering-scoped result query, rather than fetching every finalized result for that student. GPA aggregates validate every contributing enrolment's offering scope before calculating.
+- `AcademicResultScopeTest` verifies Lecturer scoped access, denial of the obsolete unscoped Lecturer path, and student self-access. `mvn test` passed: 60 tests, 0 failures, 0 errors, 1 skipped.
+- The canonical schema includes the prior `rejection_reason` and `created_by_user_id` fields. No migration is required for this code-only fix and no database was changed.
+- BLOCKED: isolated JDBC and real Swing acceptance. The local `university_management_test` credential fields are blank; no application was launched against the development database. There are no new screenshots or GUI-evidence artifacts.
+
 ## Swing screen implementation update — 2026-10-26
 
 **Branch/baseline:** `Amjad` / `fbfec84298bae221b21069145b6f205be3f0072a`. The changes below are intentionally uncommitted because this task did not authorize a commit or push.

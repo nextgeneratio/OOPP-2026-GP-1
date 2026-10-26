@@ -57,6 +57,12 @@ public final class ResultController {
                 .map(StudentResultResponse::from).toList());
     }
 
+    public ApiResponse<List<StudentResultResponse>> studentResultsForOffering(
+            AuthenticatedSession actor, int studentId, int offeringId) {
+        return support.execute(offeringId, () -> service.resultsForStudentInOffering(actor, studentId, offeringId)
+                .stream().map(StudentResultResponse::from).toList());
+    }
+
     public ApiResponse<List<StudentResultResponse>> currentStudentResults(AuthenticatedSession actor) {
         return support.execute(() -> service.resultsForCurrentStudent(actor).stream()
                 .map(StudentResultResponse::from).toList());

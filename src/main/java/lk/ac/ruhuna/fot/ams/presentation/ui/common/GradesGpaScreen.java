@@ -49,11 +49,13 @@ public final class GradesGpaScreen extends JPanel {
     }
 
     private void viewResults() {
-        Integer studentId = selectStudentForLecturer("View finalized results");
         if (actor.role() == Role.UNDERGRADUATE) {
             showResults(results.currentStudentResults(actor));
-        } else if (studentId != null) {
-            showResults(results.studentResults(actor, studentId));
+            return;
+        }
+        LecturerSelection selected = selectStudentForLecturer("View finalized results");
+        if (selected != null) {
+            showResults(results.studentResultsForOffering(actor, selected.studentId(), selected.offeringId()));
         }
     }
 
@@ -79,12 +81,13 @@ public final class GradesGpaScreen extends JPanel {
             calculateOwnGpa();
             return;
         }
-        Integer studentId = selectStudentForLecturer("View calculated GPA");
-        if (studentId == null) return;
-        Integer semesterId = chooseSemester(results.studentResults(actor, studentId));
+        LecturerSelection selected = selectStudentForLecturer("View calculated GPA");
+        if (selected == null) return;
+        Integer semesterId = chooseSemester(results.studentResultsForOffering(
+                actor, selected.studentId(), selected.offeringId()));
         if (semesterId == null) return;
-        showGpa(gpa.calculateSgpa(actor, new GpaController.GpaRequest(studentId, semesterId)),
-                gpa.calculateCgpa(actor, new GpaController.GpaRequest(studentId, semesterId)));
+        showGpa(gpa.calculateSgpa(actor, new GpaController.GpaRequest(selected.studentId(), semesterId)),
+                gpa.calculateCgpa(actor, new GpaController.GpaRequest(selected.studentId(), semesterId)));
     }
 
     private void calculateOwnGpa() {
@@ -124,7 +127,7 @@ public final class GradesGpaScreen extends JPanel {
         info("SGPA: " + sgpa.data().value() + "\nCGPA: " + cgpa.data().value(), "Grades & GPA");
     }
 
-    private Integer selectStudentForLecturer(String title) {
+    private LecturerSelection selectStudentForLecturer(String title) {
         if (actor.role() != Role.LECTURER) return null;
         var offers = courses.offeringViewsForActor(actor);
         if (!offers.successful()) {
@@ -150,7 +153,8 @@ public final class GradesGpaScreen extends JPanel {
             error("Choose a student enrolment.");
             return null;
         }
-        return selected.studentId();
+        OfferingView selectedOffering = (OfferingView) offering.getSelectedItem();
+        return new LecturerSelection(selected.studentId(), selectedOffering.offering().id());
     }
 
     private boolean loadResultEnrollments(JComboBox<EnrollmentRow> box, OfferingView offering) {
@@ -205,4 +209,6 @@ public final class GradesGpaScreen extends JPanel {
     private void error(String message) {
         JOptionPane.showMessageDialog(this, message, "Grades & GPA", JOptionPane.ERROR_MESSAGE);
     }
+
+    private record LecturerSelection(int studentId, int offeringId) { }
 }

@@ -38,4 +38,6 @@ public interface CourseResultDao {
     List<StudentResult> findByStudent(int studentId);
 
     List<StudentResult> findByStudentAndSemester(int studentId, int semesterId);
+
+    List<StudentResult> findByStudentAndOffering(int studentId, int offeringId);
 }

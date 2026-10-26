@@ -1,5 +1,12 @@
 # Project Progress
 
+## Final integration audit — 2026-10-26
+- Verified branch `Amjad` at `8dd0ada82293090cc0147b9ea408f16e7fc1c411`, matching `origin/Amjad` before the local fixes below. Existing work was preserved; no database operation, commit, or push was performed.
+- Confirmed and fixed a result-scope defect: a Lecturer could select one authorised offering then retrieve every finalized result for that student. Lecturer result requests are now offering-scoped in the service and JDBC query. Student self-result access remains a distinct authenticated path.
+- GPA calculation now verifies every contributing finalized result belongs to an offering assigned to the Lecturer; it refuses the aggregate if any source result is outside scope. This avoids leaking an unrelated course through SGPA/CGPA.
+- Added `AcademicResultScopeTest` covering scoped Lecturer lookup, rejected unscoped Lecturer lookup, and student self-access. Latest automated run: 60 tests, 0 failures/errors, 1 skipped isolated-DB connectivity test.
+- The canonical schema already contains `medical_records.rejection_reason` and `timetables.created_by_user_id`; no migration is required for these code-only fixes. The ignored test credentials remain blank, so GUI and JDBC persistence acceptance are BLOCKED and the development database was untouched.
+
 ## Missing Swing screens — implementation update — 2026-10-26
 - Baseline commit remains `fbfec84298bae221b21069145b6f205be3f0072a` on `Amjad`; this task has uncommitted local implementation changes only. No reset, commit, push, schema change, seed, migration, or live-database access was performed.
 - Fixed the UI root cause by explicitly wiring assessment, marks, eligibility, GPA, report, and result controllers from `ApplicationComponents` through `Application`, `LoginFrame`, and `MainFrame`.

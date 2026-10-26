@@ -71,12 +71,14 @@ constraint, and existing batch/timetable rows otherwise default to level 1.
 The shared shell includes role-specific dashboards, administrator user/student
 account management, and self-service profiles/password changes. Course
 management, course offering lookup, level/semester timetables, course materials,
-MCQ quizzes, assignment submission, and attendance have role-gated workflows.
+MCQ quizzes, assignment submission, attendance, assessments/marks, eligibility,
+results/GPA, and reports have role-gated workflows.
 Quiz submissions are one-attempt per student, server-scored, and password checked;
 assignment uploads allow PDF/Office/text/image files up to 10 MB, with updates
-allowed before the deadline. Use “My Course Offerings” to look up offering IDs
-for these screens. These database-backed workflows require
+allowed before the deadline. Use “Course Offerings” to view authorised offerings.
+These database-backed workflows require
 [academic-workflow-compatibility.sql](./src/main/resources/db/academic-workflow-compatibility.sql)
 to be reviewed and applied to the target database first. Medical, marks, and
-report screens remain outside this workflow integration; see [progress.md](./progress.md)
-and [docs/system-test-results.md](./docs/system-test-results.md).
+The four academic screens use controller/service authorization; final Swing and
+persistence acceptance still requires the isolated test database described in
+[docs/testing-strategy.md](./docs/testing-strategy.md).

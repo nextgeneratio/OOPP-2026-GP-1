@@ -109,12 +109,17 @@ public final class AcademicResultService {
         authorization.requireReportAccess(actor, ReportType.GRADES_COURSE_RESULTS);
         if (actor.role() == Role.UNDERGRADUATE) {
             authorization.requireUndergraduateForStudent(actor, studentId);
-        } else if (actor.role() == Role.LECTURER) {
-            authorization.requireLecturerForStudent(actor, studentId);
         } else {
-            throw new AuthorizationException("You do not have permission to view course results.");
+            throw new AuthorizationException("Lecturer result requests must be scoped to a course offering.");
         }
         return resultDao.findByStudent(studentId);
+    }
+
+    public List<CourseResultDao.StudentResult> resultsForStudentInOffering(
+            AuthenticatedSession actor, int studentId, int offeringId) {
+        authorization.requireReportAccess(actor, ReportType.GRADES_COURSE_RESULTS);
+        authorization.requireLecturerForOffering(actor, offeringId);
+        return resultDao.findByStudentAndOffering(studentId, offeringId);
     }
 
     public List<CourseResultDao.StudentResult> resultsForCurrentStudent(AuthenticatedSession actor) {
