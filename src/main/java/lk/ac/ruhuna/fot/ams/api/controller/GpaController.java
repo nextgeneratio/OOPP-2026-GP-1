@@ -31,4 +31,12 @@ public final class GpaController {
         return support.execute(request, () -> new GpaResponse(
                 service.calculateCgpa(actor, request.studentId())));
     }
+
+    public ApiResponse<GpaResponse> calculateOwnSgpa(AuthenticatedSession actor, int semesterId) {
+        return support.execute(semesterId, () -> new GpaResponse(service.calculateOwnSgpa(actor, semesterId)));
+    }
+
+    public ApiResponse<GpaResponse> calculateOwnCgpa(AuthenticatedSession actor) {
+        return support.execute(() -> new GpaResponse(service.calculateOwnCgpa(actor)));
+    }
 }

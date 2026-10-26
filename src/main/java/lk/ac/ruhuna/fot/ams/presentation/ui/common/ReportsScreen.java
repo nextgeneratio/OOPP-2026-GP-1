@@ -19,6 +19,7 @@ import lk.ac.ruhuna.fot.ams.api.controller.ReportController;
 import lk.ac.ruhuna.fot.ams.business.service.CourseService.OfferingView;
 import lk.ac.ruhuna.fot.ams.business.service.ReportService.StudentMarksReport;
 import lk.ac.ruhuna.fot.ams.data.dao.CourseDao.EnrollmentRow;
+import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
 /** Generates only the reports exposed by {@link ReportController}. */
@@ -48,10 +49,14 @@ public final class ReportsScreen extends JPanel {
         studentMarks.addActionListener(event -> studentMarks());
         actions.add(batchAttendance);
         actions.add(studentAttendance);
-        actions.add(studentMarks);
-        add(actions, BorderLayout.CENTER);
-        add(new JScrollPane(new JTable(tableModel)), BorderLayout.SOUTH);
-        tableModel.setColumnIdentifiers(new Object[] {"Report"});
+        if (actor.role() == Role.LECTURER) actions.add(studentMarks);
+        JTable table = new JTable(tableModel);
+        table.setFillsViewportHeight(true);
+        JPanel body = new JPanel(new BorderLayout(8, 8));
+        body.add(actions, BorderLayout.NORTH);
+        body.add(new JScrollPane(table), BorderLayout.CENTER);
+        add(body, BorderLayout.CENTER);
+        tableModel.setColumnIdentifiers(new Object[] {"No report generated"});
     }
 
     private void batchAttendance() {
@@ -67,6 +72,7 @@ public final class ReportsScreen extends JPanel {
         response.data().forEach(report -> tableModel.addRow(new Object[] {report.studentId(),
                 report.enrollmentId(), report.sessions().size(), report.sessions().stream()
                         .filter(session -> session.present()).count()}));
+        showEmptyStateIfNeeded("No enrolments were found for this offering.");
     }
 
     private void studentAttendance() {
@@ -80,6 +86,7 @@ public final class ReportsScreen extends JPanel {
         tableModel.setDataVector(new Object[0][0], new Object[] {"Date", "Component", "Present"});
         response.data().sessions().forEach(session -> tableModel.addRow(new Object[] {
                 session.sessionDate(), session.componentType(), session.present() ? "Present" : "Absent"}));
+        showEmptyStateIfNeeded("No attendance sessions were found for this student.");
     }
 
     private void studentMarks() {
@@ -106,6 +113,7 @@ public final class ReportsScreen extends JPanel {
             tableModel.addRow(new Object[] {assessment.name(), assessment.type(), assessment.weight(),
                     assessment.caComponent() ? "Yes" : "No", score});
         });
+        showEmptyStateIfNeeded("No assessment plan is available for this offering.");
     }
 
     private Selection chooseFilters(boolean studentRequired) {
@@ -114,11 +122,17 @@ public final class ReportsScreen extends JPanel {
             error(offerings.error().message());
             return Selection.empty();
         }
+        if (offerings.data().isEmpty()) {
+            info("No reportable course offerings are available for your role.");
+            return Selection.empty();
+        }
         JComboBox<OfferingView> offeringBox = offeringBox(offerings.data());
         JComboBox<EnrollmentRow> studentBox = new JComboBox<>();
         offeringBox.addActionListener(event -> loadStudents(studentBox,
                 (OfferingView) offeringBox.getSelectedItem()));
-        loadStudents(studentBox, (OfferingView) offeringBox.getSelectedItem());
+        if (studentRequired && !loadStudents(studentBox, (OfferingView) offeringBox.getSelectedItem())) {
+            return Selection.empty();
+        }
         JPanel form = new JPanel(new GridLayout(0, 2, 8, 8));
         form.add(new JLabel("Course offering"));
         form.add(offeringBox);
@@ -147,11 +161,18 @@ public final class ReportsScreen extends JPanel {
         return box;
     }
 
-    private void loadStudents(JComboBox<EnrollmentRow> box, OfferingView offering) {
+    private boolean loadStudents(JComboBox<EnrollmentRow> box, OfferingView offering) {
         box.removeAllItems();
-        if (offering == null) return;
-        var response = attendance.activeEnrollments(actor, offering.offering().id());
-        if (!response.successful()) return;
+        if (offering == null) return false;
+        var response = reports.enrollmentsForReport(actor, offering.offering().id());
+        if (!response.successful()) {
+            error(response.error().message());
+            return false;
+        }
+        if (response.data().isEmpty()) {
+            info("No enrolments are available for this report filter.");
+            return false;
+        }
         response.data().forEach(box::addItem);
         box.setRenderer(new DefaultListCellRenderer() {
             @Override public java.awt.Component getListCellRendererComponent(JList<?> list, Object value,
@@ -163,6 +184,17 @@ public final class ReportsScreen extends JPanel {
                 return this;
             }
         });
+        return true;
+    }
+
+    private void showEmptyStateIfNeeded(String message) {
+        if (tableModel.getRowCount() == 0) {
+            tableModel.addRow(new Object[] {message});
+        }
+    }
+
+    private void info(String message) {
+        JOptionPane.showMessageDialog(this, message, "Reports", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void error(String message) {

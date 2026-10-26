@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.List;
 import lk.ac.ruhuna.fot.ams.business.service.AcademicResultService;
 import lk.ac.ruhuna.fot.ams.data.dao.CourseResultDao.ResultSnapshot;
+import lk.ac.ruhuna.fot.ams.data.dao.CourseDao.EnrollmentRow;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
 public final class ResultController {
@@ -54,5 +55,15 @@ public final class ResultController {
             AuthenticatedSession actor, int studentId) {
         return support.execute(studentId, () -> service.resultsForStudent(actor, studentId).stream()
                 .map(StudentResultResponse::from).toList());
+    }
+
+    public ApiResponse<List<StudentResultResponse>> currentStudentResults(AuthenticatedSession actor) {
+        return support.execute(() -> service.resultsForCurrentStudent(actor).stream()
+                .map(StudentResultResponse::from).toList());
+    }
+
+    public ApiResponse<List<EnrollmentRow>> resultEnrollmentsForOffering(
+            AuthenticatedSession actor, int offeringId) {
+        return support.execute(offeringId, () -> service.resultEnrollmentsForOffering(actor, offeringId));
     }
 }

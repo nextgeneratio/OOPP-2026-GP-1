@@ -116,4 +116,14 @@ public final class AcademicResultService {
         }
         return resultDao.findByStudent(studentId);
     }
+
+    public List<CourseResultDao.StudentResult> resultsForCurrentStudent(AuthenticatedSession actor) {
+        return resultsForStudent(actor, authorization.studentId(actor));
+    }
+
+    public List<CourseDao.EnrollmentRow> resultEnrollmentsForOffering(
+            AuthenticatedSession actor, int offeringId) {
+        authorization.requireLecturerForOffering(actor, offeringId);
+        return courseDao.findEnrollments(offeringId);
+    }
 }

@@ -45,6 +45,14 @@ public final class GpaService {
         return calculator.calculateCgpa(toCourseResults(resultDao.findByStudent(studentId)), repeatSelectionRule);
     }
 
+    public BigDecimal calculateOwnSgpa(AuthenticatedSession actor, int semesterId) {
+        return calculateSgpa(actor, authorization.studentId(actor), semesterId);
+    }
+
+    public BigDecimal calculateOwnCgpa(AuthenticatedSession actor) {
+        return calculateCgpa(actor, authorization.studentId(actor));
+    }
+
     private void authorizeStudentReport(AuthenticatedSession actor, int studentId, ReportType reportType) {
         authorization.requireReportAccess(actor, reportType);
         if (actor.role() == Role.UNDERGRADUATE) {

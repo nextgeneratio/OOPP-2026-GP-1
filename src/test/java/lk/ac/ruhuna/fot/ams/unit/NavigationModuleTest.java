@@ -17,11 +17,11 @@ class NavigationModuleTest {
     }
 
     @Test
-    void adminCannotSeeSensitiveAssessmentModulesButCanReviewMedicalRequests() {
+    void adminCannotSeeAcademicReportsOrSensitiveAssessmentModulesButCanReviewMedicalRequests() {
         assertThat(NavigationModule.forRole(Role.ADMIN)).contains(NavigationModule.USER_MANAGEMENT,
                 NavigationModule.STUDENT_MANAGEMENT, NavigationModule.COURSE_MANAGEMENT,
-                NavigationModule.REPORTS, NavigationModule.MEDICAL)
-                .doesNotContain(NavigationModule.ASSESSMENTS_MARKS);
+                NavigationModule.MEDICAL)
+                .doesNotContain(NavigationModule.ASSESSMENTS_MARKS, NavigationModule.REPORTS);
     }
 
     @Test
@@ -34,7 +34,8 @@ class NavigationModuleTest {
     @Test
     void technicalOfficerCanManageCoursesAndMedicalButNotAttendance() {
         assertThat(NavigationModule.forRole(Role.TECHNICAL_OFFICER)).contains(NavigationModule.COURSE_MANAGEMENT,
-                NavigationModule.MEDICAL, NavigationModule.TIMETABLE, NavigationModule.NOTICES)
+                NavigationModule.MEDICAL, NavigationModule.TIMETABLE, NavigationModule.NOTICES,
+                NavigationModule.REPORTS)
                 .doesNotContain(NavigationModule.ATTENDANCE, NavigationModule.ASSESSMENTS_MARKS,
                         NavigationModule.COURSE_MATERIALS);
     }

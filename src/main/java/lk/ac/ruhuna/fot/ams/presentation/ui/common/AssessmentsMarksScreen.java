@@ -47,6 +47,7 @@ public final class AssessmentsMarksScreen extends JPanel {
     private JComboBox<OfferingView> offeringBox() {
         var response = courses.offeringViewsForActor(actor);
         if (!response.successful()) throw new IllegalArgumentException(response.error().message());
+        if (response.data().isEmpty()) throw new IllegalArgumentException("No assigned course offerings are available.");
         JComboBox<OfferingView> box = new JComboBox<>(response.data().toArray(OfferingView[]::new));
         box.setRenderer(new javax.swing.DefaultListCellRenderer() {
             @Override public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,
@@ -70,8 +71,22 @@ public final class AssessmentsMarksScreen extends JPanel {
         for (String line : plan.getText().lines().map(String::trim).filter(s -> !s.isEmpty()).toList()) {
             String[] part = line.split("\\|", -1);
             if (part.length != 4) throw new IllegalArgumentException("Each assessment needs name|type|weight|CA.");
+            if (!"true".equalsIgnoreCase(part[3].trim()) && !"false".equalsIgnoreCase(part[3].trim())) {
+                throw new IllegalArgumentException("CA must be explicitly true or false.");
+            }
+            try {
+                lk.ac.ruhuna.fot.ams.domain.enums.AssessmentType.valueOf(part[1].trim());
+            } catch (IllegalArgumentException invalidType) {
+                throw new IllegalArgumentException("Assessment type is invalid: " + part[1].trim());
+            }
+            BigDecimal weight;
+            try {
+                weight = new BigDecimal(part[2].trim());
+            } catch (NumberFormatException invalidWeight) {
+                throw new IllegalArgumentException("Assessment weight must be numeric.");
+            }
             rows.add(new AssessmentRow(0, selected.offering().id(), part[0].trim(), part[1].trim(),
-                    new BigDecimal(part[2].trim()), Boolean.parseBoolean(part[3].trim())));
+                    weight, Boolean.parseBoolean(part[3].trim())));
         }
         show(assessments.publishPlan(actor, new AssessmentController.PublishPlanRequest(selected.offering().id(), rows)),
                 "Assessment plan published.");
@@ -108,6 +123,8 @@ public final class AssessmentsMarksScreen extends JPanel {
         var rosterResult = attendance.activeEnrollments(actor, selected.offering().id());
         if (!assessmentResult.successful()) { error(assessmentResult.error().message()); return; }
         if (!rosterResult.successful()) { error(rosterResult.error().message()); return; }
+        if (assessmentResult.data().isEmpty()) { error("Publish an assessment plan before entering marks."); return; }
+        if (rosterResult.data().isEmpty()) { error("No active student enrolments are available."); return; }
         JComboBox<AssessmentRow> assessmentBox = new JComboBox<>(assessmentResult.data().toArray(AssessmentRow[]::new));
         assessmentBox.setRenderer(new javax.swing.DefaultListCellRenderer() {
             @Override public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,

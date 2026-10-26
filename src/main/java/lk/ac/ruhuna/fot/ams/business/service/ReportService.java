@@ -78,6 +78,19 @@ public final class ReportService {
                 assessmentDao.findMarks(offeringId, enrollmentId));
     }
 
+    /** Lists report candidates with read-only report scope, not attendance-management scope. */
+    public List<EnrollmentRow> enrollmentsForReport(AuthenticatedSession actor, int offeringId) {
+        authorization.requireReportAccess(actor, ReportType.STUDENT_ATTENDANCE);
+        requireOfferingScope(actor, offeringId, actor != null && actor.role() == Role.UNDERGRADUATE
+                ? authorization.studentId(actor) : null);
+        List<EnrollmentRow> enrollments = courseDao.findEnrollments(offeringId);
+        if (actor.role() == Role.UNDERGRADUATE) {
+            int studentId = authorization.studentId(actor);
+            return enrollments.stream().filter(enrollment -> enrollment.studentId() == studentId).toList();
+        }
+        return enrollments;
+    }
+
     private void requireOfferingScope(AuthenticatedSession actor, int offeringId, Integer studentId) {
         if (actor == null) {
             throw new AuthorizationException("You must sign in to access this report.");

@@ -21,7 +21,7 @@ public enum NavigationModule {
     GRADES_GPA("Grades & GPA", Role.LECTURER, Role.UNDERGRADUATE),
     TIMETABLE("Timetable", Role.ADMIN, Role.LECTURER, Role.TECHNICAL_OFFICER, Role.UNDERGRADUATE),
     NOTICES("Notices", Role.values()),
-    REPORTS("Reports", Role.ADMIN, Role.LECTURER, Role.TECHNICAL_OFFICER),
+    REPORTS("Reports", Role.LECTURER, Role.TECHNICAL_OFFICER),
     PROFILE("Profile", Role.values());
 
     private final String label;
