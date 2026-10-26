@@ -11,6 +11,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JFileChooser;
 import lk.ac.ruhuna.fot.ams.api.controller.ApiResponse;
 import lk.ac.ruhuna.fot.ams.api.controller.MedicalController;
 import lk.ac.ruhuna.fot.ams.data.dao.MedicalDao.MedicalRow;
@@ -18,7 +19,7 @@ import lk.ac.ruhuna.fot.ams.domain.enums.ApprovalStatus;
 import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
-/** Medical records screen. Technical officers create and decide records; other roles may view scoped records. */
+/** Medical request screen. Students submit their own PDF proof; reviewers decide scoped requests. */
 public final class MedicalScreen extends JPanel {
     private final AuthenticatedSession actor;
     private final MedicalController medical;
@@ -31,15 +32,21 @@ public final class MedicalScreen extends JPanel {
         add(new JLabel("<html><h2>Medical records</h2>Approved medicals are considered when attendance eligibility is calculated.</html>"),
                 BorderLayout.NORTH);
         JPanel actions = new JPanel(new GridLayout(0, 2, 10, 10));
-        addButton(actions, "View student medicals", this::viewRecords);
-        if (actor.role() == Role.TECHNICAL_OFFICER) {
-            addButton(actions, "Record medical", this::recordMedical);
+        addButton(actions, actor.role() == Role.UNDERGRADUATE ? "View my requests" : "View student requests", this::viewRecords);
+        if (actor.role() == Role.UNDERGRADUATE) {
+            addButton(actions, "Submit medical request (PDF proof)", this::recordMedical);
+        }
+        if (actor.role() == Role.TECHNICAL_OFFICER || actor.role() == Role.ADMIN) {
             addButton(actions, "Approve or reject medical", this::decideMedical);
         }
         add(actions, BorderLayout.CENTER);
     }
 
     private void viewRecords() {
+        if (actor.role() == Role.UNDERGRADUATE) {
+            showRecords(medical.findForCurrentStudent(actor));
+            return;
+        }
         JTextField student = field();
         JTextField offering = new JTextField("optional");
         if (!form("View medical records", new String[]{"Student ID", "Offering ID (optional)"}, student, offering)) return;
@@ -47,6 +54,10 @@ public final class MedicalScreen extends JPanel {
                 ? null : integer(offering);
         ApiResponse<java.util.List<MedicalRow>> response = medical.findForStudent(actor,
                 new MedicalController.MedicalSearchRequest(integer(student), offeringId));
+        showRecords(response);
+    }
+
+    private void showRecords(ApiResponse<java.util.List<MedicalRow>> response) {
         if (!response.successful()) { error(response.error().message()); return; }
         JTextArea output = new JTextArea(14, 70);
         output.setEditable(false);
@@ -59,22 +70,24 @@ public final class MedicalScreen extends JPanel {
     }
 
     private void recordMedical() {
-        JTextField student = field(); JTextField offering = new JTextField("optional");
+        JTextField offering = new JTextField("optional");
         JTextField medicalDate = new JTextField(LocalDate.now().toString()); JTextField start = field(); JTextField end = field();
-        JTextArea reason = new JTextArea(4, 25); JTextField evidence = new JTextField("optional evidence reference");
+        JTextArea reason = new JTextArea(4, 25);
         JPanel panel = new JPanel(new GridLayout(0, 2, 8, 8));
-        Object[] items = {"Student ID", student, "Offering ID (optional)", offering, "Medical date", medicalDate,
-                "Start date", start, "End date", end, "Reason", new JScrollPane(reason), "Evidence reference", evidence};
+        Object[] items = {"Offering ID (optional)", offering, "Medical date", medicalDate,
+                "Start date", start, "End date", end, "Reason", new JScrollPane(reason)};
         for (int i = 0; i < items.length; i += 2) { panel.add(new JLabel((String) items[i])); panel.add((java.awt.Component) items[i + 1]); }
         if (JOptionPane.showConfirmDialog(this, panel, "Record medical", JOptionPane.OK_CANCEL_OPTION,
                 JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) return;
         Integer offeringId = offering.getText().isBlank() || offering.getText().equals("optional") ? null : integer(offering);
-        String evidenceValue = evidence.getText().startsWith("optional") || evidence.getText().isBlank() ? null : evidence.getText().trim();
-        ApiResponse<?> response = medical.submit(actor, new MedicalRow(0, integer(student), offeringId,
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Select a doctor's PDF certificate (maximum 10 MB)");
+        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
+        ApiResponse<?> response = medical.submitPdf(actor, new MedicalRow(0, 0, offeringId,
                 LocalDate.parse(medicalDate.getText().trim()), LocalDate.parse(start.getText().trim()),
-                LocalDate.parse(end.getText().trim()), reason.getText().trim(), evidenceValue,
-                ApprovalStatus.PENDING, false));
-        show(response, "Medical record saved as pending approval.");
+                LocalDate.parse(end.getText().trim()), reason.getText().trim(), "pending",
+                ApprovalStatus.PENDING, false), chooser.getSelectedFile().toPath());
+        show(response, "Medical request submitted as pending approval.");
     }
 
     private void decideMedical() {

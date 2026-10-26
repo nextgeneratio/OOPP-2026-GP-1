@@ -77,13 +77,7 @@ public final class AttendanceService {
         if (request == null) {
             throw new ValidationException("Attendance session details are required.");
         }
-        if (actor.role() == Role.LECTURER) {
-            authorization.requireLecturerForOffering(actor, request.offeringId());
-        } else if (actor.role() == Role.TECHNICAL_OFFICER) {
-            authorization.requireTechnicalOfficerForOffering(actor, request.offeringId());
-        } else {
-            throw new AuthorizationException("Only an assigned lecturer or technical officer may record attendance.");
-        }
+        authorization.requireLecturerForOffering(actor, request.offeringId());
         if (request.date() == null || request.date().isAfter(LocalDate.now(clock))) {
             throw new ValidationException("Attendance session date cannot be in the future.");
         }
@@ -107,10 +101,8 @@ public final class AttendanceService {
                 || attendanceByEnrollment.values().stream().anyMatch(Objects::isNull)) {
             throw new ValidationException("Attendance must be recorded for every active enrolment exactly once.");
         }
-        Integer officerId = actor.role() == Role.TECHNICAL_OFFICER
-                ? authorization.technicalOfficerId(actor) : null;
-        Integer lecturerId = actor.role() == Role.LECTURER
-                ? authorization.lecturerId(actor) : null;
+        Integer officerId = null;
+        Integer lecturerId = authorization.lecturerId(actor);
         return transactions.execute(connection -> {
             long sessionId = attendanceDao.insertSession(connection,
                     new SessionRow(0, request.offeringId(), request.componentId(), request.date(),
@@ -137,10 +129,8 @@ public final class AttendanceService {
                 .orElseThrow(() -> new ValidationException("Attendance session was not found."));
         if (actor.role() == Role.ADMIN) {
             authorization.requireAdmin(actor);
-        } else if (actor.role() == Role.TECHNICAL_OFFICER) {
-            authorization.requireTechnicalOfficerForOffering(actor, session.offeringId());
         } else {
-            throw new AuthorizationException("Only an administrator or technical officer may revise attendance.");
+            throw new AuthorizationException("Only an administrator may revise attendance.");
         }
         if (courseDao.findEnrollments(session.offeringId()).stream()
                 .noneMatch(enrollment -> enrollment.id() == record.enrollmentId())) {
@@ -195,8 +185,6 @@ public final class AttendanceService {
         }
         if (actor.role() == Role.LECTURER) {
             authorization.requireLecturerForOffering(actor, offeringId);
-        } else if (actor.role() == Role.TECHNICAL_OFFICER) {
-            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
         } else if (actor.role() == Role.UNDERGRADUATE) {
             authorization.requireUndergraduateForOffering(actor, offeringId);
             int studentId = authorization.studentId(actor);
@@ -223,8 +211,6 @@ public final class AttendanceService {
         authorization.requireReportAccess(actor, ReportType.STUDENT_ATTENDANCE);
         if (actor.role() == Role.LECTURER) {
             authorization.requireLecturerForOffering(actor, offeringId);
-        } else if (actor.role() == Role.TECHNICAL_OFFICER) {
-            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
         } else if (actor.role() == Role.UNDERGRADUATE) {
             authorization.requireUndergraduateForStudent(actor, studentId);
         } else {

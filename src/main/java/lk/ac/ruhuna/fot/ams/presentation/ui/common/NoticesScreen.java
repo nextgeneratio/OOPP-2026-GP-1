@@ -18,7 +18,7 @@ import lk.ac.ruhuna.fot.ams.data.dao.ContentDao.NoticeRow;
 import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
-/** Role-aware notice board, with creation restricted to administrators by the service layer. */
+/** Role-aware notice board, with creation restricted to authorised operational roles. */
 public final class NoticesScreen extends JPanel {
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private final AuthenticatedSession actor;
@@ -33,7 +33,7 @@ public final class NoticesScreen extends JPanel {
                 BorderLayout.NORTH);
         JPanel actions = new JPanel(new GridLayout(0, 2, 10, 10));
         addButton(actions, "Refresh notices", this::showNotices);
-        if (actor.role() == Role.ADMIN) {
+        if (actor.role() == Role.ADMIN || actor.role() == Role.TECHNICAL_OFFICER) {
             addButton(actions, "Publish notice", this::publishNotice);
         }
         add(actions, BorderLayout.CENTER);

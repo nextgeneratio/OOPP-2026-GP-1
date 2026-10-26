@@ -11,9 +11,10 @@ import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 public final class TechnicalOfficerDashboard extends RoleDashboard {
     public TechnicalOfficerDashboard(AuthenticatedSession session, DashboardController controller,
               ApplicationErrorHandler errors, Consumer<NavigationModule> navigate) {
-        super("Technical Officer Dashboard", "Attendance, medical and timetable tasks",
+        super("Technical Officer Dashboard", "Course, medical, timetable, notice and report tasks",
                 List.of("Department", "Timetable"),
-                List.of(NavigationModule.ATTENDANCE, NavigationModule.MEDICAL, NavigationModule.TIMETABLE, NavigationModule.REPORTS, NavigationModule.PROFILE),
+                List.of(NavigationModule.COURSE_MANAGEMENT, NavigationModule.COURSE_OFFERINGS, NavigationModule.MEDICAL, NavigationModule.TIMETABLE,
+                        NavigationModule.NOTICES, NavigationModule.REPORTS, NavigationModule.PROFILE),
                 session, controller, errors, navigate);
     }
 }

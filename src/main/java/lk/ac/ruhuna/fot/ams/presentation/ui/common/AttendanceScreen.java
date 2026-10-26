@@ -34,12 +34,12 @@ public final class AttendanceScreen extends JPanel {
                 + "requires a timetable entry on the same weekday. Students can view their own percentage.</html>"),
                 BorderLayout.NORTH);
         JPanel actions = new JPanel(new GridLayout(0, 2, 10, 10));
-        if (actor.role() == Role.LECTURER || actor.role() == Role.TECHNICAL_OFFICER) {
+        if (actor.role() == Role.LECTURER) {
             button(actions, "Record attendance session", this::recordSession);
             button(actions, "List offering sessions", this::listSessions);
             button(actions, "View active enrolment roster", this::listEnrollments);
         }
-        if (actor.role() == Role.ADMIN || actor.role() == Role.TECHNICAL_OFFICER) {
+        if (actor.role() == Role.ADMIN) {
             button(actions, "Revise attendance record", this::reviseRecord);
         }
         if (actor.role() == Role.ADMIN) {

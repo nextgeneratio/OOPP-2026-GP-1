@@ -67,7 +67,7 @@ public final class CourseService {
             CourseRow course,
             List<ComponentRow> components,
             OfferingSetup offeringSetup) {
-        authorization.requireAdmin(actor);
+        requireCourseManager(actor);
         validateCourse(course, components);
         return transactions.execute(connection -> {
             int courseId = Math.toIntExact(courseDao.insertCourse(connection, course));
@@ -133,7 +133,7 @@ public final class CourseService {
     }
 
     public int createOffering(AuthenticatedSession actor, int courseId, OfferingSetup setup) {
-        authorization.requireAdmin(actor);
+        requireCourseManager(actor);
         if (courseId <= 0 || setup == null || setup.batchId() <= 0 || setup.semesterId() <= 0
                 || setup.status() == null || !List.of("OPEN", "CLOSED").contains(setup.status())) {
             throw new ValidationException("Enter a valid course offering.");
@@ -173,7 +173,7 @@ public final class CourseService {
     }
 
     public void assignLecturer(AuthenticatedSession actor, int offeringId, int lecturerId) {
-        authorization.requireAdmin(actor);
+        requireCourseManager(actor);
         if (offeringId <= 0 || lecturerId <= 0) {
             throw new ValidationException("Offering and lecturer identifiers must be valid.");
         }
@@ -228,7 +228,7 @@ public final class CourseService {
     }
 
     public CourseCatalog catalog(AuthenticatedSession actor) {
-        authorization.requireAdmin(actor);
+        requireCourseManager(actor);
         if (actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.ADMIN) {
             List<CourseDao.DepartmentRow> departments = courseDao.findDepartments(false);
             List<CourseDao.BatchRow> batches = departments.stream()
@@ -289,6 +289,11 @@ public final class CourseService {
             audit(connection, actor.userId(), "ENROLLMENT_CREATE", "COURSE_ENROLLMENT", enrollmentId);
             return enrollmentId;
         });
+    }
+
+    private void requireCourseManager(AuthenticatedSession actor) {
+        authorization.requireRole(actor, lk.ac.ruhuna.fot.ams.domain.enums.Role.ADMIN,
+                lk.ac.ruhuna.fot.ams.domain.enums.Role.TECHNICAL_OFFICER);
     }
 
     private int createOffering(

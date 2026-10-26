@@ -114,7 +114,7 @@ public final class ContentService {
     }
 
     public long createNotice(AuthenticatedSession actor, NoticeRow notice) {
-        authorization.requireAdmin(actor);
+        authorization.requireRole(actor, Role.ADMIN, Role.TECHNICAL_OFFICER);
         validateNotice(notice);
         return transactions.execute(connection -> {
             long noticeId = contentDao.insertNotice(connection, notice);

@@ -1,6 +1,7 @@
 package lk.ac.ruhuna.fot.ams.api.controller;
 
 import java.util.List;
+import java.nio.file.Path;
 import java.util.Objects;
 import lk.ac.ruhuna.fot.ams.business.service.MedicalService;
 import lk.ac.ruhuna.fot.ams.data.dao.MedicalDao.MedicalRow;
@@ -29,6 +30,11 @@ public final class MedicalController {
         return support.execute(request, () -> new MedicalIdResponse(service.submit(actor, request)));
     }
 
+    public ApiResponse<MedicalIdResponse> submitPdf(
+            AuthenticatedSession actor, MedicalRow request, Path sourcePdf) {
+        return support.execute(request, () -> new MedicalIdResponse(service.submitWithPdf(actor, request, sourcePdf)));
+    }
+
     public ApiResponse<Void> decide(AuthenticatedSession actor, DecideMedicalRequest request) {
         return support.execute(request, () -> {
             service.decide(actor, request.medicalId(), request.decision());
@@ -40,5 +46,9 @@ public final class MedicalController {
             AuthenticatedSession actor, MedicalSearchRequest request) {
         return support.execute(request, () -> service.findForStudent(
                 actor, request.studentId(), request.offeringId()));
+    }
+
+    public ApiResponse<List<MedicalRow>> findForCurrentStudent(AuthenticatedSession actor) {
+        return support.execute(() -> service.findForCurrentStudent(actor));
     }
 }

@@ -118,12 +118,11 @@ public final class AuthorizationService {
         }
         Role role = session == null ? null : session.role();
         boolean allowed = switch (reportType) {
-            case STUDENT_ATTENDANCE -> role == Role.LECTURER
-                    || role == Role.TECHNICAL_OFFICER || role == Role.UNDERGRADUATE;
-            case BATCH_COURSE_ATTENDANCE -> role == Role.LECTURER || role == Role.TECHNICAL_OFFICER;
+            case STUDENT_ATTENDANCE -> role == Role.LECTURER || role == Role.UNDERGRADUATE;
+            case BATCH_COURSE_ATTENDANCE -> role == Role.LECTURER;
             case CA_FINAL_MARKS, ELIGIBILITY, GRADES_COURSE_RESULTS, SGPA_CGPA ->
                     role == Role.LECTURER || role == Role.UNDERGRADUATE;
-            case MEDICAL_RECORDS -> role == Role.LECTURER
+            case MEDICAL_RECORDS -> role == Role.ADMIN
                     || role == Role.TECHNICAL_OFFICER || role == Role.UNDERGRADUATE;
             case STUDENT_PROFILE -> role == Role.ADMIN || role == Role.LECTURER || role == Role.UNDERGRADUATE;
         };
