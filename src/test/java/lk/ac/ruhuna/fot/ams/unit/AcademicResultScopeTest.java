@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -50,6 +51,14 @@ class AcademicResultScopeTest {
         assertThatThrownBy(() -> service.resultsForStudent(session(Role.LECTURER), 42))
                 .isInstanceOf(AuthorizationException.class);
         verify(resultDao, never()).findByStudent(anyInt());
+    }
+
+    @Test
+    void lecturerCannotRetrieveDetailedResultsFromAnUnassignedOffering() {
+        assertThatThrownBy(() -> service.resultsForStudentInOffering(session(Role.LECTURER), 42, 11))
+                .isInstanceOf(AuthorizationException.class);
+
+        verifyNoInteractions(resultDao);
     }
 
     @Test
