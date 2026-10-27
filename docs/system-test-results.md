@@ -1,12 +1,12 @@
 # Final System Test Results
 
-## Post-GPA-fix audit — 2026-10-26
+## Documentation consistency check — 2026-10-27
 
-**Verified baseline:** pushed `Amjad` commit `e4494beb9d4f6f7c48c9cb992136fa49f3243d20`, matching `origin/Amjad` after fetch with zero divergence. The GPA production changes are already on the remote branch. Only the focused audit tests and this documentation are local/uncommitted; no database action, commit, or push was performed.
+**Verified baseline:** pushed `Amjad` commit `06ead33d2a6aa0a34da3e20f192c7d7d39074f45`, matching `origin/Amjad` after fetch with zero divergence. The GPA production changes, focused audit tests, and prior audit documentation are already on the remote branch. Only this documentation-consistency correction is local/uncommitted; no database action, commit, or push was performed.
 
 - PASS — Detailed Lecturer result retrieval remains offering-scoped end to end: authorization requires the selected assigned offering before the DAO query filters by both student and offering. The old unscoped Lecturer detail operation remains denied; undergraduate detail retrieval remains self-only.
 - PASS — Aggregate GPA authority is intentionally narrower than unrestricted detailed-result access. A Lecturer must be assigned to the selected offering and the student must be enrolled in that offering before any GPA result query executes. The GPA path returns only a numeric SGPA/CGPA value; it does not return unrelated course or mark rows. Undergraduate GPA remains self-only. Completed-result, repeat-attempt, and credit-counting rules remain in the established calculator/DAO path.
-- PASS — Added focused coverage for unassigned Lecturer aggregate/detail denial, no result-DAO access following denied aggregate authorization, successful multi-course Lecturer CGPA, and Undergraduate denial of Lecturer-specific GPA methods. Final `mvn clean package` result: **68 tests, 0 failures, 0 errors, 1 skipped**. `git diff --check` passed.
+- PASS — The current pushed branch includes focused coverage for unassigned Lecturer aggregate/detail denial, no result-DAO access following denied aggregate authorization, successful multi-course Lecturer CGPA, and Undergraduate denial of Lecturer-specific GPA methods. Fresh `mvn clean package` result: **68 tests, 0 failures, 0 errors, 1 skipped**.
 - BLOCKED — `DatabaseConnectivityTest` skips with **"Test database credentials are not configured"** because neither environment credentials nor both fields in the ignored local file are configured for the dedicated `university_management_test` database. Therefore real JDBC/persistence and interactive Swing acceptance were not run; no screenshots or live-dialog evidence exists. The development database was not used as a fallback, and no DDL/DML/seed/migration was run.
 
 ## Final integration audit update — 2026-10-26

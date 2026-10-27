@@ -1,10 +1,10 @@
 # Project Progress
 
-## Post-GPA-fix audit — 2026-10-26
-- Verified branch `Amjad` and `origin/Amjad` both at pushed commit `e4494beb9d4f6f7c48c9cb992136fa49f3243d20`; the branch had no divergence or pre-existing local changes at audit start. The offering-scoped GPA production change is therefore already pushed. This audit adds only local test and documentation updates; it does not commit or push them.
+## Documentation consistency check — 2026-10-27
+- Verified branch `Amjad` and `origin/Amjad` both at current pushed commit `06ead33d2a6aa0a34da3e20f192c7d7d39074f45`, with zero divergence and no pre-existing local changes. The GPA production fix, focused audit tests, and prior audit documentation are already included in this commit. This documentation-only consistency check remains local and uncommitted; it does not commit or push.
 - Confirmed detailed Lecturer results remain restricted by the selected assigned offering, including the JDBC student-and-offering filter, and the obsolete unscoped Lecturer detail method remains denied. Undergraduate result access remains self-only.
 - Confirmed aggregate GPA separately requires Lecturer assignment to the selected offering and that student's enrolment in it before any result DAO lookup. It returns a numeric SGPA/CGPA only; it does not use the GPA flow to disclose unrelated result rows or marks. Undergraduate GPA remains self-only, and repeat/credit rules remain in `GpaCalculator`.
-- Added focused denied-path coverage for unassigned Lecturer aggregate/detail requests, verified no result DAO interaction for denied GPA requests, successful multi-course Lecturer CGPA, and Undergraduate denial of Lecturer-only GPA methods. Final `mvn clean package` passed with 68 tests, 0 failures, 0 errors, and 1 skipped test; `git diff --check` passed.
+- Fresh `mvn clean package` verification passed with 68 tests, 0 failures, 0 errors, and 1 skipped test. The focused audit coverage for unassigned Lecturer aggregate/detail requests, no result-DAO access following denied GPA authorization, multi-course Lecturer CGPA, and Undergraduate denial of Lecturer-only GPA methods is included in the current pushed commit.
 - Real JDBC persistence and interactive Swing acceptance remain **BLOCKED**. `DatabaseConnectivityTest` skips with "Test database credentials are not configured" because the environment and ignored local credential file do not provide both credentials for `university_management_test`. The development `university_management` database was not used as a fallback; no database connection, DDL, DML, seed, or migration was performed.
 
 ## Final integration audit — 2026-10-26
