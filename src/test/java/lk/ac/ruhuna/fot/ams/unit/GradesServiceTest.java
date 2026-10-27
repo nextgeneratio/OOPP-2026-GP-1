@@ -37,7 +37,7 @@ class GradesServiceTest {
     private final AuthorizationScopeLookup scope = mock(AuthorizationScopeLookup.class);
     private final AuthorizationService authorization = new AuthorizationService(scope);
     private final GpaService gpaService = new GpaService(new GpaCalculator(),
-            RepeatSelectionRule.LATEST_COMPLETED_ATTEMPT, resultDao, authorization);
+            RepeatSelectionRule.LATEST_COMPLETED_ATTEMPT, resultDao, courseDao, authorization);
     private final GradesService service = new GradesService(resultDao, courseDao, gpaService, authorization);
 
     private final AuthenticatedSession student = new AuthenticatedSession(10L, "STU001", Role.UNDERGRADUATE, "Student");

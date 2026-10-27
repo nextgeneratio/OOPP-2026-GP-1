@@ -76,7 +76,7 @@ public final class MainFrame extends JFrame {
             case COURSE_MANAGEMENT -> new CourseManagementScreen(session, services.courses());
             case COURSE_OFFERINGS -> new CourseOfferingsScreen(session, services.courses());
             case TIMETABLE -> new TimetableScreen(session, services.timetable());
-            case ATTENDANCE -> new AttendanceScreen(session, services.attendance());
+            case ATTENDANCE -> new AttendanceScreen(session, services.attendance(), services.courses());
             case COURSE_MATERIALS -> buildMaterialsScreen();
             case ASSESSMENTS_MARKS -> new lk.ac.ruhuna.fot.ams.presentation.ui.lecturer.MarksScreen(session, services.marks());
             case ELIGIBILITY -> buildEligibilityScreen();
@@ -91,7 +91,7 @@ public final class MainFrame extends JFrame {
 
     private JComponent buildMaterialsScreen() {
         javax.swing.JTabbedPane tabs = new javax.swing.JTabbedPane();
-        tabs.addTab("Materials", new CourseMaterialsScreen(session, services.content()));
+        tabs.addTab("Materials", new CourseMaterialsScreen(session, services.content(), services.courses()));
         tabs.addTab("Quizzes and assignments", new LearningActivitiesScreen(session, services.learningActivities()));
         return tabs;
     }

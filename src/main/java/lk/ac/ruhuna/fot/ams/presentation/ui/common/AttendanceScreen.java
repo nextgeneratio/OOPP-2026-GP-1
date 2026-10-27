@@ -10,6 +10,10 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JComboBox;
+import javax.swing.JTable;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.DefaultComboBoxModel;
 import lk.ac.ruhuna.fot.ams.api.controller.ApiResponse;
 import lk.ac.ruhuna.fot.ams.api.controller.AttendanceController;
 import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
@@ -52,21 +56,61 @@ public final class AttendanceScreen extends JPanel {
     }
 
     private void recordSession() {
-        JTextField offering = field();
-        JTextField component = field();
+        record OfferingOption(int id, String label) { @Override public String toString() { return label; } }
+        ApiResponse<java.util.List<lk.ac.ruhuna.fot.ams.business.service.CourseService.OfferingView>> available =
+                courses.offeringViewsForActor(actor);
+        if (!available.successful()) { error(available.error().message()); return; }
+        JComboBox<OfferingOption> offering = new JComboBox<>();
+        for (var view : available.data()) offering.addItem(new OfferingOption(view.offering().id(),
+                view.course().code() + " — " + view.course().title() + " (offering " + view.offering().id() + ")"));
+        if (offering.getItemCount() == 0) { error("No assigned course offerings are available."); return; }
+        if (JOptionPane.showConfirmDialog(this, form("Course offering", offering), "Choose course",
+                JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return;
+        OfferingOption selectedOffering = (OfferingOption) offering.getSelectedItem();
+        ApiResponse<lk.ac.ruhuna.fot.ams.business.service.AttendanceService.SessionSetup> setupResponse =
+                attendance.sessionSetup(actor, selectedOffering.id());
+        if (!setupResponse.successful()) { error(setupResponse.error().message()); return; }
+        var setup = setupResponse.data();
+        JComboBox<lk.ac.ruhuna.fot.ams.data.dao.CourseDao.ComponentRow> component =
+                new JComboBox<>(setup.components().toArray(lk.ac.ruhuna.fot.ams.data.dao.CourseDao.ComponentRow[]::new));
+        JComboBox<lk.ac.ruhuna.fot.ams.data.dao.TimetableDao.EntryRow> timetable =
+                new JComboBox<>();
+        Runnable refreshEntries = () -> {
+            var selected = (lk.ac.ruhuna.fot.ams.data.dao.CourseDao.ComponentRow) component.getSelectedItem();
+            timetable.setModel(new DefaultComboBoxModel<>(setup.entries().stream()
+                    .filter(entry -> selected != null && entry.componentId() == selected.id())
+                    .toArray(lk.ac.ruhuna.fot.ams.data.dao.TimetableDao.EntryRow[]::new)));
+        };
+        component.addActionListener(event -> refreshEntries.run());
+        refreshEntries.run();
+        component.setRenderer((list, value, index, selected, focus) -> new JLabel(value == null ? "" : value.type().toString()));
+        timetable.setRenderer((list, value, index, selected, focus) -> new JLabel(value == null ? "" :
+                value.dayOfWeek() + " " + value.start() + "–" + value.end() + " (entry " + value.id() + ")"));
         JTextField date = field(LocalDate.now().toString());
-        JTextField timetableEntry = field();
-        JTextArea marks = new JTextArea(8, 40);
-        marks.setText("Enrollment ID=P\nEnrollment ID=A");
-        JPanel panel = form("Offering ID", offering, "Component ID", component,
-                "Session date yyyy-mm-dd", date, "Timetable entry ID", timetableEntry);
-        panel.add(new JLabel("One active enrolment per line: ID=P or ID=A"));
-        panel.add(new javax.swing.JScrollPane(marks));
+        DefaultTableModel roster = new DefaultTableModel(new Object[]{"Enrolment", "Student", "Name", "Present"}, 0) {
+            @Override public Class<?> getColumnClass(int column) { return column == 3 ? Boolean.class : String.class; }
+            @Override public boolean isCellEditable(int row, int column) { return column == 3; }
+        };
+        setup.roster().forEach(row -> roster.addRow(new Object[]{row.enrollmentId(), row.studentNumber(), row.fullName(), false}));
+        JTable marks = new JTable(roster);
+        JPanel panel = new JPanel(new BorderLayout(8, 8));
+        JPanel fields = form("Course offering", new JLabel(selectedOffering.label()), "Component", component,
+                "Session date yyyy-mm-dd", date, "Timetable entry", timetable);
+        panel.add(fields, BorderLayout.NORTH);
+        panel.add(new javax.swing.JScrollPane(marks), BorderLayout.CENTER);
+        panel.setPreferredSize(new java.awt.Dimension(700, 420));
         if (JOptionPane.showConfirmDialog(this, panel, "Record attendance",
                 JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return;
-        Map<Integer, Boolean> byEnrollment = parseMarks(marks.getText());
-        SessionRow session = new SessionRow(0, integer(offering), integer(component),
-                LocalDate.parse(date.getText().trim()), integer(timetableEntry), null, null);
+        if (component.getSelectedItem() == null || timetable.getSelectedItem() == null) {
+            error("This offering needs a course component and matching timetable entry before attendance can be recorded."); return;
+        }
+        Map<Integer, Boolean> byEnrollment = new HashMap<>();
+        for (int row = 0; row < roster.getRowCount(); row++)
+            byEnrollment.put((Integer) roster.getValueAt(row, 0), (Boolean) roster.getValueAt(row, 3));
+        var selectedComponent = (lk.ac.ruhuna.fot.ams.data.dao.CourseDao.ComponentRow) component.getSelectedItem();
+        var selectedEntry = (lk.ac.ruhuna.fot.ams.data.dao.TimetableDao.EntryRow) timetable.getSelectedItem();
+        SessionRow session = new SessionRow(0, selectedOffering.id(), selectedComponent.id(),
+                LocalDate.parse(date.getText().trim()), selectedEntry.id(), null, null);
         show(attendance.saveSession(actor, new AttendanceController.SaveAttendanceRequest(session, byEnrollment)));
     }
 

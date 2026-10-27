@@ -89,11 +89,20 @@ public final class AttendanceService {
     }
 
     public SessionSetup sessionSetup(AuthenticatedSession actor, int offeringId) {
-        authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+        int departmentId;
+        if (actor != null && actor.role() == Role.LECTURER) {
+            authorization.requireLecturerForOffering(actor, offeringId);
+            departmentId = courseDao.findOfferingSummariesForLecturer(authorization.lecturerId(actor)).stream()
+                    .filter(summary -> summary.offeringId() == offeringId)
+                    .map(CourseDao.OfferingSummary::departmentId).findFirst()
+                    .orElseThrow(() -> new AuthorizationException("You are not assigned to this offering."));
+        } else {
+            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+            departmentId = authorizedDepartmentId(actor);
+        }
         CourseDao.OfferingRow offering = courseDao.findOffering(offeringId)
                 .orElseThrow(() -> new ValidationException("Course offering was not found."));
         List<CourseDao.ComponentRow> components = courseDao.findComponents(offering.courseId());
-        int departmentId = authorizedDepartmentId(actor);
         int level = courseDao.findBatches(departmentId).stream()
                 .filter(batch -> batch.id() == offering.batchId())
                 .map(CourseDao.BatchRow::level).findFirst().orElse(1);

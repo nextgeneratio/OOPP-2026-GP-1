@@ -9,6 +9,7 @@ import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
@@ -220,7 +221,21 @@ public final class MedicalScreen extends JPanel {
                 + record.startDate() + " to " + record.endDate() + ")?\nA decided record cannot be changed.")) {
             return;
         }
-        ApiCall.run(() -> medical.decide(session, new DecideMedicalRequest(record.id(), decision)), ignored -> {
+        String rejectionReason = null;
+        if (decision == ApprovalStatus.REJECTED) {
+            rejectionReason = JOptionPane.showInputDialog(this, "Reason for rejecting this medical record:",
+                    "Reject medical record", JOptionPane.QUESTION_MESSAGE);
+            if (rejectionReason == null) {
+                return;
+            }
+            if (rejectionReason.isBlank()) {
+                say("A reason is required to reject a medical record.", true);
+                return;
+            }
+        }
+        String decisionReason = rejectionReason;
+        ApiCall.run(() -> medical.decide(session,
+                new DecideMedicalRequest(record.id(), decision, decisionReason)), ignored -> {
             say("Medical record " + (decision == ApprovalStatus.APPROVED ? "approved." : "rejected."), false);
             loadRecords();
         }, this::failed);
@@ -243,7 +258,7 @@ public final class MedicalScreen extends JPanel {
         }
         String evidence = evidenceField.getText().isBlank() ? null : evidenceField.getText().trim();
         MedicalRow row = new MedicalRow(0, student.studentId(), offering.offeringId(), medicalDate, start, end,
-                reasonField.getText().trim(), evidence, ApprovalStatus.PENDING, false);
+                reasonField.getText().trim(), evidence, ApprovalStatus.PENDING, false, null);
         submitButton.setEnabled(false);
         ApiCall.run(() -> medical.submit(session, row), saved -> {
             reasonField.setText("");

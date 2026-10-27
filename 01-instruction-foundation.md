@@ -2,7 +2,7 @@
 
 ## Ready-to-paste prompt
 
-You are continuing development of our Java 17+ Swing + MySQL Faculty of Technology Academic Management System in IntelliJ IDEA.
+You are continuing development of our Java 25 LTS+ Swing + MySQL Faculty of Technology Academic Management System in IntelliJ IDEA.
 
 **Read these first:**
 1. The SRS.
@@ -25,7 +25,7 @@ The API layer is an internal desktop application API; do not introduce REST/HTTP
 
 ## Step 1 — Maven and IntelliJ setup
 
-Configure the Maven project for Java 17+.
+Configure the Maven project for Java 25+.
 
 Required dependencies:
 

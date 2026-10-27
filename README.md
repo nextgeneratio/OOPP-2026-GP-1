@@ -1,6 +1,9 @@
 # Faculty of Technology Academic Management System
 
-Java 17+, Swing, Maven, JDBC, and MySQL/MariaDB desktop application.
+Java 25 LTS+, Swing, Maven, JDBC, and MySQL/MariaDB desktop application.
+
+The Maven build targets Java 25. Use a Java 25 JDK to compile and run the
+application.
 
 ## Run the application
 
