@@ -3,6 +3,7 @@ package lk.ac.ruhuna.fot.ams.business.service;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 import lk.ac.ruhuna.fot.ams.business.calculator.GradeCalculator.GradeResult;
 import lk.ac.ruhuna.fot.ams.data.dao.AuditLogDao;
@@ -15,6 +16,7 @@ import lk.ac.ruhuna.fot.ams.error.exception.AuthorizationException;
 import lk.ac.ruhuna.fot.ams.error.exception.BusinessRuleException;
 import lk.ac.ruhuna.fot.ams.error.exception.NotFoundException;
 import lk.ac.ruhuna.fot.ams.security.authorization.AuthorizationService;
+import lk.ac.ruhuna.fot.ams.security.authorization.AuthorizationService.ReportType;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
 public final class AcademicResultService {
@@ -99,5 +101,34 @@ public final class AcademicResultService {
                     "COURSE_RESULT", enrollmentId, LocalDateTime.now(clock)));
             return snapshot;
         });
+    }
+
+    /** Lists finalized results without exposing result records outside the actor's scope. */
+    public List<CourseResultDao.StudentResult> resultsForStudent(
+            AuthenticatedSession actor, int studentId) {
+        authorization.requireReportAccess(actor, ReportType.GRADES_COURSE_RESULTS);
+        if (actor.role() == Role.UNDERGRADUATE) {
+            authorization.requireUndergraduateForStudent(actor, studentId);
+        } else {
+            throw new AuthorizationException("Lecturer result requests must be scoped to a course offering.");
+        }
+        return resultDao.findByStudent(studentId);
+    }
+
+    public List<CourseResultDao.StudentResult> resultsForStudentInOffering(
+            AuthenticatedSession actor, int studentId, int offeringId) {
+        authorization.requireReportAccess(actor, ReportType.GRADES_COURSE_RESULTS);
+        authorization.requireLecturerForOffering(actor, offeringId);
+        return resultDao.findByStudentAndOffering(studentId, offeringId);
+    }
+
+    public List<CourseResultDao.StudentResult> resultsForCurrentStudent(AuthenticatedSession actor) {
+        return resultsForStudent(actor, authorization.studentId(actor));
+    }
+
+    public List<CourseDao.EnrollmentRow> resultEnrollmentsForOffering(
+            AuthenticatedSession actor, int offeringId) {
+        authorization.requireLecturerForOffering(actor, offeringId);
+        return courseDao.findEnrollments(offeringId);
     }
 }

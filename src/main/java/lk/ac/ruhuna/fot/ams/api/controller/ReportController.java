@@ -5,6 +5,7 @@ import java.util.Objects;
 import lk.ac.ruhuna.fot.ams.business.service.ReportService;
 import lk.ac.ruhuna.fot.ams.business.service.ReportService.StudentAttendanceReport;
 import lk.ac.ruhuna.fot.ams.business.service.ReportService.StudentMarksReport;
+import lk.ac.ruhuna.fot.ams.data.dao.CourseDao.EnrollmentRow;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
 public final class ReportController {
@@ -37,5 +38,10 @@ public final class ReportController {
             AuthenticatedSession actor, StudentReportRequest request) {
         return support.execute(request, () -> service.studentMarks(actor, request.studentId(),
                 request.enrollmentId(), request.offeringId()));
+    }
+
+    public ApiResponse<List<EnrollmentRow>> enrollmentsForReport(
+            AuthenticatedSession actor, int offeringId) {
+        return support.execute(offeringId, () -> service.enrollmentsForReport(actor, offeringId));
     }
 }

@@ -1,5 +1,80 @@
 # Final System Test Results
 
+## Documentation consistency check — 2026-10-27
+
+**Verified baseline:** pushed `Amjad` commit `06ead33d2a6aa0a34da3e20f192c7d7d39074f45`, matching `origin/Amjad` after fetch with zero divergence. The GPA production changes, focused audit tests, and prior audit documentation are already on the remote branch. Only this documentation-consistency correction is local/uncommitted; no database action, commit, or push was performed.
+
+- PASS — Detailed Lecturer result retrieval remains offering-scoped end to end: authorization requires the selected assigned offering before the DAO query filters by both student and offering. The old unscoped Lecturer detail operation remains denied; undergraduate detail retrieval remains self-only.
+- PASS — Aggregate GPA authority is intentionally narrower than unrestricted detailed-result access. A Lecturer must be assigned to the selected offering and the student must be enrolled in that offering before any GPA result query executes. The GPA path returns only a numeric SGPA/CGPA value; it does not return unrelated course or mark rows. Undergraduate GPA remains self-only. Completed-result, repeat-attempt, and credit-counting rules remain in the established calculator/DAO path.
+- PASS — The current pushed branch includes focused coverage for unassigned Lecturer aggregate/detail denial, no result-DAO access following denied aggregate authorization, successful multi-course Lecturer CGPA, and Undergraduate denial of Lecturer-specific GPA methods. Fresh `mvn clean package` result: **68 tests, 0 failures, 0 errors, 1 skipped**.
+- BLOCKED — `DatabaseConnectivityTest` skips with **"Test database credentials are not configured"** because neither environment credentials nor both fields in the ignored local file are configured for the dedicated `university_management_test` database. Therefore real JDBC/persistence and interactive Swing acceptance were not run; no screenshots or live-dialog evidence exists. The development database was not used as a fallback, and no DDL/DML/seed/migration was run.
+
+## Final integration audit update — 2026-10-26
+
+**Branch/baseline:** `Amjad` / `8dd0ada82293090cc0147b9ea408f16e7fc1c411`; subsequent fixes are local and uncommitted as requested.
+
+- Fixed a cross-course result disclosure risk: a Lecturer's selected offering now reaches an offering-scoped result query, rather than fetching every finalized result for that student. GPA aggregates validate every contributing enrolment's offering scope before calculating.
+- `AcademicResultScopeTest` verifies Lecturer scoped access, denial of the obsolete unscoped Lecturer path, and student self-access. `mvn test` passed: 60 tests, 0 failures, 0 errors, 1 skipped.
+- The canonical schema includes the prior `rejection_reason` and `created_by_user_id` fields. No migration is required for this code-only fix and no database was changed.
+- BLOCKED: isolated JDBC and real Swing acceptance. The local `university_management_test` credential fields are blank; no application was launched against the development database. There are no new screenshots or GUI-evidence artifacts.
+
+## Swing screen implementation update — 2026-10-26
+
+**Branch/baseline:** `Amjad` / `fbfec84298bae221b21069145b6f205be3f0072a`. The changes below are intentionally uncommitted because this task did not authorize a commit or push.
+
+- PASS — `ApplicationComponents` controllers are now explicitly injected through `Application` and `LoginFrame` into `MainFrame`. Assessments & Marks, Eligibility, Grades & GPA, and Reports now instantiate functional controller-backed screens instead of `PlaceholderScreen`.
+- PASS — assessment entry uses authorized offering/assessment/enrolment selectors and validates score input; eligibility, GPA/finalized-result, and report views call their existing controllers. `AssessmentService` now rejects an Admin direct publish attempt; `AssessmentServiceSecurityTest` proves that regression.
+- PASS — `mvn clean test` and `mvn clean package`: 57 tests, 0 failures, 0 errors, 1 skipped. `git diff --check` passed. The single skipped `DatabaseConnectivityTest` is intentional: both fields in the ignored local test-credentials file are blank.
+- BLOCKED — visible Swing interaction, screenshots, and JDBC persistence confirmation. A graphical display is present, but there is no authenticated, verified `university_management_test` connection. The application was not pointed at the populated development database, and no DDL/DML or migration was executed anywhere.
+
+Current acceptance: Lecturer controller routing/forms PASS by static/build verification but BLOCKED for live persistence; student Eligibility/Grades/GPA routing BLOCKED for live interaction; Reports routing BLOCKED for live data/role testing; medical and timetable UI workflows remain BLOCKED for the same isolated-database prerequisite. There are no new screenshots or `target/ui-test-evidence` artifacts.
+
+## Acceptance audit update — 2026-10-26
+
+**Branch/HEAD:** `Amjad` / `bf15cad092fc9d062347f5041eba287f783ed64f` at audit start. The audit preserved the existing worktree; no live database operation was performed.
+
+### Baseline and executable evidence
+
+- PASS — `mvn clean test`: 55 tests, 0 failures, 0 errors, 1 skipped. The skipped `DatabaseConnectivityTest` requires the deliberately isolated `university_management_test` database and credentials.
+- PASS — `mvn clean package`: package build completed after the same test suite.
+- PASS — `git diff --check`: no whitespace errors.
+- BLOCKED — interactive Swing acceptance: a graphical display is available, but the required isolated database has neither supplied credentials nor a confirmed schema. Launching the configured development database could mutate a live system, so it was not launched.
+
+### Code-to-requirement map
+
+- Medical: `MedicalScreen` → `MedicalController` → `MedicalService` → `JdbcMedicalDao` → `medical_records`; authorization is enforced by `AuthorizationService`/`JdbcAuthorizationScopeDao`.
+- Timetable: `TimetableScreen` → `TimetableController` → `TimetableService` → `JdbcTimetableDao` → `timetables`/`timetable_entries`.
+- Attendance: `AttendanceScreen` → `AttendanceController` → `AttendanceService` → `JdbcAttendanceDao`; Technical Officer access is denied in the service layer.
+- Course/learning activities: `CourseOfferingsScreen`/`CourseMaterialsScreen`/`LearningActivitiesScreen` → their controllers/services/DAOs; their database-backed acceptance still needs the isolated DB.
+- Unwired modules found: `MainFrame` sends `ELIGIBILITY`, `GRADES_GPA`, and `REPORTS` to `PlaceholderScreen`. These are FAIL for visible UI acceptance, irrespective of their service/controller implementations.
+
+### Acceptance matrix
+
+- A1–A6 Student navigation, medical submission/PDF persistence, reopen/re-login, invalid PDF/date/duplicate cases, and cross-student privacy: BLOCKED — isolated database and synthetic test accounts are unavailable. Static inspection confirms submission resolves the authenticated student ID, not a form-provided student ID.
+- A7 Student cannot approve, change status, traverse evidence paths, or read another student's proof: PASS for service guards covered by `MedicalServiceSecurityTest`; database-backed/UI proof retrieval remains BLOCKED.
+- B1–B6 Reviewer pending queue, proof view, approval/rejection persistence, concurrent decisions, and Admin repeat: BLOCKED for live UI/persistence. The verified defects were fixed: reviewer queue query, authorised PDF viewer path, required rejection reason, legacy no-reason display, and conditional pending-only update.
+- B7 Lecturer medical denial: PASS for service authorization regression (`MedicalServiceSecurityTest`) and role navigation tests.
+- C1–C9 Lecturer materials, quiz/assignment, marks, eligibility, attendance and reports: BLOCKED for isolated JDBC/UI execution. Reports are additionally FAIL at the visible UI level because the Reports menu opens `PlaceholderScreen`.
+- D1 Technical Officer attendance denial: PARTIAL PASS — navigation and core service restriction are covered, but the full direct-call matrix needs additional service tests and an isolated DB.
+- D2–D8 Technical Officer course/lecturer dropdown, timetable persistence/creator display, notice persistence, reports, and medical review: BLOCKED. Timetable creation ownership is now persisted for newly created records after migration, but its GUI acceptance requires a test DB. Reports remain visible-UI FAIL due to `PlaceholderScreen`.
+- E1–E7 Admin course offering, safe deactivation, marks denial, attendance, medical, timetable/notice and reports: BLOCKED for isolated JDBC/UI; the Admin marks navigation denial is covered by `NavigationModuleTest`. Reports are visible-UI FAIL due to `PlaceholderScreen`.
+- F Cross-role persistence, rollback, keyboard/focus/accessibility, resize, SQL integrity and stale-state checks: BLOCKED — no safe isolated DB/test accounts; no interactive run was simulated.
+
+### Migration decision
+
+**MIGRATION REQUIRED BUT NOT APPLIED TO LIVE DATABASE.** The canonical schema lacked `medical_records.rejection_reason` required to persist/display reviewer reasons, and `timetables.created_by_user_id` required to attribute new Technical Officer-created timetables. The additive migration is [migration_20261026_medical_timetable_audit.sql](../database/migration_20261026_medical_timetable_audit.sql). It was not applied anywhere during this audit.
+
+Prerequisites and safe test-only commands (the MySQL client prompts for a password; no password belongs in these commands):
+
+```sh
+mysql -u "$DB_USERNAME" -p -e "SHOW DATABASES LIKE 'university_management_test';"
+mysqldump -u "$DB_USERNAME" -p university_management_test > university_management_test-before-20261026.sql
+mysql -u "$DB_USERNAME" -p university_management_test < database/migration_20261026_medical_timetable_audit.sql
+mysql -u "$DB_USERNAME" -p -D university_management_test -e "SELECT table_name,column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND ((table_name='medical_records' AND column_name='rejection_reason') OR (table_name='timetables' AND column_name='created_by_user_id'));"
+```
+
+The migration is additive and nullable, so historical rows remain valid. Rollback, if required, is a separately reviewed `ALTER TABLE ... DROP FOREIGN KEY`, `DROP INDEX`, and `DROP COLUMN`; do not run it on a database containing new audited records.
+
 **Date:** 2026-10-18
 **Branch:** `Amjad`
 **Final status:** NOT READY

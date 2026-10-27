@@ -218,7 +218,7 @@ public final class ApplicationComponents {
         GpaService gpaService = new GpaService(
                 new GpaCalculator(),
                 GpaCalculator.RepeatSelectionRule.valueOf(config.repeatSelectionRule()),
-                courseResultDao, authorizationService);
+                courseResultDao, courseDao, authorizationService);
         EligibilityService eligibilityService = new EligibilityService(
                 new FinalExamEligibilityPolicy(), marksService, attendanceService, authorizationService, courseDao);
         UserService userService = new UserService(

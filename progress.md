@@ -1,5 +1,32 @@
 # Project Progress
 
+## Documentation consistency check — 2026-10-27
+- Verified branch `Amjad` and `origin/Amjad` both at current pushed commit `06ead33d2a6aa0a34da3e20f192c7d7d39074f45`, with zero divergence and no pre-existing local changes. The GPA production fix, focused audit tests, and prior audit documentation are already included in this commit. This documentation-only consistency check remains local and uncommitted; it does not commit or push.
+- Confirmed detailed Lecturer results remain restricted by the selected assigned offering, including the JDBC student-and-offering filter, and the obsolete unscoped Lecturer detail method remains denied. Undergraduate result access remains self-only.
+- Confirmed aggregate GPA separately requires Lecturer assignment to the selected offering and that student's enrolment in it before any result DAO lookup. It returns a numeric SGPA/CGPA only; it does not use the GPA flow to disclose unrelated result rows or marks. Undergraduate GPA remains self-only, and repeat/credit rules remain in `GpaCalculator`.
+- Fresh `mvn clean package` verification passed with 68 tests, 0 failures, 0 errors, and 1 skipped test. The focused audit coverage for unassigned Lecturer aggregate/detail requests, no result-DAO access following denied GPA authorization, multi-course Lecturer CGPA, and Undergraduate denial of Lecturer-only GPA methods is included in the current pushed commit.
+- Real JDBC persistence and interactive Swing acceptance remain **BLOCKED**. `DatabaseConnectivityTest` skips with "Test database credentials are not configured" because the environment and ignored local credential file do not provide both credentials for `university_management_test`. The development `university_management` database was not used as a fallback; no database connection, DDL, DML, seed, or migration was performed.
+
+## Final integration audit — 2026-10-26
+- Verified branch `Amjad` at `8dd0ada82293090cc0147b9ea408f16e7fc1c411`, matching `origin/Amjad` before the local fixes below. Existing work was preserved; no database operation, commit, or push was performed.
+- Confirmed and fixed a result-scope defect: a Lecturer could select one authorised offering then retrieve every finalized result for that student. Lecturer result requests are now offering-scoped in the service and JDBC query. Student self-result access remains a distinct authenticated path.
+- GPA calculation now verifies every contributing finalized result belongs to an offering assigned to the Lecturer; it refuses the aggregate if any source result is outside scope. This avoids leaking an unrelated course through SGPA/CGPA.
+- Added `AcademicResultScopeTest` covering scoped Lecturer lookup, rejected unscoped Lecturer lookup, and student self-access. Latest automated run: 60 tests, 0 failures/errors, 1 skipped isolated-DB connectivity test.
+- The canonical schema already contains `medical_records.rejection_reason` and `timetables.created_by_user_id`; no migration is required for these code-only fixes. The ignored test credentials remain blank, so GUI and JDBC persistence acceptance are BLOCKED and the development database was untouched.
+
+## Missing Swing screens — implementation update — 2026-10-26
+- Baseline commit remains `fbfec84298bae221b21069145b6f205be3f0072a` on `Amjad`; this task has uncommitted local implementation changes only. No reset, commit, push, schema change, seed, migration, or live-database access was performed.
+- Fixed the UI root cause by explicitly wiring assessment, marks, eligibility, GPA, report, and result controllers from `ApplicationComponents` through `Application`, `LoginFrame`, and `MainFrame`.
+- Replaced the former placeholder routes with `AssessmentsMarksScreen`, `EligibilityScreen`, `GradesGpaScreen`, and `ReportsScreen`; `MainFrame` now fails fast if a future non-dashboard module lacks a registered screen rather than silently rendering `PlaceholderScreen`.
+- Assessment entry uses authorized offering, assessment, and enrolment dropdowns; eligibility, GPA/finalized results, and reports use existing controller/service calculations and permissions. Direct assessment publishing is now restricted to an assigned Lecturer; `AssessmentServiceSecurityTest` covers the Admin denial.
+- Verification: `mvn clean test` and `mvn clean package` passed with 57 tests, 0 failures, 0 errors, and 1 skipped (`DatabaseConnectivityTest`). `git diff --check` passed.
+- Interactive acceptance remains BLOCKED. A display server is available, but `test-credentials.properties` has blank username/password fields and no verified `university_management_test` target. The development database was deliberately not launched or mutated. No screenshots or GUI/persistence claims were made.
+
+## Missing Swing screen audit — Phase 1 — 2026-10-26
+- Repository verified at `fbfec84298bae221b21069145b6f205be3f0072a` on `Amjad`, matching `origin/Amjad`; worktree was clean before this task.
+- Confirmed root cause: `ApplicationComponents` constructs assessment, marks, eligibility, GPA, report, and result controllers, but `Application`/`LoginFrame`/`MainFrame` do not inject them. `MainFrame` consequently routes `ASSESSMENTS_MARKS`, `ELIGIBILITY`, `GRADES_GPA`, and `REPORTS` to `PlaceholderScreen`.
+- Planned work: preserve controller/service/DAO layers, explicitly inject existing controllers into the UI shell, implement role-appropriate screens, add navigation regression coverage, then run safe non-interactive checks. Real database persistence/UI acceptance remains contingent on a confirmed isolated test database.
+
 ## Current phase
 Phase 5 — Demo dataset and password self-service added; final system acceptance remains NOT READY
 
@@ -75,6 +102,28 @@ Configure an isolated test MySQL database and credentials; finish UI module inte
 
 ## Last updated
 2026-10-18 08:55
+
+## Swing acceptance audit — Phase 1 started — 2026-10-26
+- Scope: requirement-driven Swing UI, authorization, JDBC/schema, migration-safety, and persistence acceptance audit. Existing local modifications are preserved; no Git reset/checkout/commit/push or database write has been performed.
+- Initial repository state recorded: branch `Amjad`; prior audit modifications are present in the worktree and are being treated as in-scope changes to verify. Baseline build, schema discovery, and UI capability checks are pending.
+
+## Swing acceptance audit — implementation and verification update — 2026-10-26
+- Baseline/verification: `mvn clean test` passed with 55 tests, 0 failures/errors, and 1 skipped isolated-database connectivity test. `mvn clean package` completed with the same test suite; `git diff --check` passed.
+- Verified code defects fixed: medical reviewers previously had no safe proof-open action and no persisted rejection reason. The medical model/DAO/service/controller/UI now require and persist a rejection reason, show an honest legacy-row message where absent, list the authorized pending queue, and authorise before normalising/constraining a PDF path beneath `var/medical-evidence` (rejecting malformed/traversal/symlink evidence paths).
+- Verified schema gap: canonical schemas had no `medical_records.rejection_reason` and no timetable creator reference. Added the ordered additive `database/migration_20261026_medical_timetable_audit.sql`, updated both checked-in schema sources and database-design documentation, and wired `timetables.created_by_user_id` into timetable creation. The nullable fields preserve existing records; the migration was NOT applied to any database.
+- Technical Officer timetable scope now requires the authenticated officer's department and active semester, and a Technical Officer can alter only a timetable they created; Admin retains cross-timetable management. A new UI action is present for Technical Officer timetable management, but full database/UI execution remains blocked.
+- Added `MedicalServiceSecurityTest`: lecturer medical denial, rejection reason before mutation, and tampered proof-reference denial. No credentials, PDFs, local uploads, or test data were committed.
+- Acceptance result: compile/unit/package checks PASS; JDBC-backed and interactive GUI scenarios are BLOCKED because `university_management_test` credentials/schema were not safely available. Visible Reports, Grades/GPA, and Eligibility navigation are still connected to `PlaceholderScreen`, so those UI workflows are FAIL rather than claimed as complete. Full matrix and reproducible migration commands are in `docs/system-test-results.md`.
+
+## Permission and medical-workflow audit update — 2026-10-26
+- Audit scope: reviewed the tracked Swing navigation/screens, role dashboards, controllers, authorization service, attendance, medical, content/notice, course-management services, their DAOs/schema references, and existing authorization/navigation tests. Generated `target/` output was excluded from source review.
+- Stack confirmed: Java 17, Maven, Swing UI, JDBC/MySQL with `src/main/resources/db/schema.sql` as the checked-in canonical schema; internal controller/service/DAO layering and role-session authorization are used instead of HTTP routes.
+- Verified ER subset: `users` link to role profiles (`undergraduates`, `lecturers`, `technical_officers`); `course_offerings` link courses/batches/semesters and lecturer assignments; `medical_records` link students and optional offerings, with `evidence_reference` and approval status; attendance sessions/records link offerings and enrolments; notices are stored in `notices`.
+- Fixed verified permission discrepancies: Technical Officers no longer receive attendance navigation or service/report access; attendance recording is lecturer-only and revision remains Admin-only. Admin no longer receives the assessments/marks navigation item. Lecturers no longer receive medical navigation or medical-record access. Medical review is restricted to Technical Officers and Admins.
+- Implemented student-owned medical submission: a student must submit for their own profile, optionally for an enrolled offering, with a PDF proof. The service validates extension, PDF signature, and a 10 MB limit; copies the proof to a generated name below the non-classpath private `var/medical-evidence` directory; persists only the opaque reference; and deletes the copied file if persistence fails. New requests remain `PENDING`; review decisions remain conditional/transactional.
+- Enabled Technical Officers (as well as Admins) to create notices and to create course/offering records and lecturer assignments through the existing service/controller flow. Admin course edits/deactivation remain Admin-only. Renamed the navigation label from “My Course Offerings” to “Course Offerings”.
+- Updated navigation and authorization regression tests to reflect the agreed role matrix. Validation: `mvn test` passed — 52 tests, 0 failures/errors, 1 skipped (`DatabaseConnectivityTest` because isolated DB credentials/database are unavailable). No schema migration was needed for these changes.
+- Remaining limitations: this Swing/JDBC application has no web endpoint layer, so the requested HTTP status semantics and browser upload progress do not apply. Secure evidence retrieval/viewing and reviewer decision reasons are not represented by the current schema and still need a backwards-compatible migration plus a dedicated authorised file-open flow. Full interactive GUI and live-database acceptance testing remains outstanding.
 
 ## Role Account UI Follow-up — 2026-10-18
 - Connected Admin User Management and Student Management navigation to searchable account tables backed by `UserController`; administrators can create, edit, filter, and deactivate accounts, with server-side authorization retained.

@@ -25,6 +25,18 @@ public final class CourseController {
     public record IdResponse(long id) {
     }
 
+    public ApiResponse<List<CourseService.OfferingView>> offeringViewsForActor(AuthenticatedSession actor) {
+        return support.execute(() -> service.offeringViewsForActor(actor));
+    }
+
+    public ApiResponse<List<CourseService.OfferingView>> availableOfferingsForCurrentStudent(AuthenticatedSession actor) {
+        return support.execute(() -> service.availableOfferingsForCurrentStudent(actor));
+    }
+
+    public ApiResponse<IdResponse> enrollCurrentStudent(AuthenticatedSession actor, int offeringId) {
+        return support.execute(offeringId, () -> new IdResponse(service.enrollCurrentStudent(actor, offeringId)));
+    }
+
     private final CourseService service;
     private final ApiControllerSupport support;
 

@@ -4,11 +4,16 @@ import java.sql.Connection;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
+import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 
 public interface TimetableDao {
-    record TimetableRow(int id, String title, int departmentId, int semesterId, int level) {
+    record TimetableRow(int id, String title, int departmentId, int semesterId, int level,
+                        Long createdByUserId, String createdByUsername, Role createdByRole) {
+        public TimetableRow(int id, String title, int departmentId, int semesterId, int level) {
+            this(id, title, departmentId, semesterId, level, null, null, null);
+        }
         public TimetableRow(int id, String title, int departmentId, int semesterId) {
-            this(id, title, departmentId, semesterId, 1);
+            this(id, title, departmentId, semesterId, 1, null, null, null);
         }
     }
 
@@ -36,6 +41,8 @@ public interface TimetableDao {
     Optional<EntryRow> findEntry(int entryId);
 
     List<EntryRow> findEntries(int departmentId, int semesterId, int level, String dayOfWeek);
+
+    List<EntryRow> findEntriesForOfferings(List<Integer> offeringIds);
 
     List<EntryRow> findConflicts(
             int departmentId, int semesterId, EntryRow candidate, int lecturerId);

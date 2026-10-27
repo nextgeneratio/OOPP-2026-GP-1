@@ -41,21 +41,24 @@ public final class TimetableService {
     }
 
     public long createTimetable(AuthenticatedSession actor, TimetableRow timetable) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorizeTimetableManager(actor, timetable == null ? 0 : timetable.departmentId(),
+                timetable == null ? 0 : timetable.semesterId());
         if (timetable == null || timetable.title() == null || timetable.title().isBlank()
                 || timetable.departmentId() <= 0 || timetable.semesterId() <= 0
                 || timetable.level() < 1 || timetable.level() > 4) {
             throw new ValidationException("Enter valid timetable details.");
         }
         return transactions.execute(connection -> {
-            long id = timetableDao.insertTimetable(connection, timetable);
+            TimetableRow owned = new TimetableRow(timetable.id(), timetable.title().trim(), timetable.departmentId(),
+                    timetable.semesterId(), timetable.level(), actor.userId(), null, null);
+            long id = timetableDao.insertTimetable(connection, owned);
             audit(connection, actor.userId(), "TIMETABLE_CREATE", id);
             return id;
         });
     }
 
     public long addEntry(AuthenticatedSession actor, EntryRow entry) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorizeTimetableEntryManager(actor, entry == null ? 0 : entry.timetableId());
         validateEntry(entry);
         return transactions.execute(connection -> {
             checkConflicts(entry);
@@ -66,7 +69,7 @@ public final class TimetableService {
     }
 
     public void updateEntry(AuthenticatedSession actor, EntryRow entry) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorizeTimetableEntryManager(actor, entry == null ? 0 : entry.timetableId());
         validateEntry(entry);
         transactions.execute(connection -> {
             EntryRow existing = timetableDao.findEntry(entry.id())
@@ -111,8 +114,36 @@ public final class TimetableService {
         throw new AuthorizationException("You do not have permission to view this timetable.");
     }
 
+    /** Signed-in non-admin users never supply department, semester, or level identifiers. */
+    public List<EntryRow> myEntries(AuthenticatedSession actor) {
+        if (actor == null || actor.role() == Role.ADMIN) {
+            throw new AuthorizationException("Choose a department timetable from the administrator view.");
+        }
+        List<Integer> offeringIds = switch (actor.role()) {
+            case UNDERGRADUATE -> courseDao.findOfferingsForStudent(authorization.studentId(actor)).stream()
+                    .map(CourseDao.OfferingRow::id).toList();
+            case LECTURER -> courseDao.findOfferingsForLecturer(authorization.lecturerId(actor), null).stream()
+                    .map(CourseDao.OfferingRow::id).toList();
+            case TECHNICAL_OFFICER -> courseDao.findOfferingsForTechnicalOfficer(actor.userId()).stream()
+                    .map(CourseDao.OfferingRow::id).toList();
+            default -> List.of();
+        };
+        return timetableDao.findEntriesForOfferings(offeringIds);
+    }
+
+    public TimetableRow timetableDetails(AuthenticatedSession actor, int timetableId) {
+        TimetableRow timetable = timetableDao.findTimetable(timetableId)
+                .orElseThrow(() -> new NotFoundException("Timetable was not found."));
+        if (actor != null && actor.role() == Role.ADMIN) {
+            authorization.requireAdmin(actor);
+            return timetable;
+        }
+        authorization.requireTechnicalOfficerForTimetable(actor, timetable.departmentId(), timetable.semesterId());
+        return timetable;
+    }
+
     public void deleteTimetable(AuthenticatedSession actor, int timetableId) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorization.requireAdmin(actor);
         if (timetableId <= 0 || timetableDao.findTimetable(timetableId).isEmpty()) {
             throw new ValidationException("Timetable was not found.");
         }
@@ -156,6 +187,24 @@ public final class TimetableService {
                 || !entry.start().isBefore(entry.end())
                 || !List.of("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN").contains(entry.dayOfWeek())) {
             throw new ValidationException("Enter a valid timetable entry.");
+        }
+    }
+
+    private void authorizeTimetableManager(AuthenticatedSession actor, int departmentId, int semesterId) {
+        if (actor != null && actor.role() == Role.ADMIN) {
+            authorization.requireAdmin(actor);
+            return;
+        }
+        authorization.requireTechnicalOfficerForTimetable(actor, departmentId, semesterId);
+    }
+
+    private void authorizeTimetableEntryManager(AuthenticatedSession actor, int timetableId) {
+        TimetableRow timetable = timetableDao.findTimetable(timetableId)
+                .orElseThrow(() -> new NotFoundException("Timetable was not found."));
+        authorizeTimetableManager(actor, timetable.departmentId(), timetable.semesterId());
+        if (actor.role() == Role.TECHNICAL_OFFICER
+                && !Long.valueOf(actor.userId()).equals(timetable.createdByUserId())) {
+            throw new AuthorizationException("You may only change timetables that you created.");
         }
     }
 

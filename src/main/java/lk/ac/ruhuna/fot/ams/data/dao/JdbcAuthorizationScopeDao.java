@@ -69,6 +69,18 @@ public final class JdbcAuthorizationScopeDao implements AuthorizationScopeLookup
     }
 
     @Override
+    public boolean technicalOfficerAuthorizedForTimetable(long userId, int departmentId, int semesterId) {
+        return exists("SELECT 1 FROM technical_officers t JOIN semesters s "
+                        + "WHERE t.user_id = ? AND t.department_id = ? AND s.semester_id = ? "
+                        + "AND CURRENT_DATE BETWEEN s.start_date AND s.end_date",
+                statement -> {
+                    statement.setLong(1, userId);
+                    statement.setInt(2, departmentId);
+                    statement.setInt(3, semesterId);
+                });
+    }
+
+    @Override
     public boolean undergraduateOwnsStudent(long userId, int studentId) {
         return exists("SELECT 1 FROM undergraduates WHERE user_id = ? AND student_id = ?",
                 statement -> {

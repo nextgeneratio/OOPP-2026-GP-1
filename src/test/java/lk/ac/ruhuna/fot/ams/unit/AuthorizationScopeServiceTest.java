@@ -51,14 +51,13 @@ class AuthorizationScopeServiceTest {
     void restrictsEachReportByTheSrsRoleMatrix() {
         assertReportAllowed(ReportType.STUDENT_ATTENDANCE,
                 Role.LECTURER, Role.TECHNICAL_OFFICER, Role.UNDERGRADUATE);
-        assertReportAllowed(ReportType.BATCH_COURSE_ATTENDANCE,
-                Role.LECTURER, Role.TECHNICAL_OFFICER);
+        assertReportAllowed(ReportType.BATCH_COURSE_ATTENDANCE, Role.LECTURER, Role.TECHNICAL_OFFICER);
         assertReportAllowed(ReportType.CA_FINAL_MARKS, Role.LECTURER, Role.UNDERGRADUATE);
         assertReportAllowed(ReportType.ELIGIBILITY, Role.LECTURER, Role.UNDERGRADUATE);
         assertReportAllowed(ReportType.GRADES_COURSE_RESULTS, Role.LECTURER, Role.UNDERGRADUATE);
         assertReportAllowed(ReportType.SGPA_CGPA, Role.LECTURER, Role.UNDERGRADUATE);
         assertReportAllowed(ReportType.MEDICAL_RECORDS,
-                Role.LECTURER, Role.TECHNICAL_OFFICER, Role.UNDERGRADUATE);
+                Role.ADMIN, Role.TECHNICAL_OFFICER, Role.UNDERGRADUATE);
         assertReportAllowed(ReportType.STUDENT_PROFILE,
                 Role.ADMIN, Role.LECTURER, Role.UNDERGRADUATE);
     }

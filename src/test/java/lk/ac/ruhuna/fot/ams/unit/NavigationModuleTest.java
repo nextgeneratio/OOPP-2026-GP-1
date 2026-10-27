@@ -17,31 +17,33 @@ class NavigationModuleTest {
     }
 
     @Test
-    void adminSeesManagementModulesOnly() {
+    void adminCannotSeeAcademicReportsOrSensitiveAssessmentModulesButCanReviewMedicalRequests() {
         assertThat(NavigationModule.forRole(Role.ADMIN)).contains(NavigationModule.USER_MANAGEMENT,
                 NavigationModule.STUDENT_MANAGEMENT, NavigationModule.COURSE_MANAGEMENT,
-                NavigationModule.ASSESSMENTS_MARKS, NavigationModule.REPORTS)
-                .doesNotContain(NavigationModule.MEDICAL);
+                NavigationModule.MEDICAL)
+                .doesNotContain(NavigationModule.ASSESSMENTS_MARKS, NavigationModule.REPORTS);
     }
 
     @Test
-    void lecturerCannotSeeAdminOrMedical() {
+    void lecturerCannotSeeMedicalButCanSeeAssignedAcademicModules() {
         assertThat(NavigationModule.forRole(Role.LECTURER)).contains(NavigationModule.ASSESSMENTS_MARKS,
                 NavigationModule.ELIGIBILITY, NavigationModule.GRADES_GPA)
                 .doesNotContain(NavigationModule.USER_MANAGEMENT, NavigationModule.MEDICAL);
     }
 
     @Test
-    void technicalOfficerSeesAttendanceAndMedical() {
-        assertThat(NavigationModule.forRole(Role.TECHNICAL_OFFICER)).contains(NavigationModule.ATTENDANCE,
-                NavigationModule.MEDICAL, NavigationModule.COURSE_MANAGEMENT,
-                NavigationModule.ASSESSMENTS_MARKS, NavigationModule.COURSE_MATERIALS);
+    void technicalOfficerCanManageCoursesAndMedicalButNotAttendance() {
+        assertThat(NavigationModule.forRole(Role.TECHNICAL_OFFICER)).contains(NavigationModule.COURSE_MANAGEMENT,
+                NavigationModule.MEDICAL, NavigationModule.TIMETABLE, NavigationModule.NOTICES,
+                NavigationModule.REPORTS)
+                .doesNotContain(NavigationModule.ATTENDANCE, NavigationModule.ASSESSMENTS_MARKS,
+                        NavigationModule.COURSE_MATERIALS);
     }
 
     @Test
     void undergraduateIsReadOnlyModulesOnly() {
         assertThat(NavigationModule.forRole(Role.UNDERGRADUATE)).contains(NavigationModule.ATTENDANCE,
-                NavigationModule.GRADES_GPA).doesNotContain(NavigationModule.USER_MANAGEMENT,
-                NavigationModule.ASSESSMENTS_MARKS, NavigationModule.MEDICAL, NavigationModule.REPORTS);
+                NavigationModule.GRADES_GPA, NavigationModule.MEDICAL).doesNotContain(NavigationModule.USER_MANAGEMENT,
+                NavigationModule.ASSESSMENTS_MARKS, NavigationModule.REPORTS);
     }
 }

@@ -78,13 +78,14 @@ public final class AssessmentService {
         });
     }
 
+    /** Returns the plan only after applying the same offering scope as plan publication. */
+    public List<AssessmentRow> assessmentsForOffering(AuthenticatedSession actor, int offeringId) {
+        authorizeOffering(actor, offeringId);
+        return assessmentDao.findAssessments(offeringId);
+    }
+
     private void authorizeOffering(AuthenticatedSession actor, int offeringId) {
-        if (actor != null && (actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.ADMIN
-                || actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.TECHNICAL_OFFICER)) {
-            authorization.requireAdminOrTechnicalOfficer(actor);
-        } else {
-            authorization.requireLecturerForOffering(actor, offeringId);
-        }
+        authorization.requireLecturerForOffering(actor, offeringId);
     }
 
     private boolean isAssessmentType(String type) {

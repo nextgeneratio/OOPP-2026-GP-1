@@ -29,4 +29,9 @@ public final class AssessmentController {
         return support.execute(request, () -> new PublishedPlanResponse(
                 service.publishPlan(actor, request.offeringId(), request.assessments())));
     }
+
+    public ApiResponse<List<AssessmentRow>> assessmentsForOffering(
+            AuthenticatedSession actor, int offeringId) {
+        return support.execute(offeringId, () -> service.assessmentsForOffering(actor, offeringId));
+    }
 }

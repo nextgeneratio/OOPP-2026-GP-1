@@ -11,6 +11,10 @@ public interface AuthorizationScopeLookup {
 
     boolean technicalOfficerAuthorizedForStudent(long userId, int studentId);
 
+    default boolean technicalOfficerAuthorizedForTimetable(long userId, int departmentId, int semesterId) {
+        return false;
+    }
+
     boolean undergraduateOwnsStudent(long userId, int studentId);
 
     boolean undergraduateEnrolledInOffering(long userId, int offeringId);

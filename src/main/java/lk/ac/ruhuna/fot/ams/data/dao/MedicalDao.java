@@ -17,16 +17,19 @@ public interface MedicalDao {
             String reason,
             String evidenceReference,
             ApprovalStatus status,
-            boolean affectsEligibility) {
+            boolean affectsEligibility,
+            String rejectionReason) {
     }
 
     long insert(Connection connection, MedicalRow row);
 
-    int decide(Connection connection, int medicalId, ApprovalStatus status);
+    int decide(Connection connection, int medicalId, ApprovalStatus status, String rejectionReason);
 
     Optional<MedicalRow> findById(int medicalId);
 
     List<MedicalRow> findForStudent(int studentId, Integer offeringId);
+
+    List<MedicalRow> findPending();
 
     List<MedicalRow> findOverlapping(
             int studentId, Integer offeringId, LocalDate startDate, LocalDate endDate);

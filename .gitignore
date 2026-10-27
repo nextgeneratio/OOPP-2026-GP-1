@@ -7,6 +7,8 @@ target/
 *.log
 logs/
 uploads/
+!src/main/resources/uploads/
+!src/main/resources/uploads/**
 application.properties
 test-application.properties
 test-credentials.properties

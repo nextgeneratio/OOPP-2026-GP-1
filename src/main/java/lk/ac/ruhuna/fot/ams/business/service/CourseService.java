@@ -40,6 +40,9 @@ public final class CourseService {
         }
     }
 
+    /** UI-friendly offering data: users see a course name rather than opaque foreign-key IDs. */
+    public record OfferingView(OfferingRow offering, CourseRow course, boolean enrolled) { }
+
     private final CourseDao courseDao;
     private final AuditLogDao auditLogDao;
     private final TransactionManager transactions;
@@ -64,7 +67,7 @@ public final class CourseService {
             CourseRow course,
             List<ComponentRow> components,
             OfferingSetup offeringSetup) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        requireCourseManager(actor);
         validateCourse(course, components);
         return transactions.execute(connection -> {
             int courseId = Math.toIntExact(courseDao.insertCourse(connection, course));
@@ -81,7 +84,7 @@ public final class CourseService {
     }
 
     public long createDepartment(AuthenticatedSession actor, CourseDao.DepartmentRow department) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorization.requireAdmin(actor);
         if (department == null || department.code() == null || department.code().isBlank()
                 || department.name() == null || department.name().isBlank()) {
             throw new ValidationException("Department code and name are required.");
@@ -100,7 +103,7 @@ public final class CourseService {
     }
 
     public long createBatch(AuthenticatedSession actor, CourseDao.BatchRow batch) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorization.requireAdmin(actor);
         if (batch == null || batch.departmentId() <= 0 || batch.intakeYear() <= 0
                 || batch.programme() == null || batch.programme().isBlank()
                 || batch.code() == null || batch.code().isBlank()
@@ -115,7 +118,7 @@ public final class CourseService {
     }
 
     public long createSemester(AuthenticatedSession actor, CourseDao.SemesterRow semester) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorization.requireAdmin(actor);
         if (semester == null || semester.academicYear() == null || semester.academicYear().isBlank()
                 || semester.semesterNumber() < 1 || semester.semesterNumber() > 2
                 || semester.start() == null || semester.end() == null
@@ -130,7 +133,7 @@ public final class CourseService {
     }
 
     public int createOffering(AuthenticatedSession actor, int courseId, OfferingSetup setup) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        requireCourseManager(actor);
         if (courseId <= 0 || setup == null || setup.batchId() <= 0 || setup.semesterId() <= 0
                 || setup.status() == null || !List.of("OPEN", "CLOSED").contains(setup.status())) {
             throw new ValidationException("Enter a valid course offering.");
@@ -139,7 +142,7 @@ public final class CourseService {
     }
 
     public void updateCourse(AuthenticatedSession actor, CourseRow course) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorization.requireAdmin(actor);
         if (course == null || course.id() <= 0) {
             throw new ValidationException("Course identifier is invalid.");
         }
@@ -155,7 +158,7 @@ public final class CourseService {
     }
 
     public void deactivateCourse(AuthenticatedSession actor, int courseId) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorization.requireAdmin(actor);
         CourseRow course = courseDao.searchCourses(null, null, false).stream()
                 .filter(row -> row.id() == courseId)
                 .findFirst()
@@ -170,7 +173,7 @@ public final class CourseService {
     }
 
     public void assignLecturer(AuthenticatedSession actor, int offeringId, int lecturerId) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        requireCourseManager(actor);
         if (offeringId <= 0 || lecturerId <= 0) {
             throw new ValidationException("Offering and lecturer identifiers must be valid.");
         }
@@ -196,8 +199,36 @@ public final class CourseService {
         };
     }
 
+    public List<OfferingView> offeringViewsForActor(AuthenticatedSession actor) {
+        return offeringsForActor(actor).stream().map(offering -> new OfferingView(offering,
+                courseDao.findCourse(offering.courseId()).orElseThrow(() ->
+                        new NotFoundException("Course for an offering was not found.")), true)).toList();
+    }
+
+    public List<OfferingView> availableOfferingsForCurrentStudent(AuthenticatedSession actor) {
+        int batchId = authorization.studentBatchId(actor);
+        int studentId = authorization.studentId(actor);
+        return courseDao.findOfferings(batchId, null).stream()
+                .filter(offering -> "OPEN".equals(offering.status()))
+                .map(offering -> new OfferingView(offering, courseDao.findCourse(offering.courseId())
+                        .orElseThrow(() -> new NotFoundException("Course for an offering was not found.")),
+                        courseDao.hasActiveEnrollment(studentId, offering.id())))
+                .toList();
+    }
+
+    public long enrollCurrentStudent(AuthenticatedSession actor, int offeringId) {
+        int studentId = authorization.studentId(actor);
+        OfferingRow offering = courseDao.findOffering(offeringId)
+                .orElseThrow(() -> new NotFoundException("Course offering was not found."));
+        if (offering.batchId() != authorization.studentBatchId(actor)) {
+            throw new lk.ac.ruhuna.fot.ams.error.exception.AuthorizationException(
+                    "You may only register for offerings in your own batch.");
+        }
+        return enrollAs(actor, new CourseDao.EnrollmentRow(0, studentId, offeringId, 1, "NORMAL", "ACTIVE"));
+    }
+
     public CourseCatalog catalog(AuthenticatedSession actor) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        requireCourseManager(actor);
         if (actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.ADMIN) {
             List<CourseDao.DepartmentRow> departments = courseDao.findDepartments(false);
             List<CourseDao.BatchRow> batches = departments.stream()
@@ -230,7 +261,11 @@ public final class CourseService {
     public long enroll(
             AuthenticatedSession actor,
             CourseDao.EnrollmentRow enrollment) {
-        authorization.requireAdminOrTechnicalOfficer(actor);
+        authorization.requireAdmin(actor);
+        return enrollAs(actor, enrollment);
+    }
+
+    private long enrollAs(AuthenticatedSession actor, CourseDao.EnrollmentRow enrollment) {
         if (enrollment == null || enrollment.studentId() <= 0 || enrollment.offeringId() <= 0
                 || enrollment.attemptNumber() <= 0
                 || enrollment.studentStatus() == null || enrollment.enrollmentStatus() == null
@@ -254,6 +289,11 @@ public final class CourseService {
             audit(connection, actor.userId(), "ENROLLMENT_CREATE", "COURSE_ENROLLMENT", enrollmentId);
             return enrollmentId;
         });
+    }
+
+    private void requireCourseManager(AuthenticatedSession actor) {
+        authorization.requireRole(actor, lk.ac.ruhuna.fot.ams.domain.enums.Role.ADMIN,
+                lk.ac.ruhuna.fot.ams.domain.enums.Role.TECHNICAL_OFFICER);
     }
 
     private int createOffering(

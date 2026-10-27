@@ -110,17 +110,11 @@ public final class ContentService {
             authorization.requireLecturerForOffering(actor, offeringId);
             return authorization.lecturerId(actor);
         }
-        if (actor != null && actor.role() == Role.TECHNICAL_OFFICER) {
-            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
-            return courseDao.findLecturersForOffering(offeringId).stream().findFirst()
-                    .orElseThrow(() -> new ValidationException(
-                            "Assign a lecturer to this offering before adding learning materials."));
-        }
-        throw new AuthorizationException("Only an assigned lecturer or technical officer may manage materials.");
+        throw new AuthorizationException("Only an assigned lecturer may manage learning materials.");
     }
 
     public long createNotice(AuthenticatedSession actor, NoticeRow notice) {
-        authorization.requireAdmin(actor);
+        authorization.requireRole(actor, Role.ADMIN, Role.TECHNICAL_OFFICER);
         validateNotice(notice);
         return transactions.execute(connection -> {
             long noticeId = contentDao.insertNotice(connection, notice);

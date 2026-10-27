@@ -422,6 +422,7 @@ CREATE TABLE `medical_records` (
     approval_status ENUM('PENDING', 'APPROVED', 'REJECTED')
         NOT NULL DEFAULT 'PENDING',
     affects_eligibility BOOLEAN NOT NULL DEFAULT FALSE,
+    rejection_reason VARCHAR(500) NULL,
 
     PRIMARY KEY (medical_id),
     INDEX idx_medical_records_student_id (student_id),
@@ -584,6 +585,7 @@ CREATE TABLE `timetables` (
     department_id INT NOT NULL,
     semester_id INT NOT NULL,
     level_no TINYINT NOT NULL DEFAULT 1,
+    created_by_user_id BIGINT NULL,
 
     PRIMARY KEY (timetable_id),
     CONSTRAINT chk_timetables_level_no CHECK (level_no BETWEEN 1 AND 4),
@@ -594,7 +596,11 @@ CREATE TABLE `timetables` (
 
     CONSTRAINT fk_timetables_semester
         FOREIGN KEY (semester_id)
-        REFERENCES `semesters` (semester_id)
+        REFERENCES `semesters` (semester_id),
+
+    CONSTRAINT fk_timetables_created_by_user
+        FOREIGN KEY (created_by_user_id)
+        REFERENCES `users` (user_id)
 );
 
 -- Table: timetable_entries
