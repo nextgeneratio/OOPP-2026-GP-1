@@ -2,7 +2,7 @@
 
 ## Documentation consistency check — 2026-10-27
 
-**Verified baseline:** pushed `Amjad` commit `06ead33d2a6aa0a34da3e20f192c7d7d39074f45`, matching `origin/Amjad` after fetch with zero divergence. The GPA production changes, focused audit tests, and prior audit documentation are already on the remote branch. Only this documentation-consistency correction is local/uncommitted; no database action, commit, or push was performed.
+**Verified baseline:** pushed `Amjad` commit `2f96413e274db3a2f0d2a574458b5e497f443636`, matching `origin/Amjad` with zero divergence. The GPA production changes, focused audit tests, and first documentation-consistency correction are already on the remote branch. Only this follow-up wording correction is local/uncommitted; no database action, commit, or push was performed.
 
 - PASS — Detailed Lecturer result retrieval remains offering-scoped end to end: authorization requires the selected assigned offering before the DAO query filters by both student and offering. The old unscoped Lecturer detail operation remains denied; undergraduate detail retrieval remains self-only.
 - PASS — Aggregate GPA authority is intentionally narrower than unrestricted detailed-result access. A Lecturer must be assigned to the selected offering and the student must be enrolled in that offering before any GPA result query executes. The GPA path returns only a numeric SGPA/CGPA value; it does not return unrelated course or mark rows. Undergraduate GPA remains self-only. Completed-result, repeat-attempt, and credit-counting rules remain in the established calculator/DAO path.

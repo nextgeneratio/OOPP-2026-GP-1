@@ -20,6 +20,8 @@ public final class AttendanceController {
     public record ReviseAttendanceRequest(AttendanceRow record) {
     }
 
+    public record ReviseSessionRequest(int sessionId, Map<Integer, Boolean> attendanceByEnrollment) { }
+
     public record SavedSessionResponse(long sessionId) {
     }
 
@@ -29,6 +31,15 @@ public final class AttendanceController {
     public AttendanceController(AttendanceService service, ApiControllerSupport support) {
         this.service = Objects.requireNonNull(service);
         this.support = Objects.requireNonNull(support);
+    }
+
+    public ApiResponse<AttendanceService.SessionSetup> sessionSetup(AuthenticatedSession actor, int offeringId) {
+        return support.execute(() -> service.sessionSetup(actor, offeringId));
+    }
+
+    public ApiResponse<List<lk.ac.ruhuna.fot.ams.data.dao.AttendanceDao.AttendanceHistoryRow>> historyForEnrollment(
+            AuthenticatedSession actor, int enrollmentId, int offeringId) {
+        return support.execute(() -> service.historyForEnrollment(actor, enrollmentId, offeringId));
     }
 
     public ApiResponse<SavedSessionResponse> saveSession(
@@ -46,6 +57,13 @@ public final class AttendanceController {
     public ApiResponse<Void> reviseRecord(AuthenticatedSession actor, ReviseAttendanceRequest request) {
         return support.execute(request, () -> {
             service.reviseRecord(actor, request.record());
+            return null;
+        });
+    }
+
+    public ApiResponse<Void> reviseSession(AuthenticatedSession actor, ReviseSessionRequest request) {
+        return support.execute(request, () -> {
+            service.reviseSession(actor, request.sessionId(), request.attendanceByEnrollment());
             return null;
         });
     }

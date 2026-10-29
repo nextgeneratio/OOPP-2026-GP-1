@@ -23,7 +23,11 @@ public final class AttendanceCalculator {
         }
     }
 
-    public record ComponentResult(int attendedSessions, int eligibleScheduledSessions, BigDecimal percentage) {
+    public record ComponentResult(int attendedSessions, int eligibleScheduledSessions,
+            int medicallyExcusedSessions, BigDecimal percentage) {
+        public ComponentResult(int attendedSessions, int eligibleScheduledSessions, BigDecimal percentage) {
+            this(attendedSessions, eligibleScheduledSessions, 0, percentage);
+        }
         public boolean meets(BigDecimal threshold) {
             return percentage.compareTo(threshold) >= 0;
         }
@@ -63,23 +67,25 @@ public final class AttendanceCalculator {
         EnumMap<ComponentType, ComponentResult> results = new EnumMap<>(ComponentType.class);
         int attended = 0;
         int eligibleScheduled = 0;
+        int excused = 0;
         for (Map.Entry<ComponentType, ComponentAttendance> entry : attendance.entrySet()) {
             ComponentType type = Objects.requireNonNull(entry.getKey(), "Component type is required.");
             ComponentAttendance value = Objects.requireNonNull(entry.getValue(), "Attendance values are required.");
             int eligibleCount = value.scheduledSessions() - value.medicallyExcusedSessions();
-            results.put(type, result(value.attendedSessions(), eligibleCount));
+            results.put(type, result(value.attendedSessions(), eligibleCount, value.medicallyExcusedSessions()));
             attended += value.attendedSessions();
             eligibleScheduled += eligibleCount;
+            excused += value.medicallyExcusedSessions();
         }
-        return new AttendanceSummary(results, result(attended, eligibleScheduled), threshold);
+        return new AttendanceSummary(results, result(attended, eligibleScheduled, excused), threshold);
     }
 
-    private ComponentResult result(int attended, int eligibleScheduled) {
+    private ComponentResult result(int attended, int eligibleScheduled, int excused) {
         BigDecimal percentage = eligibleScheduled == 0
                 ? ONE_HUNDRED.setScale(2)
                 : BigDecimal.valueOf(attended)
                         .multiply(ONE_HUNDRED)
                         .divide(BigDecimal.valueOf(eligibleScheduled), 2, RoundingMode.HALF_UP);
-        return new ComponentResult(attended, eligibleScheduled, percentage);
+        return new ComponentResult(attended, eligibleScheduled, excused, percentage);
     }
 }

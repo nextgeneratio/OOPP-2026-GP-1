@@ -15,6 +15,7 @@ import lk.ac.ruhuna.fot.ams.business.calculator.AttendanceCalculator;
 import lk.ac.ruhuna.fot.ams.business.service.AttendanceService;
 import lk.ac.ruhuna.fot.ams.data.connection.ConnectionProvider;
 import lk.ac.ruhuna.fot.ams.data.dao.AttendanceDao;
+import lk.ac.ruhuna.fot.ams.data.dao.AttendanceDao.SessionRow;
 import lk.ac.ruhuna.fot.ams.data.dao.AuditLogDao;
 import lk.ac.ruhuna.fot.ams.data.dao.CourseDao;
 import lk.ac.ruhuna.fot.ams.data.dao.MedicalDao;
@@ -66,5 +67,40 @@ class AttendanceWorkflowPermissionsTest {
 
         verify(attendanceDao).deleteSession(connection, 7);
         verify(connection).commit();
+    }
+
+    @Test
+    void lecturerCannotCreateAttendance() {
+        AuthenticatedSession lecturer = new AuthenticatedSession(3, "lecturer", Role.LECTURER, "Lecturer");
+        SessionRow request = new SessionRow(0, 7, 4, java.time.LocalDate.of(2026, 10, 18), 2, null, null);
+
+        assertThatThrownBy(() -> service.saveSession(lecturer, request, java.util.Map.of()))
+                .isInstanceOf(AuthorizationException.class);
+
+        verify(attendanceDao, never()).insertSession(connection, request);
+    }
+
+    @Test
+    void lecturerAndUndergraduateCannotUpdateAttendance() {
+        AuthenticatedSession lecturer = new AuthenticatedSession(3, "lecturer", Role.LECTURER, "Lecturer");
+        AuthenticatedSession student = new AuthenticatedSession(4, "student", Role.UNDERGRADUATE, "Student");
+        AttendanceDao.AttendanceRow row = new AttendanceDao.AttendanceRow(0, 7, 9, true);
+
+        assertThatThrownBy(() -> service.reviseRecord(lecturer, row)).isInstanceOf(AuthorizationException.class);
+        assertThatThrownBy(() -> service.reviseRecord(student, row)).isInstanceOf(AuthorizationException.class);
+
+        verify(attendanceDao, never()).findSessionsForSessionId(7);
+        verify(attendanceDao, never()).reviseRecord(connection, row);
+    }
+
+    @Test
+    void administratorCannotUpdateAttendanceRecords() {
+        AuthenticatedSession admin = new AuthenticatedSession(1, "admin", Role.ADMIN, "Admin");
+        AttendanceDao.AttendanceRow row = new AttendanceDao.AttendanceRow(0, 7, 9, true);
+
+        assertThatThrownBy(() -> service.reviseRecord(admin, row)).isInstanceOf(AuthorizationException.class);
+
+        verify(attendanceDao, never()).findSessionsForSessionId(7);
+        verify(attendanceDao, never()).reviseRecord(connection, row);
     }
 }

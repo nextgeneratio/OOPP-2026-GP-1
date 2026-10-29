@@ -341,6 +341,17 @@ public final class JdbcCourseDao implements CourseDao {
     }
 
     @Override
+    public List<AttendanceRosterRow> findAttendanceRoster(int offeringId) {
+        return jdbc.query("SELECT e.enrollment_id, u.student_id, u.student_no, u.full_name "
+                        + "FROM course_enrollments e JOIN undergraduates u ON u.student_id = e.student_id "
+                        + "WHERE e.offering_id = ? AND e.enrollment_status = 'ACTIVE' "
+                        + "ORDER BY u.student_no",
+                statement -> statement.setInt(1, offeringId), result -> new AttendanceRosterRow(
+                        result.getInt("enrollment_id"), result.getInt("student_id"),
+                        result.getString("student_no"), result.getString("full_name")));
+    }
+
+    @Override
     public List<EnrollmentRow> findEnrollments(int offeringId) {
         return jdbc.query("SELECT enrollment_id, student_id, offering_id, attempt_no, "
                         + "student_status, enrollment_status FROM course_enrollments "

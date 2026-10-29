@@ -32,11 +32,11 @@ class NavigationModuleTest {
     }
 
     @Test
-    void technicalOfficerCanManageCoursesAndMedicalButNotAttendance() {
+    void technicalOfficerCanMaintainAttendanceAlongWithCoursesAndMedical() {
         assertThat(NavigationModule.forRole(Role.TECHNICAL_OFFICER)).contains(NavigationModule.COURSE_MANAGEMENT,
-                NavigationModule.MEDICAL, NavigationModule.TIMETABLE, NavigationModule.NOTICES,
+                NavigationModule.ATTENDANCE, NavigationModule.MEDICAL, NavigationModule.TIMETABLE, NavigationModule.NOTICES,
                 NavigationModule.REPORTS)
-                .doesNotContain(NavigationModule.ATTENDANCE, NavigationModule.ASSESSMENTS_MARKS,
+                .doesNotContain(NavigationModule.ASSESSMENTS_MARKS,
                         NavigationModule.COURSE_MATERIALS);
     }
 

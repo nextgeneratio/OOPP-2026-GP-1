@@ -15,7 +15,7 @@ public enum NavigationModule {
     COURSE_OFFERINGS("Course Offerings", Role.values()),
     COURSE_MATERIALS("Learning Materials & Activities", Role.LECTURER, Role.UNDERGRADUATE),
     ASSESSMENTS_MARKS("Assessments & Marks", Role.LECTURER),
-    ATTENDANCE("Attendance", Role.ADMIN, Role.LECTURER, Role.UNDERGRADUATE),
+    ATTENDANCE("Attendance", Role.values()),
     MEDICAL("Medical", Role.ADMIN, Role.TECHNICAL_OFFICER, Role.UNDERGRADUATE),
     ELIGIBILITY("Eligibility", Role.LECTURER, Role.UNDERGRADUATE),
     GRADES_GPA("Grades & GPA", Role.LECTURER, Role.UNDERGRADUATE),

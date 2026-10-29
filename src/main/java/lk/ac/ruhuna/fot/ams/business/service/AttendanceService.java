@@ -33,6 +33,11 @@ import lk.ac.ruhuna.fot.ams.security.authorization.AuthorizationService.ReportTy
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
 public final class AttendanceService {
+    public record RosterEntry(int enrollmentId, int studentId, String studentNumber, String fullName) { }
+    public record SessionSetup(List<CourseDao.ComponentRow> components,
+            List<TimetableDao.EntryRow> entries, List<RosterEntry> roster) {
+        public SessionSetup { components = List.copyOf(components); entries = List.copyOf(entries); roster = List.copyOf(roster); }
+    }
     private final AttendanceDao attendanceDao;
     private final CourseDao courseDao;
     private final TimetableDao timetableDao;
@@ -77,7 +82,7 @@ public final class AttendanceService {
         if (request == null) {
             throw new ValidationException("Attendance session details are required.");
         }
-        authorization.requireLecturerForOffering(actor, request.offeringId());
+        authorization.requireTechnicalOfficerForOffering(actor, request.offeringId());
         if (request.date() == null || request.date().isAfter(LocalDate.now(clock))) {
             throw new ValidationException("Attendance session date cannot be in the future.");
         }
@@ -101,8 +106,8 @@ public final class AttendanceService {
                 || attendanceByEnrollment.values().stream().anyMatch(Objects::isNull)) {
             throw new ValidationException("Attendance must be recorded for every active enrolment exactly once.");
         }
-        Integer officerId = null;
-        Integer lecturerId = authorization.lecturerId(actor);
+        Integer lecturerId = null;
+        Integer officerId = authorization.technicalOfficerId(actor);
         return transactions.execute(connection -> {
             long sessionId = attendanceDao.insertSession(connection,
                     new SessionRow(0, request.offeringId(), request.componentId(), request.date(),
@@ -118,6 +123,39 @@ public final class AttendanceService {
         });
     }
 
+    public SessionSetup sessionSetup(AuthenticatedSession actor, int offeringId) {
+        if (actor == null) throw new AuthorizationException("Sign in to view attendance details.");
+        if (actor.role() == Role.TECHNICAL_OFFICER) authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+        else if (actor.role() == Role.LECTURER) authorization.requireLecturerForOffering(actor, offeringId);
+        else if (actor.role() == Role.UNDERGRADUATE) authorization.requireUndergraduateForOffering(actor, offeringId);
+        else authorization.requireAdmin(actor);
+        CourseDao.OfferingRow offering = courseDao.findOffering(offeringId)
+                .orElseThrow(() -> new ValidationException("Course offering was not found."));
+        int ownStudentId = actor.role() == Role.UNDERGRADUATE ? authorization.studentId(actor) : -1;
+        List<RosterEntry> roster = courseDao.findAttendanceRoster(offeringId).stream()
+                .filter(row -> actor.role() != Role.UNDERGRADUATE || row.studentId() == ownStudentId)
+                .map(row -> new RosterEntry(row.enrollmentId(), row.studentId(), row.studentNumber(), row.fullName()))
+                .toList();
+        return new SessionSetup(courseDao.findComponents(offering.courseId()),
+                timetableDao.findEntriesForOfferings(List.of(offeringId)), roster);
+    }
+
+    public List<AttendanceHistoryRow> historyForEnrollment(AuthenticatedSession actor, int enrollmentId, int offeringId) {
+        if (actor == null) throw new AuthorizationException("Sign in to view attendance details.");
+        if (actor.role() == Role.LECTURER) authorization.requireLecturerForOffering(actor, offeringId);
+        else if (actor.role() == Role.TECHNICAL_OFFICER) authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+        else if (actor.role() == Role.UNDERGRADUATE) {
+            int studentId = authorization.studentId(actor);
+            authorization.requireUndergraduateForStudent(actor, studentId);
+        } else authorization.requireAdmin(actor);
+        boolean validEnrollment = courseDao.findEnrollments(offeringId).stream()
+                .anyMatch(value -> value.id() == enrollmentId && value.offeringId() == offeringId
+                        && (actor.role() != Role.UNDERGRADUATE
+                            || value.studentId() == authorization.studentId(actor)));
+        if (!validEnrollment) throw new AuthorizationException("Attendance filters do not match an authorised enrolment.");
+        return attendanceDao.findHistory(enrollmentId, offeringId);
+    }
+
     public void reviseRecord(AuthenticatedSession actor, AttendanceRow record) {
         if (actor == null) {
             throw new AuthorizationException("A signed-in user is required to revise attendance.");
@@ -125,13 +163,12 @@ public final class AttendanceService {
         if (record == null || record.sessionId() <= 0 || record.enrollmentId() <= 0) {
             throw new ValidationException("Attendance record details are invalid.");
         }
+        if (actor.role() != Role.TECHNICAL_OFFICER) {
+            throw new AuthorizationException("Only a Technical Officer may maintain attendance.");
+        }
         SessionRow session = attendanceDao.findSessionsForSessionId(record.sessionId())
                 .orElseThrow(() -> new ValidationException("Attendance session was not found."));
-        if (actor.role() == Role.ADMIN) {
-            authorization.requireAdmin(actor);
-        } else {
-            throw new AuthorizationException("Only an administrator may revise attendance.");
-        }
+        authorization.requireTechnicalOfficerForOffering(actor, session.offeringId());
         if (courseDao.findEnrollments(session.offeringId()).stream()
                 .noneMatch(enrollment -> enrollment.id() == record.enrollmentId())) {
             throw new ValidationException("Attendance record does not belong to this offering.");
@@ -144,6 +181,32 @@ public final class AttendanceService {
             auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
                     0, actor.userId(), "ATTENDANCE_RECORD_UPDATE", "ATTENDANCE_SESSION",
                     record.sessionId(), LocalDateTime.now(clock)));
+            return null;
+        });
+    }
+
+    public void reviseSession(AuthenticatedSession actor, int sessionId, Map<Integer, Boolean> attendanceByEnrollment) {
+        if (actor == null) throw new AuthorizationException("Sign in to revise attendance.");
+        authorization.requireRole(actor, Role.TECHNICAL_OFFICER);
+        if (sessionId <= 0 || attendanceByEnrollment == null || attendanceByEnrollment.isEmpty()
+                || attendanceByEnrollment.values().stream().anyMatch(Objects::isNull))
+            throw new ValidationException("Attendance updates are invalid.");
+        SessionRow session = attendanceDao.findSessionsForSessionId(sessionId)
+                .orElseThrow(() -> new ValidationException("Attendance session was not found."));
+        authorization.requireTechnicalOfficerForOffering(actor, session.offeringId());
+        Set<Integer> expected = courseDao.findActiveEnrollments(session.offeringId()).stream()
+                .map(EnrollmentRow::id).collect(java.util.stream.Collectors.toSet());
+        if (!attendanceByEnrollment.keySet().equals(expected))
+            throw new ValidationException("Update every active enrolment in the selected session exactly once.");
+        transactions.execute(connection -> {
+            for (Map.Entry<Integer, Boolean> entry : attendanceByEnrollment.entrySet()) {
+                int updated = attendanceDao.reviseRecord(connection,
+                        new AttendanceRow(0, sessionId, entry.getKey(), entry.getValue()));
+                if (updated != 1) throw new ValidationException("An attendance record was not found.");
+            }
+            auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
+                    0, actor.userId(), "ATTENDANCE_SESSION_UPDATE", "ATTENDANCE_SESSION",
+                    sessionId, LocalDateTime.now(clock)));
             return null;
         });
     }
@@ -185,6 +248,8 @@ public final class AttendanceService {
         }
         if (actor.role() == Role.LECTURER) {
             authorization.requireLecturerForOffering(actor, offeringId);
+        } else if (actor.role() == Role.TECHNICAL_OFFICER) {
+            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
         } else if (actor.role() == Role.UNDERGRADUATE) {
             authorization.requireUndergraduateForOffering(actor, offeringId);
             int studentId = authorization.studentId(actor);
@@ -211,9 +276,11 @@ public final class AttendanceService {
         authorization.requireReportAccess(actor, ReportType.STUDENT_ATTENDANCE);
         if (actor.role() == Role.LECTURER) {
             authorization.requireLecturerForOffering(actor, offeringId);
+        } else if (actor.role() == Role.TECHNICAL_OFFICER) {
+            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
         } else if (actor.role() == Role.UNDERGRADUATE) {
             authorization.requireUndergraduateForStudent(actor, studentId);
-        } else {
+        } else if (actor.role() != Role.ADMIN) {
             throw new AuthorizationException("You do not have permission to view this attendance report.");
         }
         boolean validEnrollment = courseDao.findEnrollments(offeringId).stream()
