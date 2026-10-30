@@ -147,16 +147,22 @@ public final class MainFrame extends JFrame {
             return new MedicalScreen(session, medical);
         }
         if (module == NavigationModule.ASSESSMENTS_MARKS) {
+            if (session.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.LECTURER) {
+                javax.swing.JTabbedPane tabs = new javax.swing.JTabbedPane();
+                tabs.addTab("Assessment plan", new AssessmentsMarksScreen(session, courses, attendance, assessments, marks));
+                tabs.addTab("Marks sheet", new lk.ac.ruhuna.fot.ams.presentation.ui.lecturer.MarksScreen(session, marks));
+                return tabs;
+            }
             return new AssessmentsMarksScreen(session, courses, attendance, assessments, marks);
         }
         if (module == NavigationModule.ELIGIBILITY) {
-            return new EligibilityScreen(session, courses, attendance, eligibility);
+            return new EligibilityScreen(session, eligibility);
         }
         if (module == NavigationModule.GRADES_GPA) {
             return new GradesGpaScreen(session, courses, attendance, gpa, results);
         }
         if (module == NavigationModule.REPORTS) {
-            return new ReportsScreen(session, courses, attendance, reports);
+            return new ReportScreen(session, new UiServices(courses, attendance, eligibility, reports));
         }
         if (module != NavigationModule.DASHBOARD) {
             throw new IllegalStateException("No Swing screen is registered for " + module);

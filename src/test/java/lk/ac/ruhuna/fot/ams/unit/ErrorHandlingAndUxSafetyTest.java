@@ -52,7 +52,7 @@ class ErrorHandlingAndUxSafetyTest {
 
         String message = errorHandler.userMessage(failure);
 
-        assertThat(message).isEqualTo("The database is currently unavailable. Please try again.");
+        assertThat(message).contains("database operation failed", "schema", "account permissions", "application log");
         assertThat(message).doesNotContain("SELECT", "users");
     }
 

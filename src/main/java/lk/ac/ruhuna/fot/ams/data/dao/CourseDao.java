@@ -34,6 +34,11 @@ public interface CourseDao {
 
     record AttendanceRosterRow(int enrollmentId, int studentId, String studentNumber, String fullName) { }
 
+    record RosterRow(int enrollmentId, int studentId, String studentNumber, String fullName) { }
+
+    record OfferingSummary(int offeringId, int courseId, String courseCode, String courseTitle,
+            int departmentId, int semesterId) { }
+
     long insertDepartment(Connection connection, DepartmentRow row);
 
     long insertBatch(Connection connection, BatchRow row);
@@ -91,6 +96,14 @@ public interface CourseDao {
     List<EnrollmentRow> findActiveEnrollments(int offeringId);
 
     List<AttendanceRosterRow> findAttendanceRoster(int offeringId);
+
+    List<RosterRow> findRoster(int offeringId);
+
+    List<EnrollmentRow> findEnrollmentsForStudent(int studentId);
+
+    List<OfferingSummary> findOfferingSummariesForLecturer(int lecturerId);
+
+    List<OfferingSummary> findOfferingSummariesForTechnicalOfficer(int technicalOfficerId);
 
     List<EnrollmentRow> findEnrollments(int offeringId);
 

@@ -41,8 +41,9 @@ mvn clean test
 
 The MySQL connectivity test uses the isolated `university_management_test`
 database by default. Configure `DB_USERNAME` and `DB_PASSWORD`, or the ignored
-repository-root `test-credentials.properties`, before running it. To point that
-test explicitly at a database, set `DB_URL`.
+repository-root `test-credentials.properties`, before running it. An optional
+`DB_URL` override must name a database ending in `_test`; the test refuses to
+connect to a development/live database.
 
 ## Database setup
 

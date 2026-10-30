@@ -19,6 +19,9 @@ class DatabaseConnectivityTest {
                         || hasLocalCredentials(),
                 "Test database credentials are not configured");
         AppConfig config = AppConfig.loadFromClasspath("test-application.properties");
+        assertThat(databaseName(config.databaseUrl()))
+                .as("connectivity checks must never target a development/live database")
+                .endsWith("_test");
         try (Connection connection = new JdbcConnectionProvider(config).getConnection()) {
             assertThat(connection.isValid(3)).isTrue();
             assertThat(connection.getCatalog()).isEqualTo(databaseName(config.databaseUrl()));

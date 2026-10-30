@@ -29,6 +29,14 @@ public final class CourseController {
         return support.execute(() -> service.offeringViewsForActor(actor));
     }
 
+    public ApiResponse<List<CourseDao.OfferingSummary>> offeringSummariesForActor(AuthenticatedSession actor) {
+        return support.execute(() -> service.offeringSummariesForActor(actor));
+    }
+
+    public ApiResponse<List<CourseDao.RosterRow>> rosterForOffering(AuthenticatedSession actor, int offeringId) {
+        return support.execute(() -> service.rosterForOffering(actor, offeringId));
+    }
+
     public ApiResponse<List<CourseService.OfferingView>> availableOfferingsForCurrentStudent(AuthenticatedSession actor) {
         return support.execute(() -> service.availableOfferingsForCurrentStudent(actor));
     }

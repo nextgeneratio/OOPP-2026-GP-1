@@ -1,19 +1,9 @@
 package lk.ac.ruhuna.fot.ams.presentation.ui.auth;
 
 import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
-import java.util.Arrays;
-import java.util.concurrent.ExecutionException;
-import javax.swing.BorderFactory;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JPasswordField;
-import javax.swing.JTextField;
-import javax.swing.SwingWorker;
-import lk.ac.ruhuna.fot.ams.api.controller.ApiResponse;
 import lk.ac.ruhuna.fot.ams.api.controller.AuthController;
 import lk.ac.ruhuna.fot.ams.api.controller.DashboardController;
 import lk.ac.ruhuna.fot.ams.api.controller.ProfileController;
@@ -31,17 +21,15 @@ import lk.ac.ruhuna.fot.ams.api.controller.GpaController;
 import lk.ac.ruhuna.fot.ams.api.controller.ReportController;
 import lk.ac.ruhuna.fot.ams.api.controller.ResultController;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
-import lk.ac.ruhuna.fot.ams.presentation.ui.common.AppButton;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.MainFrame;
-import lk.ac.ruhuna.fot.ams.presentation.ui.common.UiTheme;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
+/** Login window containing the Nirmal banner/form UI; authenticated navigation stays on Amjad's wired MainFrame. */
 public final class LoginFrame extends JFrame {
     private final AuthController authController;
     private final DashboardController dashboardController;
     private final UserController userController;
     private final ProfileController profileController;
-    private final ApplicationErrorHandler errorHandler;
     private final CourseController courseController;
     private final TimetableController timetableController;
     private final ContentController contentController;
@@ -54,10 +42,7 @@ public final class LoginFrame extends JFrame {
     private final GpaController gpaController;
     private final ReportController reportController;
     private final ResultController resultController;
-    private final JTextField usernameField = new JTextField(20);
-    private final JPasswordField passwordField = new JPasswordField(20);
-    private final JLabel messageLabel = new JLabel(" ");
-    private final AppButton loginButton = new AppButton("Login");
+    private final ApplicationErrorHandler errorHandler;
 
     public LoginFrame(AuthController authController, DashboardController dashboardController,
                       UserController userController, ProfileController profileController,
@@ -79,129 +64,35 @@ public final class LoginFrame extends JFrame {
         this.attendanceController = attendanceController;
         this.learningActivityController = learningActivityController;
         this.medicalController = medicalController;
-        this.assessmentController = assessmentController; this.marksController = marksController;
-        this.eligibilityController = eligibilityController; this.gpaController = gpaController;
+        this.assessmentController = assessmentController;
+        this.marksController = marksController;
+        this.eligibilityController = eligibilityController;
+        this.gpaController = gpaController;
         this.reportController = reportController;
         this.resultController = resultController;
         this.errorHandler = errorHandler;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setContentPane(createContent());
-        getRootPane().setDefaultButton(loginButton);
-        usernameField.addActionListener(event -> passwordField.requestFocusInWindow());
-        setMinimumSize(new Dimension(460, 420));
-        pack();
+        LoginPanel panel = new LoginPanel(authController::login, errorHandler, this::openShell);
+        setContentPane(panel);
+        getRootPane().setDefaultButton(panel.defaultButton());
+        setMinimumSize(new Dimension(900, 560));
+        setSize(1100, 660);
         setLocationRelativeTo(null);
-    }
-
-    private JPanel createContent() {
-        JPanel page = new JPanel(new GridBagLayout());
-        JPanel card = new JPanel(new GridBagLayout());
-        card.setBackground(UiTheme.SURFACE);
-        card.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(UiTheme.BORDER),
-                BorderFactory.createEmptyBorder(UiTheme.SPACE_LG, UiTheme.SPACE_LG, UiTheme.SPACE_LG, UiTheme.SPACE_LG)));
-
-        JLabel title = new JLabel("Faculty of Technology AMS");
-        title.setFont(UiTheme.pageTitle());
-        title.setForeground(UiTheme.PRIMARY);
-        JLabel subtitle = new JLabel("Sign in to continue");
-        subtitle.setFont(UiTheme.body());
-        subtitle.setForeground(UiTheme.MUTED);
-        row(card, title, 0, 0);
-        row(card, subtitle, 0, 1);
-        row(card, label("Username", usernameField), 0, 2);
-        row(card, usernameField, 0, 3);
-        row(card, label("Password", passwordField), 0, 4);
-        row(card, passwordField, 0, 5);
-        messageLabel.setFont(UiTheme.helper());
-        messageLabel.setForeground(UiTheme.ERROR);
-        messageLabel.getAccessibleContext().setAccessibleName("Login message");
-        row(card, messageLabel, 0, 6);
-        loginButton.addActionListener(event -> login());
-        row(card, loginButton, 0, 7);
-        usernameField.getAccessibleContext().setAccessibleName("Username");
-        passwordField.getAccessibleContext().setAccessibleName("Password");
-        page.add(card);
-        return page;
-    }
-
-    private JLabel label(String text, java.awt.Component target) {
-        JLabel label = new JLabel(text);
-        label.setFont(UiTheme.label());
-        label.setLabelFor(target);
-        return label;
-    }
-
-    private void row(JPanel panel, java.awt.Component component, int x, int y) {
-        GridBagConstraints c = new GridBagConstraints();
-        c.gridx = x;
-        c.gridy = y;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.weightx = 1;
-        c.insets = new Insets(y == 0 ? 0 : UiTheme.SPACE_SM, 0,
-                y == 1 || y == 3 || y == 5 ? UiTheme.SPACE_MD : 0, 0);
-        panel.add(component, c);
-    }
-
-    private void login() {
-        String username = usernameField.getText();
-        char[] password = passwordField.getPassword();
-        if (username.isBlank() || password.length == 0) {
-            Arrays.fill(password, '\0');
-            showMessage("Enter your username and password.", UiTheme.ERROR);
-            return;
-        }
-        loginButton.setEnabled(false);
-        showMessage("Signing in\u2026", UiTheme.MUTED);
-        passwordField.setText("");
-        new SwingWorker<ApiResponse<AuthController.LoginResponse>, Void>() {
-            @Override
-            protected ApiResponse<AuthController.LoginResponse> doInBackground() {
-                try {
-                    return authController.login(new AuthController.LoginRequest(username, password));
-                } finally {
-                    Arrays.fill(password, '\0');
-                }
-            }
-
-            @Override
-            protected void done() {
-                loginButton.setEnabled(true);
-                try {
-                    ApiResponse<AuthController.LoginResponse> response = get();
-                    if (response.successful()) {
-                        openShell(response.data().session());
-                    } else {
-                        showMessage(response.error().message(), UiTheme.ERROR);
-                        passwordField.requestFocusInWindow();
-                    }
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    showMessage("Sign-in was interrupted. Please try again.", UiTheme.ERROR);
-                } catch (ExecutionException failure) {
-                    errorHandler.log(failure.getCause());
-                    showMessage("\u26A0 " + errorHandler.userMessage(failure.getCause()), UiTheme.ERROR);
-                    passwordField.requestFocusInWindow();
-                }
-            }
-        }.execute();
+        addWindowListener(new WindowAdapter() {
+            @Override public void windowOpened(WindowEvent event) { panel.focusUsername(); }
+        });
     }
 
     private void openShell(AuthenticatedSession session) {
         dispose();
-        new MainFrame(session, dashboardController, userController, profileController,
-                courseController, timetableController, contentController, attendanceController,
-                learningActivityController, medicalController, assessmentController, marksController,
-                eligibilityController, gpaController, reportController, resultController, errorHandler,
-                () -> new LoginFrame(authController, dashboardController, userController,
-                        profileController, courseController, timetableController, contentController,
-                        attendanceController, learningActivityController, medicalController, assessmentController,
-                        marksController, eligibilityController, gpaController, reportController, resultController,
-                        errorHandler).setVisible(true))
-                .setVisible(true);
-    }
-
-    private void showMessage(String text, java.awt.Color color) {
-        messageLabel.setForeground(color);
-        messageLabel.setText(text);
+        new MainFrame(session, dashboardController, userController, profileController, courseController,
+                timetableController, contentController, attendanceController, learningActivityController,
+                medicalController, assessmentController, marksController, eligibilityController, gpaController,
+                reportController, resultController, errorHandler,
+                () -> new LoginFrame(authController, dashboardController, userController, profileController,
+                        courseController, timetableController, contentController, attendanceController,
+                        learningActivityController, medicalController, assessmentController, marksController,
+                        eligibilityController, gpaController, reportController, resultController, errorHandler)
+                        .setVisible(true)).setVisible(true);
     }
 }

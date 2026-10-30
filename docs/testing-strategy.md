@@ -9,7 +9,9 @@ coverage remains pending.
 The connectivity test targets `university_management_test`. Configure either
 `DB_USERNAME` and `DB_PASSWORD` in the test process environment or put those two
 properties in the ignored repository-root `test-credentials.properties` file.
-The local credential file must not be committed.
+The local credential file must not be committed. An optional `DB_URL` override
+must select a database whose name ends in `_test`; the test checks the target
+before opening a connection and refuses other database names.
 
 Create the test database using `src/test/resources/db/test-schema.sql`, then apply
 `src/main/resources/db/schema.sql` and `src/main/resources/db/seed.sql` with the

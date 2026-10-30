@@ -1,43 +1,254 @@
 package lk.ac.ruhuna.fot.ams.presentation.ui.common;
 
 import java.awt.BorderLayout;
-import java.awt.GridLayout;
+import java.awt.Component;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
+import javax.swing.JList;
 import javax.swing.JPanel;
-import lk.ac.ruhuna.fot.ams.api.controller.AttendanceController;
-import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import lk.ac.ruhuna.fot.ams.api.controller.ApiError;
 import lk.ac.ruhuna.fot.ams.api.controller.EligibilityController;
-import lk.ac.ruhuna.fot.ams.business.service.CourseService.OfferingView;
+import lk.ac.ruhuna.fot.ams.api.controller.EligibilityController.EligibilityRequest;
+import lk.ac.ruhuna.fot.ams.api.controller.EligibilityController.EligibilityResponse;
+import lk.ac.ruhuna.fot.ams.api.controller.EligibilityController.OwnEligibilityRequest;
+import lk.ac.ruhuna.fot.ams.business.service.EligibilityService.StudentOffering;
+import lk.ac.ruhuna.fot.ams.data.dao.CourseDao.OfferingSummary;
+import lk.ac.ruhuna.fot.ams.data.dao.CourseDao.RosterRow;
 import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
-/** Shows calculated eligibility; student identity is derived from their active enrolment. */
+/**
+ * Final exam eligibility. Lecturers pick an offering and a student; undergraduates see their own
+ * offerings only. All eligibility logic (CA threshold, attendance threshold, reasons) comes from
+ * EligibilityService; this screen only collects the selection and renders the result text.
+ */
 public final class EligibilityScreen extends JPanel {
-    private final AuthenticatedSession actor; private final CourseController courses;
-    private final AttendanceController attendance; private final EligibilityController eligibility;
-    public EligibilityScreen(AuthenticatedSession actor, CourseController courses, AttendanceController attendance,
-                             EligibilityController eligibility) {
-        super(new BorderLayout(12,12)); this.actor=actor; this.courses=courses; this.attendance=attendance; this.eligibility=eligibility;
-        setBorder(javax.swing.BorderFactory.createEmptyBorder(20,20,20,20));
-        add(new JLabel("<html><h2>Exam eligibility</h2>Eligibility is calculated from saved CA marks and attendance; it cannot be edited here.</html>"), BorderLayout.NORTH);
-        javax.swing.JButton evaluate = new javax.swing.JButton("Evaluate eligibility"); evaluate.setName("evaluate-eligibility"); evaluate.addActionListener(e -> { try { evaluate(); } catch (RuntimeException failure) { error(failure.getMessage()); } }); add(evaluate, BorderLayout.CENTER);
+    private final AuthenticatedSession session;
+    private final EligibilityController eligibility;
+    private final boolean lecturerMode;
+
+    private final JComboBox<Object> offeringBox = new JComboBox<>();
+    private final JComboBox<RosterRow> studentBox = new JComboBox<>();
+    private final JLabel studentLabel = new JLabel("Student");
+    private final AppButton checkButton = new AppButton("Check eligibility");
+    private final JTextArea result = new JTextArea();
+    private final JLabel status = new JLabel(" ");
+
+    private boolean populating;
+
+    public EligibilityScreen(AuthenticatedSession session, EligibilityController eligibility) {
+        super(new BorderLayout(0, UiTheme.SPACE_MD));
+        this.session = session;
+        this.eligibility = eligibility;
+        this.lecturerMode = session.role() == Role.LECTURER;
+        setBorder(BorderFactory.createEmptyBorder(
+                UiTheme.SPACE_LG, UiTheme.SPACE_LG, UiTheme.SPACE_LG, UiTheme.SPACE_LG));
+        add(buildHeader(), BorderLayout.NORTH);
+        add(buildResultPanel(), BorderLayout.CENTER);
+        checkButton.setEnabled(false);
+        loadOfferings();
     }
-    private JComboBox<OfferingView> offerings() { var r=courses.offeringViewsForActor(actor); if(!r.successful()) throw new IllegalArgumentException(r.error().message()); if(r.data().isEmpty()) throw new IllegalArgumentException("No authorised course offerings are available."); JComboBox<OfferingView> b=new JComboBox<>(r.data().toArray(OfferingView[]::new)); b.setRenderer(new javax.swing.DefaultListCellRenderer(){ @Override public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> l,Object v,int i,boolean s,boolean f){super.getListCellRendererComponent(l,v,i,s,f);if(v instanceof OfferingView o)setText(o.course().code()+" — "+o.course().title());return this;}}); return b; }
-    private void evaluate() {
-        JComboBox<OfferingView> offering=offerings();
-        var rosterBox = new JComboBox<lk.ac.ruhuna.fot.ams.data.dao.CourseDao.EnrollmentRow>();
-        offering.addActionListener(e -> loadRoster(rosterBox, (OfferingView) offering.getSelectedItem()));
-        if (!loadRoster(rosterBox,(OfferingView)offering.getSelectedItem())) return;
-        JPanel p=new JPanel(new GridLayout(0,2,8,8));p.add(new JLabel("Course offering"));p.add(offering);p.add(new JLabel(actor.role()==Role.UNDERGRADUATE?"My enrolment":"Student enrolment"));p.add(rosterBox);
-        if(JOptionPane.showConfirmDialog(this,p,"Evaluate eligibility",JOptionPane.OK_CANCEL_OPTION)!=JOptionPane.OK_OPTION)return;
-        var o=(OfferingView)offering.getSelectedItem(); var e=(lk.ac.ruhuna.fot.ams.data.dao.CourseDao.EnrollmentRow)rosterBox.getSelectedItem(); if(e==null){error("No active enrolment is available.");return;}
-        var result=eligibility.evaluate(actor,new EligibilityController.EligibilityRequest(e.studentId(),e.id(),o.offering().id()));
-        if(!result.successful()){error(result.error().message());return;} var data=result.data();
-        String reasons=data.failedConditions().isEmpty()?"None":String.join("\n",data.failedConditions());
-        JOptionPane.showMessageDialog(this,"Overall: "+(data.eligible()?"Eligible":"Not eligible")+"\nCA: "+(data.caEligible()?"Eligible":"Not eligible")+"\nAttendance: "+(data.attendanceEligible()?"Eligible":"Not eligible")+"\nReasons:\n"+reasons,"Eligibility",JOptionPane.INFORMATION_MESSAGE);
+
+    private JPanel buildHeader() {
+        JPanel header = new JPanel();
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+        header.setOpaque(false);
+        JLabel title = new JLabel("Final Exam Eligibility");
+        title.setFont(UiTheme.pageTitle());
+        title.setAlignmentX(LEFT_ALIGNMENT);
+
+        offeringBox.setRenderer(new DefaultListCellRenderer() {
+            @Override public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                                    boolean selected, boolean focus) {
+                String shown;
+                if (value instanceof OfferingSummary o) {
+                    shown = o.courseCode() + " \u2013 " + o.courseTitle();
+                } else if (value instanceof StudentOffering o) {
+                    shown = o.courseCode() + " \u2013 " + o.courseTitle();
+                } else {
+                    shown = String.valueOf(value);
+                }
+                return super.getListCellRendererComponent(list, shown, index, selected, focus);
+            }
+        });
+        offeringBox.getAccessibleContext().setAccessibleName("Course offering");
+        offeringBox.addActionListener(event -> {
+            if (!populating) {
+                onOfferingSelected();
+            }
+        });
+
+        studentBox.setRenderer(new DefaultListCellRenderer() {
+            @Override public Component getListCellRendererComponent(JList<?> list, Object value, int index,
+                                                                    boolean selected, boolean focus) {
+                Object shown = value instanceof RosterRow r ? r.studentNumber() + " \u2013 " + r.fullName() : value;
+                return super.getListCellRendererComponent(list, shown, index, selected, focus);
+            }
+        });
+        studentBox.getAccessibleContext().setAccessibleName("Student");
+        studentBox.addActionListener(event -> {
+            if (!populating) {
+                checkButton.setEnabled(studentBox.getSelectedItem() != null);
+            }
+        });
+
+        checkButton.addActionListener(event -> check());
+
+        JPanel filters = new JPanel(new FlowLayout(FlowLayout.LEFT, UiTheme.SPACE_SM, UiTheme.SPACE_SM));
+        filters.setOpaque(false);
+        filters.setAlignmentX(LEFT_ALIGNMENT);
+        JLabel offeringLabel = new JLabel("Offering");
+        offeringLabel.setLabelFor(offeringBox);
+        filters.add(offeringLabel);
+        filters.add(offeringBox);
+        if (lecturerMode) {
+            studentLabel.setLabelFor(studentBox);
+            filters.add(studentLabel);
+            filters.add(studentBox);
+        }
+        filters.add(checkButton);
+        header.add(title);
+        header.add(filters);
+        return header;
     }
-    private boolean loadRoster(JComboBox<lk.ac.ruhuna.fot.ams.data.dao.CourseDao.EnrollmentRow> box, OfferingView offering){box.removeAllItems();if(offering==null)return false;var r=attendance.activeEnrollments(actor,offering.offering().id());if(!r.successful()){error(r.error().message());return false;}if(r.data().isEmpty()){error("No active enrolments are available for this offering.");return false;}r.data().forEach(box::addItem);box.setRenderer(new javax.swing.DefaultListCellRenderer(){@Override public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> l,Object v,int i,boolean s,boolean f){super.getListCellRendererComponent(l,v,i,s,f);if(v instanceof lk.ac.ruhuna.fot.ams.data.dao.CourseDao.EnrollmentRow x)setText("Student "+x.studentId()+" — enrolment "+x.id());return this;}});return true;}
-    private void error(String text){JOptionPane.showMessageDialog(this,text,"Eligibility",JOptionPane.ERROR_MESSAGE);}
+
+    private JPanel buildResultPanel() {
+        status.setFont(UiTheme.helper());
+        status.setForeground(UiTheme.MUTED);
+        result.setEditable(false);
+        result.setLineWrap(false);
+        result.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 14));
+        result.setBackground(UiTheme.SURFACE);
+        result.setBorder(BorderFactory.createEmptyBorder(
+                UiTheme.SPACE_MD, UiTheme.SPACE_MD, UiTheme.SPACE_MD, UiTheme.SPACE_MD));
+        result.getAccessibleContext().setAccessibleName("Eligibility result");
+        JScrollPane scroll = new JScrollPane(result);
+        scroll.setBorder(BorderFactory.createLineBorder(UiTheme.BORDER));
+        JPanel panel = new JPanel(new BorderLayout(0, UiTheme.SPACE_SM));
+        panel.setOpaque(false);
+        panel.add(status, BorderLayout.NORTH);
+        panel.add(scroll, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private void loadOfferings() {
+        status.setForeground(UiTheme.MUTED);
+        status.setText("Loading offerings\u2026");
+        if (lecturerMode) {
+            ApiCall.run(() -> eligibility.myOfferings(session), offerings -> {
+                populating = true;
+                offeringBox.removeAllItems();
+                offerings.forEach(offeringBox::addItem);
+                populating = false;
+                status.setText(offerings.isEmpty()
+                        ? "You have no assigned course offerings." : " ");
+                if (!offerings.isEmpty()) {
+                    onOfferingSelected();
+                }
+            }, this::loadFailed);
+        } else {
+            ApiCall.run(() -> eligibility.myOfferingsAsStudent(session), offerings -> {
+                populating = true;
+                offeringBox.removeAllItems();
+                offerings.forEach(offeringBox::addItem);
+                populating = false;
+                status.setText(offerings.isEmpty() ? "You have no active course enrolments." : " ");
+                checkButton.setEnabled(!offerings.isEmpty());
+            }, this::loadFailed);
+        }
+    }
+
+    private void onOfferingSelected() {
+        if (!lecturerMode) {
+            return;
+        }
+        OfferingSummary selected = (OfferingSummary) offeringBox.getSelectedItem();
+        studentBox.removeAllItems();
+        checkButton.setEnabled(false);
+        if (selected == null) {
+            return;
+        }
+        status.setForeground(UiTheme.MUTED);
+        status.setText("Loading roster\u2026");
+        ApiCall.run(() -> eligibility.roster(session, selected.offeringId()), roster -> {
+            populating = true;
+            roster.forEach(studentBox::addItem);
+            populating = false;
+            status.setText(roster.isEmpty() ? "No active students are enrolled in this offering." : " ");
+        }, this::loadFailed);
+    }
+
+    private void loadFailed(ApiError error) {
+        status.setForeground(UiTheme.ERROR);
+        status.setText("\u26A0 " + error.message());
+        if (!Dialogs.isInline(error)) {
+            Dialogs.showError(this, error);
+        }
+    }
+
+    private void check() {
+        checkButton.setEnabled(false);
+        status.setForeground(UiTheme.MUTED);
+        status.setText("Checking\u2026");
+        result.setText("");
+        if (lecturerMode) {
+            OfferingSummary offering = (OfferingSummary) offeringBox.getSelectedItem();
+            RosterRow student = (RosterRow) studentBox.getSelectedItem();
+            if (offering == null || student == null) {
+                checkButton.setEnabled(true);
+                return;
+            }
+            ApiCall.run(() -> eligibility.evaluate(session,
+                            new EligibilityRequest(student.studentId(), student.enrollmentId(), offering.offeringId())),
+                    response -> show(student.studentNumber() + " \u2013 " + student.fullName(), response),
+                    this::checkFailed);
+        } else {
+            StudentOffering offering = (StudentOffering) offeringBox.getSelectedItem();
+            if (offering == null) {
+                checkButton.setEnabled(true);
+                return;
+            }
+            ApiCall.run(() -> eligibility.evaluateOwn(session,
+                            new OwnEligibilityRequest(offering.enrollmentId(), offering.offeringId())),
+                    response -> show(null, response), this::checkFailed);
+        }
+    }
+
+    private void checkFailed(ApiError error) {
+        checkButton.setEnabled(true);
+        status.setForeground(UiTheme.ERROR);
+        status.setText("\u26A0 " + error.message());
+        if (!Dialogs.isInline(error)) {
+            Dialogs.showError(this, error);
+        }
+    }
+
+    private void show(String studentLine, EligibilityResponse response) {
+        checkButton.setEnabled(true);
+        status.setForeground(UiTheme.MUTED);
+        status.setText(" ");
+        StringBuilder text = new StringBuilder();
+        if (studentLine != null) {
+            text.append(studentLine).append('\n').append('\n');
+        }
+        text.append("Final Exam Eligibility: ").append(response.eligible() ? "ELIGIBLE" : "NOT ELIGIBLE")
+                .append("\n\n")
+                .append(response.caEligible() ? "\u2713" : "\u2717").append(" CA Eligibility: ")
+                .append(response.caEligible() ? "PASS" : "FAIL").append('\n')
+                .append(response.attendanceEligible() ? "\u2713" : "\u2717").append(" Attendance Eligibility: ")
+                .append(response.attendanceEligible() ? "PASS" : "FAIL");
+        if (!response.failedConditions().isEmpty()) {
+            text.append("\n\nReasons:");
+            response.failedConditions().forEach(reason -> text.append("\n\u2717 ").append(reason));
+        }
+        result.setText(text.toString());
+        result.setCaretPosition(0);
+    }
 }

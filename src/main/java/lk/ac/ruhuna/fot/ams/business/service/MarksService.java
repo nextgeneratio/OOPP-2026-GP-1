@@ -25,6 +25,15 @@ public final class MarksService {
     public record MarkInput(int assessmentId, int enrollmentId, BigDecimal score) {
     }
 
+    public record StudentMarks(int enrollmentId, String studentNumber, String fullName,
+            Map<Integer, BigDecimal> scores, BigDecimal caContribution) {
+        public StudentMarks { scores = Map.copyOf(scores); }
+    }
+
+    public record MarkSheet(int offeringId, List<AssessmentRow> assessments, List<StudentMarks> students) {
+        public MarkSheet { assessments = List.copyOf(assessments); students = List.copyOf(students); }
+    }
+
     private static final BigDecimal MAX_MARK = new BigDecimal("100");
 
     private final AssessmentDao assessmentDao;
@@ -101,6 +110,34 @@ public final class MarksService {
             }
             return entries.size();
         });
+    }
+
+    public List<CourseDao.OfferingSummary> offeringsForLecturer(AuthenticatedSession actor) {
+        authorization.requireRole(actor, lk.ac.ruhuna.fot.ams.domain.enums.Role.LECTURER);
+        return courseDao.findOfferingSummariesForLecturer(authorization.lecturerId(actor));
+    }
+
+    public MarkSheet sheet(AuthenticatedSession actor, int offeringId) {
+        authorization.requireLecturerForOffering(actor, offeringId);
+        List<AssessmentRow> assessments = assessmentDao.findAssessments(offeringId);
+        Map<Integer, Map<Integer, MarkRow>> byEnrollment = new HashMap<>();
+        for (MarkRow mark : assessmentDao.findMarks(offeringId, null)) {
+            byEnrollment.computeIfAbsent(mark.enrollmentId(), ignored -> new HashMap<>())
+                    .put(mark.assessmentId(), mark);
+        }
+        List<AssessmentRow> caAssessments = assessments.stream().filter(AssessmentRow::caComponent).toList();
+        List<StudentMarks> students = new java.util.ArrayList<>();
+        for (CourseDao.RosterRow roster : courseDao.findRoster(offeringId)) {
+            Map<Integer, MarkRow> marks = byEnrollment.getOrDefault(roster.enrollmentId(), Map.of());
+            Map<Integer, BigDecimal> scores = new HashMap<>();
+            marks.forEach((assessmentId, mark) -> scores.put(assessmentId, mark.score()));
+            BigDecimal ca = null;
+            if (!caAssessments.isEmpty() && caAssessments.stream().allMatch(row -> marks.containsKey(row.id()))) {
+                ca = calculator.calculateCaMark(caAssessments.stream().map(row -> weightedMark(row, marks)).toList());
+            }
+            students.add(new StudentMarks(roster.enrollmentId(), roster.studentNumber(), roster.fullName(), scores, ca));
+        }
+        return new MarkSheet(offeringId, assessments, students);
     }
 
     public BigDecimal calculateCaMark(

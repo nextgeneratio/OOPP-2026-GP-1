@@ -216,6 +216,29 @@ public final class CourseService {
                 .toList();
     }
 
+    public List<CourseDao.OfferingSummary> offeringSummariesForActor(AuthenticatedSession actor) {
+        return offeringViewsForActor(actor).stream().map(view -> new CourseDao.OfferingSummary(
+                view.offering().id(), view.course().id(), view.course().code(), view.course().title(),
+                view.course().departmentId(), view.offering().semesterId())).toList();
+    }
+
+    public List<CourseDao.RosterRow> rosterForOffering(AuthenticatedSession actor, int offeringId) {
+        if (actor == null) throw new lk.ac.ruhuna.fot.ams.error.exception.AuthorizationException(
+                "A signed-in user is required to view an enrolment roster.");
+        switch (actor.role()) {
+            case LECTURER -> authorization.requireLecturerForOffering(actor, offeringId);
+            case TECHNICAL_OFFICER -> authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+            case ADMIN -> authorization.requireAdmin(actor);
+            case UNDERGRADUATE -> authorization.requireUndergraduateForOffering(actor, offeringId);
+        }
+        int ownStudentId = actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.UNDERGRADUATE
+                ? authorization.studentId(actor) : -1;
+        return courseDao.findRoster(offeringId).stream()
+                .filter(row -> actor.role() != lk.ac.ruhuna.fot.ams.domain.enums.Role.UNDERGRADUATE
+                        || row.studentId() == ownStudentId)
+                .toList();
+    }
+
     public long enrollCurrentStudent(AuthenticatedSession actor, int offeringId) {
         int studentId = authorization.studentId(actor);
         OfferingRow offering = courseDao.findOffering(offeringId)
