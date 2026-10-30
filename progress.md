@@ -1,5 +1,39 @@
 # Project Progress
 
+## Full repository audit — 2026-10-30
+
+- Fetched public `origin/Amjad` (`a3e2574ad30c9f8271a3b288ac796ddba9e9b72f`) and
+  `origin/Nirmal` (`348bdc1e9d592d67ac26ca98dca0f1b3091b06a9`) over HTTPS after
+  the configured SSH fetch failed. After common ancestor `2f96413`, Amjad has 3
+  unique commits and Nirmal has 8. Preserved Amjad as the integration base.
+- Compared Nirmal's attendance/medical/grade UI and service changes. Retained the
+  common Amjad screens and policy checks; did not bring in changes that allow
+  Lecturer attendance creation, Admin attendance updates, or duplicate GPA/result
+  calculation paths.
+- Fixed attendance session-load/update error handling and replaced N per-student
+  history calls with an authorized single-session roster DAO read.
+- Changed the assessment and marks UI to show course, semester, student number,
+  and student name instead of internal IDs.
+- Added assessment plan validation/commit/audit/rollback coverage, marks update
+  and rollback coverage, and attendance session roster authorization tests.
+- Read-only inspection of the configured `university_management` database found
+  MariaDB 11.8.8 and the attendance recorder schema, assessment/marks schema,
+  medical/timetable fields, and five learning-activity tables required by these
+  workflows. An additive Technical Officer-only attendance CHECK constraint is
+  proposed because the live table lacks one; its preflight and SQL are in
+  `docs/system-test-results.md`. No DDL, DML, seed, or migration was executed.
+- Read-only live API smoke checks passed for profile and offering reads across
+  four simulated roles; attendance setup across four roles; and Lecturer
+  assessment plan, marks sheet, and attendance session reads. No login or UI
+  acceptance is claimed.
+- `mvn clean verify`: 90 tests, 0 failures, 0 errors, 1 skipped. The skipped test
+  is test database connectivity because isolated test credentials are not
+  configured. The GUI inventory exposed no native windows; no development
+  credentials were entered.
+- Detailed findings and role/system status: `docs/system-test-results.md` and
+  `docs/requirement-traceability.md`. Full persistence and GUI acceptance remain
+  blocked on isolated test credentials and a graphical test session.
+
 ## Documentation consistency check — 2026-10-27
 - Verified branch `Amjad` and `origin/Amjad` both at current pushed commit `2f96413e274db3a2f0d2a574458b5e497f443636`, with zero divergence. The GPA production fix, focused audit tests, and first documentation-consistency correction are already included in this commit. This follow-up wording correction is local and uncommitted; it does not commit or push.
 - Confirmed detailed Lecturer results remain restricted by the selected assigned offering, including the JDBC student-and-offering filter, and the obsolete unscoped Lecturer detail method remains denied. Undergraduate result access remains self-only.
@@ -27,7 +61,12 @@
 - Confirmed root cause: `ApplicationComponents` constructs assessment, marks, eligibility, GPA, report, and result controllers, but `Application`/`LoginFrame`/`MainFrame` do not inject them. `MainFrame` consequently routes `ASSESSMENTS_MARKS`, `ELIGIBILITY`, `GRADES_GPA`, and `REPORTS` to `PlaceholderScreen`.
 - Planned work: preserve controller/service/DAO layers, explicitly inject existing controllers into the UI shell, implement role-appropriate screens, add navigation regression coverage, then run safe non-interactive checks. Real database persistence/UI acceptance remains contingent on a confirmed isolated test database.
 
-## Current phase
+## Historical project tracker — snapshot 2026-10-18 (superseded)
+
+The checklist and status below are retained as a historical project snapshot.
+They predate the 2026-10-30 screen integration, read-only schema audit, and
+current test results above; consult the latest audit at the top of this file.
+
 Phase 5 — Demo dataset and password self-service added; final system acceptance remains NOT READY
 
 ## Completed

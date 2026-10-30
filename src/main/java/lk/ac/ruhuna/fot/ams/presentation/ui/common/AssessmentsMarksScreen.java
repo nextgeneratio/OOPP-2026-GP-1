@@ -13,7 +13,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import lk.ac.ruhuna.fot.ams.api.controller.AssessmentController;
-import lk.ac.ruhuna.fot.ams.api.controller.AttendanceController;
 import lk.ac.ruhuna.fot.ams.api.controller.MarksController;
 import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
 import lk.ac.ruhuna.fot.ams.business.service.CourseService.OfferingView;
@@ -25,14 +24,13 @@ import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 public final class AssessmentsMarksScreen extends JPanel {
     private final AuthenticatedSession actor;
     private final CourseController courses;
-    private final AttendanceController attendance;
     private final AssessmentController assessments;
     private final MarksController marks;
 
-    public AssessmentsMarksScreen(AuthenticatedSession actor, CourseController courses, AttendanceController attendance,
+    public AssessmentsMarksScreen(AuthenticatedSession actor, CourseController courses,
                                   AssessmentController assessments, MarksController marks) {
         super(new BorderLayout(12, 12));
-        this.actor = actor; this.courses = courses; this.attendance = attendance;
+        this.actor = actor; this.courses = courses;
         this.assessments = assessments; this.marks = marks;
         setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 20, 20, 20));
         add(new JLabel("<html><h2>Assessments & marks</h2>Publish a complete 100% assessment plan, then save marks for enrolled students.</html>"), BorderLayout.NORTH);
@@ -54,7 +52,7 @@ public final class AssessmentsMarksScreen extends JPanel {
                     int index, boolean selected, boolean focus) {
                 super.getListCellRendererComponent(list, value, index, selected, focus);
                 if (value instanceof OfferingView view) setText(view.course().code() + " — " + view.course().title()
-                        + " (offering " + view.offering().id() + ")");
+                        + " — semester " + view.offering().semesterId());
                 return this;
             }
         });
@@ -96,11 +94,13 @@ public final class AssessmentsMarksScreen extends JPanel {
         JComboBox<OfferingView> offering = offeringBox();
         if (JOptionPane.showConfirmDialog(this, form("Course offering", offering), "Enrolled students", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return;
         OfferingView selected = (OfferingView) offering.getSelectedItem();
-        var result = attendance.activeEnrollments(actor, selected.offering().id());
+        var result = courses.rosterForOffering(actor, selected.offering().id());
         if (!result.successful()) { error(result.error().message()); return; }
-        String text = result.data().stream().map(row -> "Enrolment " + row.id() + " | student " + row.studentId())
+        String text = result.data().stream()
+                .map(row -> row.studentNumber() + " — " + row.fullName())
                 .collect(java.util.stream.Collectors.joining("\n"));
-        JOptionPane.showMessageDialog(this, text.isBlank() ? "No active enrolments." : text, "Enrolled students", JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(this, text.isBlank() ? "No active students are enrolled." : text,
+                "Enrolled students", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void viewPlan() {
@@ -110,7 +110,7 @@ public final class AssessmentsMarksScreen extends JPanel {
         if (!result.successful()) { error(result.error().message()); return; }
         String text = result.data().stream().map(assessment -> assessment.name() + " | "
                 + assessment.type() + " | " + assessment.weight() + "% | "
-                + (assessment.caComponent() ? "CA" : "Final") + " | ID " + assessment.id())
+                + (assessment.caComponent() ? "CA" : "Final"))
                 .collect(java.util.stream.Collectors.joining("\n"));
         JOptionPane.showMessageDialog(this, text.isBlank() ? "No assessment plan has been published."
                 : text, "Assessment plan", JOptionPane.INFORMATION_MESSAGE);
@@ -120,7 +120,7 @@ public final class AssessmentsMarksScreen extends JPanel {
         OfferingView selected = chooseOffering("Save a mark");
         if (selected == null) return;
         var assessmentResult = assessments.assessmentsForOffering(actor, selected.offering().id());
-        var rosterResult = attendance.activeEnrollments(actor, selected.offering().id());
+        var rosterResult = courses.rosterForOffering(actor, selected.offering().id());
         if (!assessmentResult.successful()) { error(assessmentResult.error().message()); return; }
         if (!rosterResult.successful()) { error(rosterResult.error().message()); return; }
         if (assessmentResult.data().isEmpty()) { error("Publish an assessment plan before entering marks."); return; }
@@ -136,14 +136,15 @@ public final class AssessmentsMarksScreen extends JPanel {
                 return this;
             }
         });
-        JComboBox<lk.ac.ruhuna.fot.ams.data.dao.CourseDao.EnrollmentRow> studentBox =
-                new JComboBox<>(rosterResult.data().toArray(lk.ac.ruhuna.fot.ams.data.dao.CourseDao.EnrollmentRow[]::new));
+        JComboBox<lk.ac.ruhuna.fot.ams.data.dao.CourseDao.RosterRow> studentBox =
+                new JComboBox<>(rosterResult.data().toArray(
+                        lk.ac.ruhuna.fot.ams.data.dao.CourseDao.RosterRow[]::new));
         studentBox.setRenderer(new javax.swing.DefaultListCellRenderer() {
             @Override public java.awt.Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,
                     int index, boolean selected, boolean focus) {
                 super.getListCellRendererComponent(list, value, index, selected, focus);
-                if (value instanceof lk.ac.ruhuna.fot.ams.data.dao.CourseDao.EnrollmentRow enrollment) {
-                    setText("Student " + enrollment.studentId() + " — enrolment " + enrollment.id());
+                if (value instanceof lk.ac.ruhuna.fot.ams.data.dao.CourseDao.RosterRow rosterEntry) {
+                    setText(rosterEntry.studentNumber() + " — " + rosterEntry.fullName());
                 }
                 return this;
             }
@@ -152,7 +153,7 @@ public final class AssessmentsMarksScreen extends JPanel {
         if (JOptionPane.showConfirmDialog(this, form("Assessment", assessmentBox, "Student", studentBox,
                 "Score", score), "Save a mark", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return;
         AssessmentRow assessment = (AssessmentRow) assessmentBox.getSelectedItem();
-        var enrollment = (lk.ac.ruhuna.fot.ams.data.dao.CourseDao.EnrollmentRow) studentBox.getSelectedItem();
+        var enrollment = (lk.ac.ruhuna.fot.ams.data.dao.CourseDao.RosterRow) studentBox.getSelectedItem();
         if (assessment == null || enrollment == null) { error("Choose an assessment and student."); return; }
         BigDecimal parsedScore;
         try {
@@ -166,7 +167,7 @@ public final class AssessmentsMarksScreen extends JPanel {
             return;
         }
         show(marks.saveMarks(actor, new MarksController.SaveMarksRequest(selected.offering().id(),
-                List.of(new MarkInput(assessment.id(), enrollment.id(), parsedScore)))), "Mark saved.");
+                List.of(new MarkInput(assessment.id(), enrollment.enrollmentId(), parsedScore)))), "Mark saved.");
     }
 
     private OfferingView chooseOffering(String title) {

@@ -108,6 +108,15 @@ public final class JdbcAttendanceDao implements AttendanceDao {
     }
 
     @Override
+    public List<AttendanceRow> findRecordsForSession(int sessionId) {
+        return jdbc.query("SELECT attendance_id, session_id, enrollment_id, is_present "
+                        + "FROM attendance_records WHERE session_id = ? ORDER BY enrollment_id",
+                statement -> statement.setInt(1, sessionId), result -> new AttendanceRow(
+                        result.getInt("attendance_id"), result.getInt("session_id"),
+                        result.getInt("enrollment_id"), result.getBoolean("is_present")));
+    }
+
+    @Override
     public List<AttendanceHistoryRow> findHistory(int enrollmentId, int offeringId) {
         String sql = "SELECT s.session_id, r.enrollment_id, s.component_id, c.component_type, "
                 + "s.session_date, r.is_present FROM attendance_records r "

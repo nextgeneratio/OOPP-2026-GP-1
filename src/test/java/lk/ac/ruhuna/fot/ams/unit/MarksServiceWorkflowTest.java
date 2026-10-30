@@ -90,4 +90,70 @@ class MarksServiceWorkflowTest {
         verify(connections, never()).getConnection();
         verify(assessments, never()).insertMark(any(), any());
     }
+
+    @Test
+    void existingMarkIsRevisedAndCommittedWithAudit() throws Exception {
+        AssessmentDao assessments = mock(AssessmentDao.class);
+        CourseDao courses = mock(CourseDao.class);
+        AuditLogDao audit = mock(AuditLogDao.class);
+        ConnectionProvider connections = mock(ConnectionProvider.class);
+        Connection connection = mock(Connection.class);
+        when(connections.getConnection()).thenReturn(connection);
+        when(assessments.findAssessments(OFFERING_ID)).thenReturn(List.of(
+                new AssessmentDao.AssessmentRow(ASSESSMENT_ID, OFFERING_ID,
+                        "Quiz", "QUIZ", new BigDecimal("20"), true)));
+        when(courses.findEnrollments(OFFERING_ID)).thenReturn(List.of(
+                new CourseDao.EnrollmentRow(ENROLLMENT_ID, 31, OFFERING_ID, 1, "NORMAL", "ACTIVE")));
+        when(assessments.findMarks(connection, OFFERING_ID, ENROLLMENT_ID)).thenReturn(List.of(
+                new AssessmentDao.MarkRow(99, ASSESSMENT_ID, ENROLLMENT_ID, new BigDecimal("72"), 5)));
+        AuthorizationScopeLookup scope = mock(AuthorizationScopeLookup.class);
+        when(scope.lecturerAssignedToOffering(LECTURER.userId(), OFFERING_ID)).thenReturn(true);
+        when(scope.lecturerIdForUser(LECTURER.userId())).thenReturn(OptionalInt.of(5));
+        MarksService service = new MarksService(assessments, courses, audit,
+                new TransactionManager(connections), new AuthorizationService(scope),
+                new AssessmentCalculator(), Clock.systemUTC());
+
+        assertThat(service.save(LECTURER, OFFERING_ID, List.of(
+                new MarksService.MarkInput(ASSESSMENT_ID, ENROLLMENT_ID, new BigDecimal("88"))))).isEqualTo(1);
+
+        verify(assessments).reviseMark(connection,
+                new AssessmentDao.MarkRow(99, ASSESSMENT_ID, ENROLLMENT_ID, new BigDecimal("88"), 5));
+        verify(audit).insert(any(), any());
+        verify(connection).commit();
+    }
+
+    @Test
+    void partialMarksFailureRollsBackPriorWrites() throws Exception {
+        AssessmentDao assessments = mock(AssessmentDao.class);
+        CourseDao courses = mock(CourseDao.class);
+        AuditLogDao audit = mock(AuditLogDao.class);
+        ConnectionProvider connections = mock(ConnectionProvider.class);
+        Connection connection = mock(Connection.class);
+        when(connections.getConnection()).thenReturn(connection);
+        when(assessments.findAssessments(OFFERING_ID)).thenReturn(List.of(
+                new AssessmentDao.AssessmentRow(ASSESSMENT_ID, OFFERING_ID,
+                        "Quiz", "QUIZ", new BigDecimal("20"), true),
+                new AssessmentDao.AssessmentRow(43, OFFERING_ID,
+                        "Assignment", "ASSIGNMENT", new BigDecimal("20"), true)));
+        when(courses.findEnrollments(OFFERING_ID)).thenReturn(List.of(
+                new CourseDao.EnrollmentRow(ENROLLMENT_ID, 31, OFFERING_ID, 1, "NORMAL", "ACTIVE")));
+        when(assessments.findMarks(connection, OFFERING_ID, ENROLLMENT_ID)).thenReturn(List.of());
+        when(assessments.insertMark(any(), any())).thenReturn(99L)
+                .thenThrow(new IllegalStateException("simulated insert failure"));
+        AuthorizationScopeLookup scope = mock(AuthorizationScopeLookup.class);
+        when(scope.lecturerAssignedToOffering(LECTURER.userId(), OFFERING_ID)).thenReturn(true);
+        when(scope.lecturerIdForUser(LECTURER.userId())).thenReturn(OptionalInt.of(5));
+        MarksService service = new MarksService(assessments, courses, audit,
+                new TransactionManager(connections), new AuthorizationService(scope),
+                new AssessmentCalculator(), Clock.systemUTC());
+
+        assertThatThrownBy(() -> service.save(LECTURER, OFFERING_ID, List.of(
+                new MarksService.MarkInput(ASSESSMENT_ID, ENROLLMENT_ID, new BigDecimal("88")),
+                new MarksService.MarkInput(43, ENROLLMENT_ID, new BigDecimal("91")))))
+                .isInstanceOf(IllegalStateException.class);
+
+        verify(audit).insert(any(), any());
+        verify(connection).rollback();
+        verify(connection, never()).commit();
+    }
 }

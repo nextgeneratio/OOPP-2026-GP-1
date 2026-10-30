@@ -347,7 +347,7 @@ CREATE TABLE `attendance_sessions` (
     component_id INT NOT NULL,
     session_date DATE NOT NULL,
     timetable_entry_id INT NULL,
-    recorded_by INT NULL,
+    recorded_by INT NOT NULL,
     recorded_by_lecturer INT NULL,
 
     PRIMARY KEY (session_id),
@@ -373,8 +373,8 @@ CREATE TABLE `attendance_sessions` (
     CONSTRAINT fk_attendance_sessions_recorded_by_lecturer
         FOREIGN KEY (recorded_by_lecturer)
         REFERENCES `lecturers` (lecturer_id),
-    CONSTRAINT chk_attendance_sessions_single_recorder
-        CHECK ((recorded_by IS NULL) <> (recorded_by_lecturer IS NULL))
+    CONSTRAINT chk_attendance_sessions_technical_officer_only
+        CHECK (recorded_by IS NOT NULL AND recorded_by_lecturer IS NULL)
 );
 
 -- Table: attendance_records

@@ -149,11 +149,11 @@ public final class MainFrame extends JFrame {
         if (module == NavigationModule.ASSESSMENTS_MARKS) {
             if (session.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.LECTURER) {
                 javax.swing.JTabbedPane tabs = new javax.swing.JTabbedPane();
-                tabs.addTab("Assessment plan", new AssessmentsMarksScreen(session, courses, attendance, assessments, marks));
+                tabs.addTab("Assessment plan", new AssessmentsMarksScreen(session, courses, assessments, marks));
                 tabs.addTab("Marks sheet", new lk.ac.ruhuna.fot.ams.presentation.ui.lecturer.MarksScreen(session, marks));
                 return tabs;
             }
-            return new AssessmentsMarksScreen(session, courses, attendance, assessments, marks);
+            return new AssessmentsMarksScreen(session, courses, assessments, marks);
         }
         if (module == NavigationModule.ELIGIBILITY) {
             return new EligibilityScreen(session, eligibility);

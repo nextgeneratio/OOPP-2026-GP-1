@@ -37,7 +37,7 @@ class RequiredAcademicScreensTest {
 
     @Test
     void requiredAcademicDestinationsCreateDedicatedSwingPanels() {
-        assertThat(new AssessmentsMarksScreen(lecturer, courses, attendance,
+        assertThat(new AssessmentsMarksScreen(lecturer, courses,
                 mock(AssessmentController.class), mock(MarksController.class)))
                 .isInstanceOf(AssessmentsMarksScreen.class);
         var eligibility = mock(EligibilityController.class);

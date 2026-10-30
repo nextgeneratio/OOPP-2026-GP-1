@@ -40,5 +40,7 @@ public interface AttendanceDao {
 
     java.util.Optional<SessionRow> findSessionsForSessionId(int sessionId);
 
+    List<AttendanceRow> findRecordsForSession(int sessionId);
+
     List<AttendanceHistoryRow> findHistory(int enrollmentId, int offeringId);
 }

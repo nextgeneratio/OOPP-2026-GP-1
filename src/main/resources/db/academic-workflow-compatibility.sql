@@ -17,14 +17,14 @@ ALTER TABLE `timetables`
 
 ALTER TABLE `attendance_sessions`
     DROP FOREIGN KEY `fk_attendance_sessions_recorded_by`,
-    MODIFY COLUMN `recorded_by` INT NULL,
+    MODIFY COLUMN `recorded_by` INT NOT NULL,
     ADD COLUMN `recorded_by_lecturer` INT NULL,
     ADD CONSTRAINT `fk_attendance_sessions_recorded_by`
         FOREIGN KEY (`recorded_by`) REFERENCES `technical_officers` (`officer_id`),
     ADD CONSTRAINT `fk_attendance_sessions_recorded_by_lecturer`
         FOREIGN KEY (`recorded_by_lecturer`) REFERENCES `lecturers` (`lecturer_id`),
-    ADD CONSTRAINT `chk_attendance_sessions_single_recorder`
-        CHECK ((`recorded_by` IS NULL) <> (`recorded_by_lecturer` IS NULL));
+    ADD CONSTRAINT `chk_attendance_sessions_technical_officer_only`
+        CHECK (`recorded_by` IS NOT NULL AND `recorded_by_lecturer` IS NULL);
 
 CREATE TABLE `course_quizzes` (
     `quiz_id` INT NOT NULL AUTO_INCREMENT,

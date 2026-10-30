@@ -1,5 +1,159 @@
 # Final System Test Results
 
+## Latest repository and system audit — 2026-10-30
+
+**Audited branch:** `Amjad`, commit `a3e2574ad30c9f8271a3b288ac796ddba9e9b72f`.
+HTTPS fetch succeeded. The fetched `Nirmal` head is
+`348bdc1e9d592d67ac26ca98dca0f1b3091b06a9`; after common ancestor
+`2f96413e274db3a2f0d2a574458b5e497f443636`, Amjad has 3 unique commits and
+Nirmal has 8. The working branch matched Amjad at audit start. No commit or
+push was made.
+
+### Verified results
+
+- PASS — `mvn clean verify`: 90 tests discovered, 89 passed, 0 failures, 0 errors,
+  1 skipped. The only skipped test is the isolated DB connectivity check because
+  test credentials are not configured.
+- PASS — Read-only live controller smoke checks using the configured database:
+  profile and offerings loaded for Admin, Lecturer, Technical Officer, and
+  Undergraduate; attendance setup loaded for each role; Lecturer assessment
+  plan (3 rows), marks sheet (20 students), and attendance sessions (14 rows)
+  loaded. No login was performed and no rows were changed.
+- PASS — Read-only schema inspection identified `university_management` on
+  MariaDB 11.8.8. `assessments`, `marks`, `attendance_records`, the attendance
+  recorder columns/FKs, medical fields, timetable ownership/level fields, and
+  all five learning-activity tables exist. The live `attendance_sessions` table
+  has 120 rows, `recorded_by` is `NOT NULL`, both recorder FKs exist, and no
+  Lecturer recorder values are present. The check constraint is absent, so an
+  additive policy-hardening migration is proposed below. The current DAO read
+  paths do not need missing tables or columns.
+- BLOCKED — The assessment screenshot's exact failing action could not be
+  reproduced. The current live assessment-plan and mark-sheet reads succeed,
+  and the relevant schema exists. Assessment-plan publish and mark insert/update
+  require writes, so they were exercised only through new mocked transaction
+  tests, not against the application DB. The exact screenshot root cause remains
+  unconfirmed pending isolated write testing.
+- BLOCKED — Live GUI acceptance and credential entry. CUA reported no native
+  application windows, and no isolated test credentials are configured. No
+  development-account password was entered. Existing Swing screen tests are not
+  claimed as GUI acceptance.
+- BLOCKED — Real database integration, destructive/CRUD workflows, performance
+  timing, and role login. No DDL/DML, migration, seed, or application-data write
+  was executed during this audit.
+
+### Manual migration — proposed, not applied
+
+The configured target is **`university_management`** (MariaDB 11.8.8). Existing
+reads work; the one migration below adds a database-level guard so session rows
+can only be attributed to a Technical Officer. The current code already enforces
+that policy in `AttendanceService`; the database currently allows both recorder
+columns to be non-null because its check constraint is missing. No assessment,
+attendance, or learning-activity table/column migration is otherwise required
+based on the inspected live schema.
+
+Read-only preflight:
+
+```sql
+SELECT DATABASE() AS database_name, VERSION() AS server_version;
+
+SELECT TABLE_NAME, COLUMN_NAME, IS_NULLABLE, COLUMN_TYPE
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE()
+  AND TABLE_NAME = 'attendance_sessions'
+  AND COLUMN_NAME IN ('recorded_by', 'recorded_by_lecturer');
+
+SELECT tc.CONSTRAINT_NAME, tc.CONSTRAINT_TYPE, cc.CHECK_CLAUSE
+FROM information_schema.TABLE_CONSTRAINTS AS tc
+LEFT JOIN information_schema.CHECK_CONSTRAINTS AS cc
+  ON cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA
+ AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+WHERE tc.CONSTRAINT_SCHEMA = DATABASE()
+  AND tc.TABLE_NAME = 'attendance_sessions';
+
+SELECT COUNT(*) AS session_rows,
+       SUM(recorded_by IS NULL) AS missing_technical_officer,
+       SUM(recorded_by_lecturer IS NOT NULL) AS lecturer_recorded_rows,
+       SUM(recorded_by IS NOT NULL AND recorded_by_lecturer IS NOT NULL) AS dual_recorder_rows
+FROM attendance_sessions;
+```
+
+The inspected result was 120 sessions, 0 missing Technical Officer IDs, 0
+Lecturer recorder values, and no existing CHECK constraint. **Stop and review
+the data** if your preflight result differs, either column is absent, or an
+equivalent constraint already exists. Back up the database first; the DDL is
+additive, but MariaDB DDL commits independently.
+
+Run only after those preflight conditions hold:
+
+```sql
+USE `university_management`;
+
+ALTER TABLE `attendance_sessions`
+    ADD CONSTRAINT `chk_attendance_sessions_technical_officer_only`
+    CHECK (`recorded_by` IS NOT NULL AND `recorded_by_lecturer` IS NULL);
+```
+
+Post-migration verification:
+
+```sql
+SHOW CREATE TABLE `attendance_sessions`;
+
+SELECT COUNT(*) AS invalid_recorder_rows
+FROM attendance_sessions
+WHERE recorded_by IS NULL OR recorded_by_lecturer IS NOT NULL;
+
+SELECT tc.CONSTRAINT_NAME, cc.CHECK_CLAUSE
+FROM information_schema.TABLE_CONSTRAINTS AS tc
+JOIN information_schema.CHECK_CONSTRAINTS AS cc
+  ON cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA
+ AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+WHERE tc.CONSTRAINT_SCHEMA = DATABASE()
+  AND tc.TABLE_NAME = 'attendance_sessions'
+  AND tc.CONSTRAINT_NAME = 'chk_attendance_sessions_technical_officer_only';
+```
+
+Expected: one Technical Officer-only CHECK constraint, zero invalid rows, and
+the same 120 attendance sessions. The migration was **not executed** here.
+
+### Test execution detail
+
+`mvn clean verify` and a separate `mvn clean test` both completed successfully
+on OpenJDK 25.0.4.1/Maven 3.9.11. Each Surefire summary is 90 tests, 0 failures,
+0 errors, and 1 skipped. The skipped test is `DatabaseConnectivityTest` with the
+assumption message "Test database credentials are not configured".
+
+### Fixes made in this audit
+
+- Attendance session detail previously dereferenced `ApiResponse.data()` without
+  checking `successful()`, so controller/database failures could become a
+  secondary null dereference. The screen now displays the safe API failure.
+- Attendance session load/update made one history query per student. The service
+  now authorizes the session and retrieves its whole roster in one DAO query.
+- Assessment plan and mark entry UI previously displayed internal offering,
+  student, enrollment, and assessment IDs. It now uses course, semester, student
+  number, and name labels while retaining IDs only in selected objects.
+- Added tests for authorized session roster reads and denial of whole-session
+  roster access to an Undergraduate; added assessment plan 100%/CA validation,
+  commit/audit, and rollback tests.
+
+### Branch integration decision
+
+The current Amjad branch already contains the integrated login/banner, report,
+eligibility, notices, marks sheet, and common role-adaptive attendance screens.
+The fetched Nirmal branch adds a separate Technical Officer attendance screen,
+medical screen, and alternate Grades/Screen Lookup service paths. They were not
+copied into Amjad because the common screens already route these roles and the
+Nirmal service diff weakens the agreed attendance policy (Lecturer creation,
+Admin revision, and missing Technical Officer paths). Its duplicate GPA/results
+calculation path also bypasses the existing GPA/result authorization design.
+Nirmal's additional UI helper/tests were assessed; the compatible UI patterns
+already exist in Amjad. The Amjad branch also retains tests that Nirmal's net
+diff deletes, including database failure diagnostics and marks workflow tests.
+
+For the requirement traceability matrix and per-system test status, see
+[requirement-traceability.md](./requirement-traceability.md). The older dated
+sections below are historical reports and do not override this latest audit.
+
 ## Documentation consistency check — 2026-10-27
 
 **Verified baseline:** pushed `Amjad` commit `2f96413e274db3a2f0d2a574458b5e497f443636`, matching `origin/Amjad` with zero divergence. The GPA production changes, focused audit tests, and first documentation-consistency correction are already on the remote branch. Only this follow-up wording correction is local/uncommitted; no database action, commit, or push was performed.

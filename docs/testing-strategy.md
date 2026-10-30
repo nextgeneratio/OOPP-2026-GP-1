@@ -1,8 +1,35 @@
 # Testing Strategy
 
 The project uses unit, integration, and system test sources under the Maven layout.
-JUnit 5, Mockito, and AssertJ provide the automated test foundation; UI automation
-coverage remains pending.
+JUnit 5, Mockito, and AssertJ provide the automated test foundation. Swing panel
+construction/navigation checks are automated; live GUI acceptance remains a
+separate requirement and must not be inferred from panel tests.
+
+## Latest verified environment — 2026-10-30
+
+- Build toolchain: OpenJDK 25.0.4.1 and Maven 3.9.11.
+- Latest `mvn clean verify`: 90 tests discovered, 89 passed, 0 failures, 0 errors,
+  and 1 skipped. The skipped case is `DatabaseConnectivityTest` because test
+  database credentials are not configured.
+- The configured application database was inspected read-only as
+  `university_management` on MariaDB 11.8.8. No integration writes were run.
+  The dedicated `university_management_test` is not configured for tests.
+- One policy-hardening SQL migration is proposed, not applied: adding a
+  Technical Officer-only check to `attendance_sessions`. Its read-only preflight
+  and exact SQL are in `system-test-results.md`.
+- Live database-backed controller smoke checks were read-only. They verified
+  profile and offering reads for all four roles, attendance setup reads for all
+  four roles, and assessment plan, marks sheet, and attendance session reads for
+  a Lecturer. This is not a login, write-persistence, or GUI acceptance test.
+- Separate `mvn clean test`: 90 tests, 0 failures, 0 errors, 1 skipped; build
+  succeeded. The Surefire report identifies the same skipped connectivity test.
+
+## Requirement-to-test coverage map
+
+The full screen/controller/service/DAO/table/test mapping is in
+[requirement-traceability.md](./requirement-traceability.md). Rows marked
+blocked need the isolated database or interactive GUI before they can be
+accepted; a matching service unit test alone does not establish persistence.
 
 ## Isolated MySQL integration database
 

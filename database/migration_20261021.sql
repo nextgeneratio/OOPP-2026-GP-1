@@ -26,14 +26,14 @@ ALTER TABLE course_enrollments
         UNIQUE (student_id, offering_id, active_offering_guard);
 ALTER TABLE attendance_sessions
     DROP FOREIGN KEY fk_attendance_sessions_recorded_by,
-    MODIFY recorded_by INT NULL,
+    MODIFY recorded_by INT NOT NULL,
     ADD COLUMN recorded_by_lecturer INT NULL,
     ADD CONSTRAINT fk_attendance_sessions_recorded_by FOREIGN KEY (recorded_by)
         REFERENCES technical_officers(officer_id),
     ADD CONSTRAINT fk_attendance_sessions_recorded_by_lecturer FOREIGN KEY (recorded_by_lecturer)
         REFERENCES lecturers(lecturer_id),
-    ADD CONSTRAINT chk_attendance_sessions_single_recorder
-        CHECK ((recorded_by IS NULL) <> (recorded_by_lecturer IS NULL));
+    ADD CONSTRAINT chk_attendance_sessions_technical_officer_only
+        CHECK (recorded_by IS NOT NULL AND recorded_by_lecturer IS NULL);
 ALTER TABLE attendance_records ADD INDEX idx_attendance_records_enrollment_id (enrollment_id);
 ALTER TABLE medical_records ADD COLUMN evidence_reference VARCHAR(255) NULL;
 ALTER TABLE course_materials

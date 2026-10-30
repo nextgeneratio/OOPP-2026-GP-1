@@ -247,13 +247,14 @@ public final class AttendanceScreen extends JPanel {
     private void loadSelectedSession() {
         SessionOption selected = (SessionOption) session.getSelectedItem();
         if (selected == null || setup == null) return;
+        var recordsResponse = attendance.recordsForSession(actor, selected.session().id());
+        if (!recordsResponse.successful()) { error(recordsResponse.error().message()); return; }
+        Map<Integer, Boolean> attendanceByEnrollment = new HashMap<>();
+        recordsResponse.data().forEach(record -> attendanceByEnrollment.put(record.enrollmentId(), record.present()));
         JTable marks = rosterTable(false);
         for (int row = 0; row < setup.roster().size(); row++) {
             int enrollmentId = setup.roster().get(row).enrollmentId();
-            boolean present = attendance.historyForEnrollment(actor, enrollmentId, selected.session().offeringId())
-                    .data().stream().filter(history -> history.sessionId() == selected.session().id())
-                    .findFirst().map(lk.ac.ruhuna.fot.ams.data.dao.AttendanceDao.AttendanceHistoryRow::present).orElse(false);
-            marks.setValueAt(present, row, 2);
+            marks.setValueAt(attendanceByEnrollment.getOrDefault(enrollmentId, false), row, 2);
         }
         JOptionPane.showMessageDialog(this, new JScrollPane(marks), selected.label(), JOptionPane.PLAIN_MESSAGE);
     }
@@ -261,13 +262,14 @@ public final class AttendanceScreen extends JPanel {
     private void saveChanges() {
         SessionOption selected = (SessionOption) session.getSelectedItem();
         if (selected == null || setup == null) return;
+        var recordsResponse = attendance.recordsForSession(actor, selected.session().id());
+        if (!recordsResponse.successful()) { error(recordsResponse.error().message()); return; }
+        Map<Integer, Boolean> attendanceByEnrollment = new HashMap<>();
+        recordsResponse.data().forEach(record -> attendanceByEnrollment.put(record.enrollmentId(), record.present()));
         JTable marks = rosterTable(true);
         for (int row = 0; row < setup.roster().size(); row++) {
             int enrollmentId = setup.roster().get(row).enrollmentId();
-            boolean present = attendance.historyForEnrollment(actor, enrollmentId, selected.session().offeringId())
-                    .data().stream().filter(history -> history.sessionId() == selected.session().id())
-                    .findFirst().map(lk.ac.ruhuna.fot.ams.data.dao.AttendanceDao.AttendanceHistoryRow::present).orElse(false);
-            marks.setValueAt(present, row, 2);
+            marks.setValueAt(attendanceByEnrollment.getOrDefault(enrollmentId, false), row, 2);
         }
         if (JOptionPane.showConfirmDialog(this, new JScrollPane(marks), "Update attendance", JOptionPane.OK_CANCEL_OPTION)
                 != JOptionPane.OK_OPTION) return;

@@ -42,6 +42,10 @@ public final class AttendanceController {
         return support.execute(() -> service.historyForEnrollment(actor, enrollmentId, offeringId));
     }
 
+    public ApiResponse<List<AttendanceRow>> recordsForSession(AuthenticatedSession actor, int sessionId) {
+        return support.execute(() -> service.recordsForSession(actor, sessionId));
+    }
+
     public ApiResponse<SavedSessionResponse> saveSession(
             AuthenticatedSession actor, SaveAttendanceRequest request) {
         return support.execute(request, () -> new SavedSessionResponse(service.saveSession(

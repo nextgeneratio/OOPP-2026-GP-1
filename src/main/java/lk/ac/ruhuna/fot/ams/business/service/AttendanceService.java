@@ -156,6 +156,21 @@ public final class AttendanceService {
         return attendanceDao.findHistory(enrollmentId, offeringId);
     }
 
+    public List<AttendanceRow> recordsForSession(AuthenticatedSession actor, int sessionId) {
+        if (actor == null) throw new AuthorizationException("Sign in to view attendance details.");
+        authorization.requireRole(actor, Role.ADMIN, Role.TECHNICAL_OFFICER, Role.LECTURER);
+        if (sessionId <= 0) throw new ValidationException("Attendance session identifier is invalid.");
+        SessionRow session = attendanceDao.findSessionsForSessionId(sessionId)
+                .orElseThrow(() -> new ValidationException("Attendance session was not found."));
+        if (actor.role() == Role.ADMIN) authorization.requireAdmin(actor);
+        else if (actor.role() == Role.TECHNICAL_OFFICER)
+            authorization.requireTechnicalOfficerForOffering(actor, session.offeringId());
+        else if (actor.role() == Role.LECTURER)
+            authorization.requireLecturerForOffering(actor, session.offeringId());
+        else throw new AuthorizationException("You do not have permission to view session attendance.");
+        return attendanceDao.findRecordsForSession(sessionId);
+    }
+
     public void reviseRecord(AuthenticatedSession actor, AttendanceRow record) {
         if (actor == null) {
             throw new AuthorizationException("A signed-in user is required to revise attendance.");
