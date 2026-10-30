@@ -1,6 +1,6 @@
 # Faculty of Technology Academic Management System
 
-Java 17+, Swing, Maven, JDBC, and MySQL/MariaDB desktop application.
+Java 25+, Swing, Maven, JDBC, and MySQL/MariaDB desktop application.
 
 ## Run the application
 
