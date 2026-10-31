@@ -75,11 +75,14 @@ public final class ReportScreen extends JPanel {
         title.setFont(UiTheme.pageTitle());
         title.setAlignmentX(LEFT_ALIGNMENT);
 
-        Combos.describe(offeringBox, o -> o.courseCode() + " \u2013 " + o.courseTitle());
+        Combos.describe(offeringBox, o -> o.courseCode() + " \u2013 " + o.courseTitle() + " — "
+                + o.academicYear() + (o.semesterNumber() > 0 ? " Semester " + o.semesterNumber() : ""));
         Combos.describe(studentBox, s -> s.studentNumber() + " \u2013 " + s.fullName());
         categoryBox.getAccessibleContext().setAccessibleName("Report");
         offeringBox.getAccessibleContext().setAccessibleName("Course offering");
         studentBox.getAccessibleContext().setAccessibleName("Student");
+        SelectionOption.enableSearch(offeringBox);
+        SelectionOption.enableSearch(studentBox);
         offeringBox.addActionListener(event -> { if (!populating) loadRoster(); });
 
         offeringPanel.setOpaque(false);

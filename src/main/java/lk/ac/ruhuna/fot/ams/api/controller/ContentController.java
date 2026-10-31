@@ -1,6 +1,7 @@
 package lk.ac.ruhuna.fot.ams.api.controller;
 
 import java.util.List;
+import java.nio.file.Path;
 import java.util.Objects;
 import lk.ac.ruhuna.fot.ams.business.service.ContentService;
 import lk.ac.ruhuna.fot.ams.data.dao.ContentDao.MaterialRow;
@@ -61,6 +62,16 @@ public final class ContentController {
     public ApiResponse<List<MaterialRow>> materialsForLecturer(
             AuthenticatedSession actor, int offeringId) {
         return support.execute(() -> service.materialsForLecturer(actor, offeringId));
+    }
+
+    public ApiResponse<Path> studentMaterialFile(
+            AuthenticatedSession actor, int offeringId, int materialId) {
+        return support.execute(() -> service.studentMaterialFile(actor, offeringId, materialId));
+    }
+
+    public ApiResponse<Boolean> lecturerMaterialFileAvailable(
+            AuthenticatedSession actor, int offeringId, int materialId) {
+        return support.execute(() -> service.lecturerMaterialFileAvailable(actor, offeringId, materialId));
     }
 
     public ApiResponse<ContentIdResponse> createNotice(

@@ -90,6 +90,11 @@ public final class CourseController {
         });
     }
 
+    public ApiResponse<List<lk.ac.ruhuna.fot.ams.data.dao.CourseDao.LecturerOption>> assignedLecturers(
+            AuthenticatedSession actor, int offeringId) {
+        return support.execute(() -> service.assignedLecturers(actor, offeringId));
+    }
+
     public ApiResponse<Void> updateCourse(AuthenticatedSession actor, CourseDao.CourseRow request) {
         return support.execute(request, () -> {
             service.updateCourse(actor, request);
@@ -110,5 +115,10 @@ public final class CourseController {
 
     public ApiResponse<CourseCatalog> catalog(AuthenticatedSession actor) {
         return support.execute(() -> service.catalog(actor));
+    }
+
+    public ApiResponse<List<lk.ac.ruhuna.fot.ams.data.dao.CourseDao.SemesterRow>> semestersForActor(
+            AuthenticatedSession actor) {
+        return support.execute(() -> service.semestersForActor(actor));
     }
 }

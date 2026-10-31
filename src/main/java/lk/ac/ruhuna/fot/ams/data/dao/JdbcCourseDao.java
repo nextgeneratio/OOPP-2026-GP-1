@@ -187,6 +187,17 @@ public final class JdbcCourseDao implements CourseDao {
     }
 
     @Override
+    public List<LecturerOption> findLecturerOptions() {
+        return jdbc.query("SELECT l.lecturer_id, u.username, l.full_name, d.code AS department_code,d.department_id "
+                        + "FROM lecturers l JOIN users u ON u.user_id=l.user_id "
+                        + "JOIN departments d ON d.department_id=l.department_id "
+                        + "WHERE u.is_active=TRUE ORDER BY l.full_name, u.username",
+                statement -> { }, result -> new LecturerOption(result.getInt("lecturer_id"),
+                        result.getString("username"), result.getString("full_name"),
+                        result.getString("department_code"), result.getInt("department_id")));
+    }
+
+    @Override
     public List<BatchRow> findBatches(int departmentId) {
         return jdbc.query("SELECT batch_id, department_id, intake_year, programme, batch_code, level_no "
                         + "FROM batches WHERE department_id = ? ORDER BY intake_year DESC, batch_code",

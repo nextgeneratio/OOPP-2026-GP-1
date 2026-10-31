@@ -113,10 +113,10 @@ public final class MainFrame extends JFrame {
 
     private JComponent createScreen(NavigationModule module) {
         if (module == NavigationModule.USER_MANAGEMENT) {
-            return new UserManagementScreen(session, users, errors, null);
+            return new UserManagementScreen(session, users, courses, errors, null);
         }
         if (module == NavigationModule.STUDENT_MANAGEMENT) {
-            return new UserManagementScreen(session, users, errors,
+            return new UserManagementScreen(session, users, courses, errors,
                     lk.ac.ruhuna.fot.ams.domain.enums.Role.UNDERGRADUATE);
         }
         if (module == NavigationModule.PROFILE) {
@@ -126,7 +126,7 @@ public final class MainFrame extends JFrame {
             return new CourseManagementScreen(session, courses);
         }
         if (module == NavigationModule.TIMETABLE) {
-            return new TimetableScreen(session, timetables);
+            return new TimetableScreen(session, timetables, courses);
         }
         if (module == NavigationModule.COURSE_OFFERINGS) {
             return new CourseOfferingsScreen(session, courses);
@@ -137,14 +137,14 @@ public final class MainFrame extends JFrame {
         if (module == NavigationModule.COURSE_MATERIALS) {
             javax.swing.JTabbedPane tabs = new javax.swing.JTabbedPane();
             tabs.addTab("Materials", new CourseMaterialsScreen(session, courseContent, courses));
-            tabs.addTab("Quizzes and assignments", new LearningActivitiesScreen(session, learningActivities));
+            tabs.addTab("Quizzes and assignments", new LearningActivitiesScreen(session, learningActivities, courses));
             return tabs;
         }
         if (module == NavigationModule.NOTICES) {
-            return new NoticesScreen(session, courseContent);
+            return new NoticesScreen(session, courseContent, courses);
         }
         if (module == NavigationModule.MEDICAL) {
-            return new MedicalScreen(session, medical);
+            return new MedicalScreen(session, medical, courses);
         }
         if (module == NavigationModule.ASSESSMENTS_MARKS) {
             if (session.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.LECTURER) {

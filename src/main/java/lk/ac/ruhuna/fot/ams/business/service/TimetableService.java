@@ -142,6 +142,14 @@ public final class TimetableService {
         return timetable;
     }
 
+    public List<TimetableRow> timetables(AuthenticatedSession actor, int departmentId, int semesterId, int level) {
+        if (departmentId <= 0 || semesterId <= 0 || level < 1 || level > 4) {
+            throw new ValidationException("Choose a valid department, semester, and level.");
+        }
+        authorizeTimetableManager(actor, departmentId, semesterId);
+        return timetableDao.findTimetables(departmentId, semesterId, level);
+    }
+
     public void deleteTimetable(AuthenticatedSession actor, int timetableId) {
         authorization.requireAdmin(actor);
         if (timetableId <= 0 || timetableDao.findTimetable(timetableId).isEmpty()) {

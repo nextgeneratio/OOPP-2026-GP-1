@@ -66,9 +66,13 @@ public final class AttendanceScreen extends JPanel {
         if (!result.successful()) { error(result.error().message()); return; }
         for (OfferingView view : result.data()) {
             offering.addItem(new OfferingOption(view.offering().id(),
-                    view.course().code() + " — " + view.course().title()));
+                    view.course().code() + " — " + view.course().title() + " — " + view.semesterLabel()));
         }
         if (offering.getItemCount() > 0) offering.setSelectedIndex(0);
+        SelectionOption.enableSearch(offering);
+        SelectionOption.enableSearch(component);
+        SelectionOption.enableSearch(student);
+        SelectionOption.enableSearch(session);
         offering.addActionListener(event -> refreshSetup());
         refreshSetup();
     }

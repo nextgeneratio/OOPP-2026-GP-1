@@ -23,13 +23,17 @@ public final class CourseService {
             List<CourseDao.BatchRow> batches,
             List<CourseRow> courses,
             List<CourseDao.SemesterRow> semesters,
-            List<OfferingRow> offerings) {
+            List<OfferingRow> offerings,
+            List<CourseDao.LecturerOption> lecturers,
+            List<ComponentRow> components) {
         public CourseCatalog {
             departments = List.copyOf(departments);
             batches = List.copyOf(batches);
             courses = List.copyOf(courses);
             semesters = List.copyOf(semesters);
             offerings = List.copyOf(offerings);
+            lecturers = List.copyOf(lecturers);
+            components = List.copyOf(components);
         }
     }
 
@@ -78,6 +82,10 @@ public final class CourseService {
             OfferingSetup offeringSetup) {
         requireCourseManager(actor);
         validateCourse(course, components);
+        if (offeringSetup != null) {
+            validateOfferingSetup(course, offeringSetup);
+            authorizeOfferingSetup(actor, course, offeringSetup);
+        }
         return transactions.execute(connection -> {
             int courseId = Math.toIntExact(courseDao.insertCourse(connection, course));
             for (ComponentRow component : components) {
@@ -147,6 +155,10 @@ public final class CourseService {
                 || setup.status() == null || !List.of("OPEN", "CLOSED").contains(setup.status())) {
             throw new ValidationException("Enter a valid course offering.");
         }
+        CourseRow course = courseDao.findCourse(courseId)
+                .orElseThrow(() -> new ValidationException("Course was not found."));
+        validateOfferingSetup(course, setup);
+        authorizeOfferingSetup(actor, course, setup);
         return transactions.execute(connection -> createOffering(connection, actor, courseId, setup));
     }
 
@@ -186,11 +198,32 @@ public final class CourseService {
         if (offeringId <= 0 || lecturerId <= 0) {
             throw new ValidationException("Offering and lecturer identifiers must be valid.");
         }
+        OfferingRow offering = courseDao.findOffering(offeringId)
+                .orElseThrow(() -> new ValidationException("Course offering was not found."));
+        if (actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.TECHNICAL_OFFICER) {
+            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+        }
+        CourseRow course = courseDao.findCourse(offering.courseId())
+                .orElseThrow(() -> new ValidationException("Course for this offering was not found."));
+        requireLecturerInDepartment(lecturerId, course.departmentId());
+        if (courseDao.findLecturersForOffering(offeringId).contains(lecturerId)) {
+            throw new BusinessRuleException("This lecturer is already assigned to the course offering.");
+        }
         transactions.execute(connection -> {
             courseDao.assignLecturer(connection, offeringId, lecturerId);
             audit(connection, actor.userId(), "LECTURER_ASSIGN", "COURSE_OFFERING", offeringId);
             return null;
         });
+    }
+
+    public List<CourseDao.LecturerOption> assignedLecturers(AuthenticatedSession actor, int offeringId) {
+        requireCourseManager(actor);
+        if (offeringId <= 0) throw new ValidationException("Choose a valid course offering.");
+        if (actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.TECHNICAL_OFFICER) {
+            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+        }
+        java.util.Set<Integer> assigned = new java.util.HashSet<>(courseDao.findLecturersForOffering(offeringId));
+        return courseDao.findLecturerOptions().stream().filter(lecturer -> assigned.contains(lecturer.id())).toList();
     }
 
     public List<OfferingRow> offeringsForActor(AuthenticatedSession actor) {
@@ -282,7 +315,9 @@ public final class CourseService {
             List<CourseDao.BatchRow> batches = departments.stream()
                     .flatMap(department -> courseDao.findBatches(department.id()).stream()).toList();
             return new CourseCatalog(departments, batches, courseDao.searchCourses(null, null, false),
-                    courseDao.findSemesters(), courseDao.findOfferings(null, null));
+                    courseDao.findSemesters(), courseDao.findOfferings(null, null),
+                    courseDao.findLecturerOptions(), courseDao.searchCourses(null, null, false).stream()
+                            .flatMap(course -> courseDao.findComponents(course.id()).stream()).toList());
         }
         authorization.technicalOfficerId(actor);
         List<OfferingRow> offerings = courseDao.findOfferingsForTechnicalOfficer(actor.userId());
@@ -303,7 +338,15 @@ public final class CourseService {
                 courseDao.searchCourses(null, null, false).stream()
                         .filter(course -> courseIds.contains(course.id())).toList(),
                 courseDao.findSemesters().stream().filter(semester -> semesterIds.contains(semester.id())).toList(),
-                offerings);
+                offerings, courseDao.findLecturerOptions().stream().filter(lecturer -> departments.stream()
+                        .anyMatch(department -> department.code().equals(lecturer.departmentCode()))).toList(),
+                courseIds.stream().flatMap(id -> courseDao.findComponents(id).stream()).toList());
+    }
+
+    public List<CourseDao.SemesterRow> semestersForActor(AuthenticatedSession actor) {
+        if (actor == null) throw new lk.ac.ruhuna.fot.ams.error.exception.AuthorizationException(
+                "Sign in to view academic terms.");
+        return courseDao.findSemesters();
     }
 
     public long enroll(
@@ -386,6 +429,40 @@ public final class CourseService {
         if (distinctTypes != components.size()) {
             throw new ValidationException("A course may have only one component of each type.");
         }
+    }
+
+    private void validateOfferingSetup(CourseRow course, OfferingSetup setup) {
+        if (course == null || setup == null) throw new ValidationException("Choose a course and offering details.");
+        boolean matchingBatch = courseDao.findBatches(course.departmentId()).stream()
+                .anyMatch(batch -> batch.id() == setup.batchId());
+        boolean matchingSemester = courseDao.findSemesters().stream()
+                .anyMatch(semester -> semester.id() == setup.semesterId());
+        if (!matchingBatch || !matchingSemester) {
+            throw new ValidationException("The batch must belong to the course department, and the semester must exist.");
+        }
+        LinkedHashSet<Integer> lecturerIds = new LinkedHashSet<>(setup.lecturerIds());
+        if (setup.coordinatorId() != null) lecturerIds.add(setup.coordinatorId());
+        for (Integer lecturerId : lecturerIds) {
+            if (lecturerId == null || lecturerId <= 0) throw new ValidationException("Choose valid lecturer assignments.");
+            requireLecturerInDepartment(lecturerId, course.departmentId());
+        }
+    }
+
+    private void authorizeOfferingSetup(AuthenticatedSession actor, CourseRow course, OfferingSetup setup) {
+        if (actor.role() != lk.ac.ruhuna.fot.ams.domain.enums.Role.TECHNICAL_OFFICER) return;
+        CourseDao.BatchRow batch = courseDao.findBatches(course.departmentId()).stream()
+                .filter(row -> row.id() == setup.batchId()).findFirst()
+                .orElseThrow(() -> new ValidationException("The batch is not in the authorized course department."));
+        if (batch.departmentId() != course.departmentId()) {
+            throw new ValidationException("The batch must belong to the selected course department.");
+        }
+        authorization.requireTechnicalOfficerForTimetable(actor, batch.departmentId(), setup.semesterId());
+    }
+
+    private void requireLecturerInDepartment(int lecturerId, int departmentId) {
+        boolean valid = courseDao.findLecturerOptions().stream().anyMatch(lecturer -> lecturer.id() == lecturerId
+                && lecturer.departmentId() == departmentId);
+        if (!valid) throw new ValidationException("The lecturer must be active and belong to the course department.");
     }
 
     private void audit(

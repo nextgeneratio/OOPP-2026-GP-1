@@ -16,11 +16,15 @@ import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JComboBox;
+import javax.swing.JScrollPane;
 import lk.ac.ruhuna.fot.ams.api.controller.ApiResponse;
 import lk.ac.ruhuna.fot.ams.api.controller.LearningActivityController;
+import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
 import lk.ac.ruhuna.fot.ams.business.service.LearningActivityService.QuestionDraft;
 import lk.ac.ruhuna.fot.ams.business.service.LearningActivityService.QuestionView;
 import lk.ac.ruhuna.fot.ams.business.service.LearningActivityService.QuizView;
+import lk.ac.ruhuna.fot.ams.business.service.CourseService.OfferingView;
 import lk.ac.ruhuna.fot.ams.data.dao.LearningActivityDao.AssignmentRow;
 import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
@@ -28,11 +32,13 @@ import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 public final class LearningActivitiesScreen extends JPanel {
     private final AuthenticatedSession actor;
     private final LearningActivityController activities;
+    private final CourseController courses;
 
-    public LearningActivitiesScreen(AuthenticatedSession actor, LearningActivityController activities) {
+    public LearningActivitiesScreen(AuthenticatedSession actor, LearningActivityController activities, CourseController courses) {
         super(new BorderLayout(12, 12));
         this.actor = actor;
         this.activities = activities;
+        this.courses = courses;
         setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 20, 20, 20));
         add(new JLabel("<html><h2>Quizzes and assignments</h2>Quizzes permit one attempt per active "
                 + "enrolment; quiz passwords are stored as hashes. Assignment uploads are limited to 10 MB.</html>"),
@@ -54,24 +60,26 @@ public final class LearningActivitiesScreen extends JPanel {
     }
 
     private void createQuiz() {
-        JTextField offering = field();
+        JComboBox<SelectionOption> offering = offerings();
         JTextField title = field();
         JPasswordField password = new JPasswordField();
         JTextField opens = field(LocalDateTime.now().withSecond(0).withNano(0).toString());
         JTextField closes = field(LocalDateTime.now().plusDays(7).withSecond(0).withNano(0).toString());
         JTextArea questionText = new JTextArea(8, 52);
         questionText.setText("Question|Choice A|Choice B|Choice C|Choice D|correct option number 1-4");
-        JPanel panel = form("Offering ID", offering, "Quiz title", title, "Quiz password (8+ characters)",
+        JPanel panel = form("Course offering", offering, "Quiz title", title, "Quiz password (8+ characters)",
                 password, "Opens at yyyy-MM-ddTHH:mm", opens, "Closes at yyyy-MM-ddTHH:mm", closes);
         panel.add(new JLabel("One MCQ per line: prompt|A|B|C|D|correct choice 1-4"));
         panel.add(new javax.swing.JScrollPane(questionText));
-        if (JOptionPane.showConfirmDialog(this, panel, "Create MCQ quiz",
+        JScrollPane scroll = new JScrollPane(panel); scroll.setBorder(null);
+        scroll.setPreferredSize(new java.awt.Dimension(680, 500));
+        if (JOptionPane.showConfirmDialog(this, scroll, "Create MCQ quiz",
                 JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return;
         char[] secret = password.getPassword();
         try {
             List<QuestionDraft> questions = parseQuestions(questionText.getText());
             show(activities.createQuiz(actor, new LearningActivityController.CreateQuizRequest(
-                    integer(offering), title.getText(), secret, LocalDateTime.parse(opens.getText().trim()),
+                selectedId(offering), title.getText(), secret, LocalDateTime.parse(opens.getText().trim()),
                     LocalDateTime.parse(closes.getText().trim()), questions)));
         } finally {
             Arrays.fill(secret, '\0');
@@ -94,78 +102,81 @@ public final class LearningActivitiesScreen extends JPanel {
     }
 
     private void toggleQuiz() {
-        JTextField offering = field();
-        JTextField quiz = field();
+        JComboBox<SelectionOption> offering = offerings();
+        JComboBox<SelectionOption> quiz = new JComboBox<>();
+        refreshQuizOptions(offering, quiz);
+        offering.addActionListener(event -> refreshQuizOptions(offering, quiz));
         JTextField visible = field("true or false");
-        if (!confirmForm("Publish / hide quiz", new String[]{"Offering ID", "Quiz ID", "Visible true/false"},
+        if (!confirmForm("Publish / hide quiz", new String[]{"Course offering", "Quiz", "Visible true/false"},
                 offering, quiz, visible)) return;
         show(activities.setQuizVisibility(actor, new LearningActivityController.VisibilityRequest(
-                integer(offering), integer(quiz), parseBoolean(visible))));
+                selectedId(offering), selectedId(quiz), parseBoolean(visible))));
     }
 
     private void listQuizzes() {
-        JTextField offering = field();
-        if (!confirmForm("List quizzes", new String[]{"Offering ID"}, offering)) return;
-        ApiResponse<List<QuizView>> response = activities.quizzesForLecturer(actor, integer(offering));
+        JComboBox<SelectionOption> offering = offerings();
+        if (!confirmForm("List quizzes", new String[]{"Course offering"}, offering)) return;
+        ApiResponse<List<QuizView>> response = activities.quizzesForLecturer(actor, selectedId(offering));
         if (!response.successful()) {
             error(response.error().message());
             return;
         }
         String listing = response.data().stream().map(q -> String.format(
-                "%d | %s | %s — %s", q.id(), q.title(), q.opensAt(), q.closesAt()))
+                "%s | %s — %s", q.title(), q.opensAt(), q.closesAt()))
                 .collect(java.util.stream.Collectors.joining("\n"));
         JOptionPane.showMessageDialog(this, listing.isBlank() ? "No quizzes are available." : listing);
     }
 
     private void createAssignment() {
-        JTextField offering = field();
+        JComboBox<SelectionOption> offering = offerings();
         JTextField title = field();
         JTextArea description = new JTextArea(5, 45);
         JTextField dueAt = field(LocalDateTime.now().plusDays(7).withSecond(0).withNano(0).toString());
         JTextField visible = field("true or false");
-        JPanel panel = form("Offering ID", offering, "Title", title,
+        JPanel panel = form("Course offering", offering, "Title", title,
                 "Due yyyy-MM-ddTHH:mm", dueAt, "Visible true/false", visible);
         panel.add(new JLabel("Description"));
         panel.add(new javax.swing.JScrollPane(description));
-        if (JOptionPane.showConfirmDialog(this, panel, "Create assignment",
+        JScrollPane scroll = new JScrollPane(panel); scroll.setBorder(null);
+        scroll.setPreferredSize(new java.awt.Dimension(620, 420));
+        if (JOptionPane.showConfirmDialog(this, scroll, "Create assignment",
                 JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return;
         show(activities.createAssignment(actor, new LearningActivityController.CreateAssignmentRequest(
-                integer(offering), title.getText(), description.getText(),
+                selectedId(offering), title.getText(), description.getText(),
                 LocalDateTime.parse(dueAt.getText().trim()), parseBoolean(visible))));
     }
 
     private void toggleAssignment() {
-        JTextField offering = field();
-        JTextField assignment = field();
+        JComboBox<SelectionOption> offering = offerings();
+        JComboBox<SelectionOption> assignment = new JComboBox<>();
+        refreshAssignmentOptions(offering, assignment);
+        offering.addActionListener(event -> refreshAssignmentOptions(offering, assignment));
         JTextField visible = field("true or false");
-        if (!confirmForm("Publish / hide assignment", new String[]{"Offering ID", "Assignment ID", "Visible"},
+        if (!confirmForm("Publish / hide assignment", new String[]{"Course offering", "Assignment", "Visible"},
                 offering, assignment, visible)) return;
         show(activities.setAssignmentVisibility(actor, new LearningActivityController.VisibilityRequest(
-                integer(offering), integer(assignment), parseBoolean(visible))));
+                selectedId(offering), selectedId(assignment), parseBoolean(visible))));
     }
 
     private void listAssignments() {
-        JTextField offering = field();
-        if (!confirmForm("List assignments", new String[]{"Offering ID"}, offering)) return;
-        ApiResponse<List<AssignmentRow>> response = activities.assignmentsForLecturer(actor, integer(offering));
+        JComboBox<SelectionOption> offering = offerings();
+        if (!confirmForm("List assignments", new String[]{"Course offering"}, offering)) return;
+        ApiResponse<List<AssignmentRow>> response = activities.assignmentsForLecturer(actor, selectedId(offering));
         showAssignments(response);
     }
 
     private void attemptQuiz() {
-        JTextField offering = field();
-        if (!confirmForm("Select enrolled offering", new String[]{"Offering ID"}, offering)) return;
-        ApiResponse<List<QuizView>> quizzes = activities.quizzesForStudent(actor, integer(offering));
+        JComboBox<SelectionOption> offering = offerings();
+        if (!confirmForm("Select enrolled offering", new String[]{"Course offering"}, offering)) return;
+        ApiResponse<List<QuizView>> quizzes = activities.quizzesForStudent(actor, selectedId(offering));
         if (!quizzes.successful()) {
             error(quizzes.error().message());
             return;
         }
-        String list = quizzes.data().stream().map(q -> q.id() + " | " + q.title())
-                .collect(java.util.stream.Collectors.joining("\n"));
-        JTextField quizId = field();
+        JComboBox<SelectionOption> quiz = options(quizzes.data().stream().map(q -> new SelectionOption(q.id(),q.title())).toList());
         JPasswordField password = new JPasswordField();
-        if (!confirmForm("Available quizzes\n" + (list.isBlank() ? "No quizzes available." : list),
-                new String[]{"Quiz ID", "Quiz password"}, quizId, password)) return;
-        int id = integer(quizId);
+        if (!confirmForm("Available quizzes", new String[]{"Quiz", "Quiz password"}, quiz, password)) return;
+        int id = selectedId(quiz);
         char[] secret = password.getPassword();
         try {
             ApiResponse<List<QuestionView>> questionResponse = activities.questionsForStudent(actor,
@@ -198,18 +209,22 @@ public final class LearningActivitiesScreen extends JPanel {
     }
 
     private void studentAssignments() {
-        JTextField offering = field();
-        if (!confirmForm("Assignments", new String[]{"Enrolled offering ID"}, offering)) return;
-        showAssignments(activities.assignmentsForStudent(actor, integer(offering)));
+        JComboBox<SelectionOption> offering = offerings();
+        if (!confirmForm("Assignments", new String[]{"Enrolled offering"}, offering)) return;
+        showAssignments(activities.assignmentsForStudent(actor, selectedId(offering)));
     }
 
     private void submitAssignment() {
-        JTextField assignment = field();
-        if (!confirmForm("Submit assignment", new String[]{"Assignment ID"}, assignment)) return;
+        JComboBox<SelectionOption> offering = offerings();
+        if (!confirmForm("Select enrolled offering", new String[]{"Course offering"}, offering)) return;
+        ApiResponse<List<AssignmentRow>> rows = activities.assignmentsForStudent(actor, selectedId(offering));
+        if (!rows.successful()) { error(rows.error().message()); return; }
+        JComboBox<SelectionOption> assignment=options(rows.data().stream().map(a->new SelectionOption(a.id(),a.title()+" — due "+a.dueAt())).toList());
+        if (!confirmForm("Submit assignment", new String[]{"Assignment"}, assignment)) return;
         JFileChooser chooser = new JFileChooser();
         if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
         show(activities.submitAssignment(actor, new LearningActivityController.SubmitRequest(
-                integer(assignment), Path.of(chooser.getSelectedFile().getAbsolutePath()))));
+                selectedId(assignment), Path.of(chooser.getSelectedFile().getAbsolutePath()))));
     }
 
     private void showAssignments(ApiResponse<List<AssignmentRow>> response) {
@@ -218,7 +233,7 @@ public final class LearningActivitiesScreen extends JPanel {
             return;
         }
         String listing = response.data().stream().map(a -> String.format(
-                "%d | %s | due %s | %s%n%s", a.id(), a.title(), a.dueAt(),
+                "%s | due %s | %s%n%s", a.title(), a.dueAt(),
                 a.visible() ? "published" : "hidden", a.description()))
                 .collect(java.util.stream.Collectors.joining("\n\n"));
         JOptionPane.showMessageDialog(this, listing.isBlank() ? "No assignments are available." : listing);
@@ -239,7 +254,10 @@ public final class LearningActivitiesScreen extends JPanel {
             panel.add(new JLabel(labels[i]));
             panel.add(fields[i]);
         }
-        return JOptionPane.showConfirmDialog(this, panel, title,
+        JScrollPane scroll = new JScrollPane(panel);
+        scroll.setBorder(null);
+        scroll.setPreferredSize(new java.awt.Dimension(650, Math.min(500, labels.length * 52 + 30)));
+        return JOptionPane.showConfirmDialog(this, scroll, title,
                 JOptionPane.OK_CANCEL_OPTION) == JOptionPane.OK_OPTION;
     }
 
@@ -251,8 +269,44 @@ public final class LearningActivitiesScreen extends JPanel {
         return new JTextField(text, 28);
     }
 
-    private int integer(JTextField field) {
-        return Integer.parseInt(field.getText().trim());
+    private JComboBox<SelectionOption> offerings() {
+        ApiResponse<List<OfferingView>> response = courses.offeringViewsForActor(actor);
+        if (!response.successful()) { error(response.error().message()); return options(List.of()); }
+        return options(response.data().stream().map(view -> new SelectionOption(view.offering().id(),
+                view.course().code() + " — " + view.course().title() + " — " + view.semesterLabel())).toList());
+    }
+
+    private JComboBox<SelectionOption> options(List<SelectionOption> rows) {
+        JComboBox<SelectionOption> combo = new JComboBox<>();
+        rows.forEach(combo::addItem);
+        if (rows.isEmpty()) combo.addItem(new SelectionOption(0, "No matching records"));
+        SelectionOption.enableSearch(combo);
+        return combo;
+    }
+
+    private int selectedId(JComboBox<SelectionOption> combo) {
+        Object selected = combo.getSelectedItem();
+        if (selected instanceof SelectionOption option && option.id() > 0) return option.id();
+        throw new IllegalArgumentException("No authorized item is available for this selection.");
+    }
+
+    private void refreshQuizOptions(JComboBox<SelectionOption> offering, JComboBox<SelectionOption> quiz) {
+        int offeringId = selectedId(offering);
+        ApiResponse<List<QuizView>> response = activities.quizzesForLecturer(actor, offeringId);
+        if (!response.successful()) { error(response.error().message()); optionsInto(quiz, List.of()); return; }
+        optionsInto(quiz, response.data().stream().map(q -> new SelectionOption(q.id(), q.title())).toList());
+    }
+
+    private void refreshAssignmentOptions(JComboBox<SelectionOption> offering, JComboBox<SelectionOption> assignment) {
+        int offeringId = selectedId(offering);
+        ApiResponse<List<AssignmentRow>> response = activities.assignmentsForLecturer(actor, offeringId);
+        if (!response.successful()) { error(response.error().message()); optionsInto(assignment, List.of()); return; }
+        optionsInto(assignment, response.data().stream().map(a -> new SelectionOption(a.id(), a.title()+" — due "+a.dueAt())).toList());
+    }
+
+    private void optionsInto(JComboBox<SelectionOption> combo, List<SelectionOption> rows) {
+        combo.removeAllItems(); rows.forEach(combo::addItem);
+        if (rows.isEmpty()) combo.addItem(new SelectionOption(0, "No matching records"));
     }
 
     private boolean parseBoolean(JTextField field) {
@@ -269,7 +323,7 @@ public final class LearningActivitiesScreen extends JPanel {
             try {
                 action.run();
             } catch (IllegalArgumentException | java.time.DateTimeException invalid) {
-                error("Check the IDs, question syntax, date, or visibility value: " + invalid.getMessage());
+                error("Check the selected course, question syntax, date, or visibility value: " + invalid.getMessage());
             }
         });
         panel.add(button);

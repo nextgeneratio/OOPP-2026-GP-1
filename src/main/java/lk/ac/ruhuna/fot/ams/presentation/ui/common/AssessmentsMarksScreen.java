@@ -56,6 +56,7 @@ public final class AssessmentsMarksScreen extends JPanel {
                 return this;
             }
         });
+        SelectionOption.enableSearch(box);
         return box;
     }
 
@@ -136,6 +137,7 @@ public final class AssessmentsMarksScreen extends JPanel {
                 return this;
             }
         });
+        SelectionOption.enableSearch(assessmentBox);
         JComboBox<lk.ac.ruhuna.fot.ams.data.dao.CourseDao.RosterRow> studentBox =
                 new JComboBox<>(rosterResult.data().toArray(
                         lk.ac.ruhuna.fot.ams.data.dao.CourseDao.RosterRow[]::new));
@@ -149,6 +151,7 @@ public final class AssessmentsMarksScreen extends JPanel {
                 return this;
             }
         });
+        SelectionOption.enableSearch(studentBox);
         JTextField score = new JTextField();
         if (JOptionPane.showConfirmDialog(this, form("Assessment", assessmentBox, "Student", studentBox,
                 "Score", score), "Save a mark", JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return;

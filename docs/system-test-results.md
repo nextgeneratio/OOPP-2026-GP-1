@@ -1,5 +1,39 @@
 # Final System Test Results
 
+## Learning-resource file visibility — 2026-10-31
+
+- Base Git SHA before these uncommitted changes:
+  `6a80ea1477af14fcbca427bb7f03535155bdf89f` on `Amjad`.
+- Added `MaterialFileStore` validation under `src/main/resources/uploads`, with
+  real-path containment, regular-file, and readability checks.
+- Student material lists now require database visibility and a valid readable
+  file. Opening a material repeats enrollment authorization and file validation,
+  so a file removed after list loading is denied. Publishing a missing or
+  unreadable file is rejected.
+- Added temporary-directory unit coverage for present/missing/unreadable files,
+  directories, traversal and symlink escape, unpublished resources, offering
+  authorization, lecturer warnings, restart visibility, and deletion after list
+  load. This is not a real DAO or GUI acceptance test.
+- Generated and verified 45 course-specific synthetic PDFs: five for each of
+  the nine source courses. The manifest is
+  `docs/generated-course-materials-manifest.csv`; the manual SQL includes all
+  45 records, tied to synthetic lecturers and natural-key offerings.
+- Prepared a complete manual-only replacement script and 30 synthetic accounts.
+  The transformation report is `docs/dataset-transformation-report.md`; local
+  credentials and SQL are stored outside the repository under
+  `/home/Amjad/.local/share/ams-demo/` with mode 600.
+- `mvn clean test` and `mvn clean verify`: each discovered 105 tests, with 0
+  failures, 0 errors, and 1 skipped isolated-database connectivity test.
+- SQL static validation passed for all 30 table deletes, FK child-before-parent
+  ordering, insert column names, 30 PBKDF2 hashes, and all 45 existing resource
+  paths. SQL was not executed. No database writes, migration, commit, or push
+  were performed.
+- All actual application tables were confirmed InnoDB. The replacement uses a
+  temporary stored procedure with a rollback handler and checks the selected
+  database; the SQL editor must support `DELIMITER` and routine privileges.
+- Reticle verification tools are unavailable in this session; interactive UI
+  acceptance was not performed.
+
 ## Historical repository and system audit — before latest follow-up
 
 **Audited branch at that time:** `Amjad`, commit `a3e2574ad30c9f8271a3b288ac796ddba9e9b72f`.
@@ -328,3 +362,16 @@ The final system-test instruction was attempted after the requested branch revie
 - Build validation passed with `mvn -q -DskipTests package`. Focused quiz and attendance permission tests passed. The full suite passed: 52 tests, 0 failures, 0 errors, and 1 skipped (database connectivity/integration, because a test database configuration is unavailable).
 - These are build/unit-test results only. The new `academic-workflow-compatibility.sql` migration has not been applied, and the workflows have not been acceptance-tested against MySQL or through the Swing UI. The database-backed cases in `05-instruction-final-system-test.md` therefore remain unverified.
 - **Current status remains NOT READY for final system-test sign-off** until the migration is reviewed/applied to an isolated test database and the required database/UI acceptance cases are exercised and recorded.
+# UI selector and scrolling follow-up — 2026-10-31
+
+Implemented searchable, human-readable selectors across role-based workflows to replace manual database ID entry. Added dependent department/batch/course/semester/lecturer selectors for user, course/offering, timetable, attendance, assessment, eligibility, grade, report, materials, learning activity, medical, and batch-notice workflows. UI selectors retain record IDs internally while displaying names/codes/academic terms; options are scoped using existing service authorization. Long forms, including profile password change, use scrollable dialogs/containers.
+
+Validation: `mvn clean test` and `mvn clean verify` passed with 107 tests discovered, 0 failures, 0 errors, and 1 skipped database connectivity test. The test database credentials are unavailable. GUI acceptance was not possible in this environment because no desktop app/window is available. No database was connected, modified, or migrated. No migration SQL is required by these UI changes.
+
+| Check | Result | Evidence / limitation |
+|---|---|---|
+| Searchable selector ID/label behavior | Pass | `SelectionOptionTest` (2 tests) |
+| Existing role authorization and academic workflows | Pass | Full unit suite (107 tests, 0 failures/errors) |
+| Live database connectivity | Skipped | Dedicated test reports skipped without test DB credentials |
+| Swing visual acceptance at 1366×768 and role credential login | Not run | No GUI window/surface available in this execution environment |
+| Database migration | Not applicable | UI/service/API changes only; no schema migration introduced |

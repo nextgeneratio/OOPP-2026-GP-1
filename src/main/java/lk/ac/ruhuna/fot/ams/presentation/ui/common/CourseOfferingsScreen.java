@@ -54,9 +54,9 @@ public final class CourseOfferingsScreen extends JPanel {
         JPanel card = new JPanel(new BorderLayout(8, 8));
         card.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(UiTheme.BORDER),
                 BorderFactory.createEmptyBorder(12, 12, 12, 12)));
-        card.add(new JLabel(String.format("<html><b>%s — %s</b><br/>%.1f credits · Semester %d · %s</html>",
+        card.add(new JLabel(String.format("<html><b>%s — %s</b><br/>%.1f credits · %s · %s</html>",
                 view.course().code(), view.course().title(), view.course().credits(),
-                view.offering().semesterId(), enrolled ? "Registered" : "Open for registration")), BorderLayout.CENTER);
+                view.semesterLabel(), enrolled ? "Registered" : "Open for registration")), BorderLayout.CENTER);
         if (!enrolled && actor.role() == Role.UNDERGRADUATE) {
             JButton register = new JButton("Register");
             register.addActionListener(event -> register(view));

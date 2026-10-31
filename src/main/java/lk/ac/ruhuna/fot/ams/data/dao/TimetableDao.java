@@ -38,6 +38,8 @@ public interface TimetableDao {
 
     Optional<TimetableRow> findTimetable(int timetableId);
 
+    List<TimetableRow> findTimetables(int departmentId, int semesterId, int level);
+
     Optional<EntryRow> findEntry(int entryId);
 
     List<EntryRow> findEntries(int departmentId, int semesterId, int level, String dayOfWeek);

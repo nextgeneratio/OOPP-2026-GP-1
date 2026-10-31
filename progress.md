@@ -1,5 +1,34 @@
 # Project Progress
 
+## Resource visibility and dataset follow-up — 2026-10-31
+
+- Added resource storage validation: student lists omit unpublished, missing,
+  unreadable, non-regular, traversal, and symlink-escaped files. Opening a file
+  rechecks enrollment authorization and the file; publishing requires a valid
+  file under the application's uploads directory.
+- Added 11 temporary-file/service unit tests across `MaterialFileStoreTest` and
+  `ContentMaterialVisibilityTest`, including unreadable files, lecturer warning,
+  and service reconstruction.
+- Generated/validated 45 original synthetic PDFs (five each for nine source
+  courses) under `src/main/resources/uploads/materials/demo-readings/`; the
+  manifest now includes offering natural keys and synthetic uploader usernames.
+- Prepared `/home/Amjad/.local/share/ams-demo/manual-demo-replacement.sql` and
+  `/home/Amjad/.local/share/ams-demo/credentials.csv`. The latter contains 30
+  unique synthetic passwords and has mode 600; hashes were generated and
+  verified with the application `PasswordHasher`.
+- The replacement preserves deterministic source enrollment relationships and
+  non-quiz demo scores, creates synthetic attendance, omits borrowed identities
+  and medical evidence, and documents unsupported best-two quiz scoring.
+  Transformation mapping and expected counts are in
+  `docs/dataset-transformation-report.md`.
+- Read-only live DB audit reconfirmed MariaDB 11.8.8, 30 InnoDB tables and 2,650
+  rows. `mvn clean test` and `mvn clean verify`: 105 discovered, 0 failed,
+  0 errors, 1 skipped isolated-DB connectivity check. PDF, manifest, SQL static
+  validation and `git diff --check` passed. SQL was not executed; no database
+  write, GUI acceptance, commit, or push occurred.
+- Branch/HEAD before these local changes: `Amjad`,
+  `6a80ea1477af14fcbca427bb7f03535155bdf89f`.
+
 ## Latest acceptance follow-up — 2026-10-30
 
 - Fetched GitHub branches over HTTPS. Latest `Amjad` is
@@ -410,3 +439,8 @@ Configure an isolated test MySQL database and credentials; finish UI module inte
 - Validation: `mvn -q -DskipTests package` passed; focused quiz and attendance permission tests passed; `mvn -q -Dnet.bytebuddy.experimental=true test` passed (52 tests, 0 failures, 0 errors, 1 skipped); `git diff --check` passed. The Maven test configuration now enables the Byte Buddy experimental mode required by the Java 25 runtime, so the default `mvn test` command can be validated without an extra property.
 - The skipped test is database connectivity/integration: test DB credentials and schema are not configured in this worktree. Database-backed behavior still requires applying the reviewed migration to an isolated test database and running the application acceptance flow.
 - Next task: apply the compatibility migration to a verified isolated database, exercise the role-based UI with representative seeded courses and enrolments, then update `docs/system-test-results.md` with actual acceptance outcomes.
+# Searchable UI selectors and scrollable forms — 2026-10-31
+- Replaced manually entered internal IDs with searchable, labeled selectors across user/course setup, course offerings, timetable, attendance, assessments/marks, eligibility, grades/GPA, reports, course materials, learning activities, medical workflows, and batch-targeted notices. Selector models keep record IDs internally and display codes/names/academic terms; dependent selectors reset or filter when their parent changes.
+- Kept options role-scoped through existing service authorization and added lecturer options with department context for course setup/assignment. Fixed dialog scroll-pane declarations found by the clean compile, and changed learning-activity validation copy to refer to selected courses instead of IDs.
+- Added `SelectionOptionTest` for searchable labels and preservation of the actual selected record ID. Updated test/requirement docs with current coverage and GUI/database limits.
+- Validation: `mvn clean test` and `mvn clean verify` passed (107 tests discovered, 0 failures/errors, 1 skipped DB connectivity check); `git diff --check` pending final check. GUI login/role workflows could not be exercised because no GUI window was available. No database connection, migration, data write, commit, or push was performed; no migration SQL is required for this UI work.

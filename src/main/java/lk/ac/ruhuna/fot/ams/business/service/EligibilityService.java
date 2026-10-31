@@ -12,7 +12,12 @@ import lk.ac.ruhuna.fot.ams.data.dao.CourseDao;
 import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 
 public final class EligibilityService {
-    public record StudentOffering(int enrollmentId, int offeringId, String courseCode, String courseTitle) { }
+    public record StudentOffering(int enrollmentId, int offeringId, String courseCode, String courseTitle,
+            String academicYear, int semesterNumber) {
+        public StudentOffering(int enrollmentId, int offeringId, String courseCode, String courseTitle) {
+            this(enrollmentId, offeringId, courseCode, courseTitle, "", 0);
+        }
+    }
     private final FinalExamEligibilityPolicy policy;
     private final MarksService marksService;
     private final AttendanceService attendanceService;
@@ -45,6 +50,8 @@ public final class EligibilityService {
     public List<StudentOffering> offeringsForStudent(AuthenticatedSession actor) {
         authorization.requireRole(actor, Role.UNDERGRADUATE);
         int studentId = authorization.studentId(actor);
+        java.util.Map<Integer, CourseDao.SemesterRow> terms = courseDao.findSemesters().stream()
+                .collect(java.util.stream.Collectors.toMap(CourseDao.SemesterRow::id, term -> term));
         return courseDao.findEnrollmentsForStudent(studentId).stream().map(enrollment -> {
             CourseDao.OfferingRow offering = courseDao.findOffering(enrollment.offeringId())
                     .orElseThrow(() -> new lk.ac.ruhuna.fot.ams.error.exception.ValidationException(
@@ -52,7 +59,9 @@ public final class EligibilityService {
             CourseDao.CourseRow course = courseDao.findCourse(offering.courseId())
                     .orElseThrow(() -> new lk.ac.ruhuna.fot.ams.error.exception.ValidationException(
                             "Course was not found."));
-            return new StudentOffering(enrollment.id(), enrollment.offeringId(), course.code(), course.title());
+            CourseDao.SemesterRow term = terms.get(offering.semesterId());
+            return new StudentOffering(enrollment.id(), enrollment.offeringId(), course.code(), course.title(),
+                    term == null ? "" : term.academicYear(), term == null ? 0 : term.semesterNumber());
         }).toList();
     }
 

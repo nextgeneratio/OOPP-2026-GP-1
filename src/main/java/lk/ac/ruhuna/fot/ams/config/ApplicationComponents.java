@@ -28,6 +28,7 @@ import lk.ac.ruhuna.fot.ams.business.service.AttendanceService;
 import lk.ac.ruhuna.fot.ams.business.service.AuditService;
 import lk.ac.ruhuna.fot.ams.business.service.AuthService;
 import lk.ac.ruhuna.fot.ams.business.service.ContentService;
+import lk.ac.ruhuna.fot.ams.business.service.MaterialFileStore;
 import lk.ac.ruhuna.fot.ams.business.service.CourseService;
 import lk.ac.ruhuna.fot.ams.business.service.DashboardService;
 import lk.ac.ruhuna.fot.ams.business.service.EligibilityService;
@@ -207,7 +208,8 @@ public final class ApplicationComponents {
                 medicalDao, courseDao, auditLogDao, transactionManager,
                 authorizationService, clock);
         ContentService contentService = new ContentService(
-                contentDao, courseDao, auditLogDao, transactionManager, authorizationService, clock);
+                contentDao, courseDao, auditLogDao, transactionManager, authorizationService, clock,
+                new MaterialFileStore(java.nio.file.Path.of("src", "main", "resources", "uploads")));
         TimetableService timetableService = new TimetableService(
                 timetableDao, courseDao, auditLogDao, transactionManager,
                 authorizationService, clock);

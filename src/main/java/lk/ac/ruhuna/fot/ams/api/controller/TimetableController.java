@@ -52,6 +52,11 @@ public final class TimetableController {
         return support.execute(timetableId, () -> service.timetableDetails(actor, timetableId));
     }
 
+    public ApiResponse<List<TimetableRow>> timetables(AuthenticatedSession actor, int departmentId,
+            int semesterId, int level) {
+        return support.execute(() -> service.timetables(actor, departmentId, semesterId, level));
+    }
+
     public ApiResponse<Void> delete(AuthenticatedSession actor, int timetableId) {
         return support.execute(timetableId, () -> {
             service.deleteTimetable(actor, timetableId);

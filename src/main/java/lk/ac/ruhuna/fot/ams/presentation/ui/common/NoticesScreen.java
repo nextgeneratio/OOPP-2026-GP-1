@@ -17,6 +17,8 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import lk.ac.ruhuna.fot.ams.api.controller.ApiError;
 import lk.ac.ruhuna.fot.ams.api.controller.ContentController;
+import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
+import lk.ac.ruhuna.fot.ams.business.service.CourseService.CourseCatalog;
 import lk.ac.ruhuna.fot.ams.data.dao.ContentDao.NoticeRow;
 import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
@@ -29,7 +31,7 @@ public final class NoticesScreen extends JPanel {
 
     private final ObjectTableModel<NoticeRow> model = new ObjectTableModel<>(List.of(
             ObjectTableModel.column("Title", NoticeRow::title),
-            ObjectTableModel.column("Audience", NoticesScreen::audienceText),
+            ObjectTableModel.column("Audience", this::audienceText),
             ObjectTableModel.column("Published", n -> Formats.dateTime(n.publishDate())),
             ObjectTableModel.column("Expires", n -> n.expiryDate() == null ? "No expiry" : Formats.dateTime(n.expiryDate()))));
     private final JTable table = new JTable(model);
@@ -40,20 +42,30 @@ public final class NoticesScreen extends JPanel {
     private final JTextArea bodyArea = new JTextArea(5, 20);
     private final JComboBox<String> audienceBox = new JComboBox<>(new String[]{"ALL", "ROLE", "BATCH"});
     private final JComboBox<Role> roleBox = new JComboBox<>(Role.values());
-    private final JTextField batchField = new JTextField();
+    private final JComboBox<SelectionOption> batchBox = new JComboBox<>();
     private final JTextField publishField = new JTextField();
     private final JTextField expiryField = new JTextField();
     private final FormField titleRow = new FormField("Title", titleField);
     private final FormField roleRow = new FormField("Target role", roleBox);
-    private final FormField batchRow = new FormField("Target batch ID", batchField);
+    private final FormField batchRow = new FormField("Target batch", batchBox);
     private final FormField publishRow = new FormField("Publish date (" + Formats.DATE_TIME_HINT + ")", publishField);
     private final FormField expiryRow = new FormField("Expiry date, optional (" + Formats.DATE_TIME_HINT + ")", expiryField);
     private final JLabel formMessage = new JLabel(" ");
+    private CourseCatalog catalog;
 
-    public NoticesScreen(AuthenticatedSession session, ContentController content) {
+    public NoticesScreen(AuthenticatedSession session, ContentController content, CourseController courses) {
         super(new BorderLayout(UiTheme.SPACE_MD, UiTheme.SPACE_MD));
         this.session = session;
         this.content = content;
+        if (session.role() == Role.ADMIN) {
+            var catalogResponse = courses.catalog(session);
+            if (catalogResponse.successful()) {
+                catalog = catalogResponse.data();
+                catalog.batches().forEach(batch -> batchBox.addItem(new SelectionOption(batch.id(),
+                        batch.code() + " — Level " + batch.level() + " — " + batch.intakeYear())));
+            }
+        }
+        SelectionOption.enableSearch(batchBox);
         this.admin = session.role() == Role.ADMIN;
         setBorder(BorderFactory.createEmptyBorder(UiTheme.SPACE_LG, UiTheme.SPACE_LG, UiTheme.SPACE_LG, UiTheme.SPACE_LG));
         JLabel title = new JLabel("Notices");
@@ -85,10 +97,12 @@ public final class NoticesScreen extends JPanel {
         load();
     }
 
-    private static String audienceText(NoticeRow notice) {
+    private String audienceText(NoticeRow notice) {
         return switch (notice.audience()) {
             case "ROLE" -> NavigationModule.roleLabel(notice.targetRole()) + " only";
-            case "BATCH" -> "Batch " + notice.targetBatchId();
+            case "BATCH" -> catalog == null ? "Selected batch" : catalog.batches().stream()
+                    .filter(batch -> batch.id() == notice.targetBatchId())
+                    .map(batch -> batch.code() + " — Level " + batch.level()).findFirst().orElse("Selected batch");
             default -> "Everyone";
         };
     }
@@ -187,12 +201,12 @@ public final class NoticesScreen extends JPanel {
         }
         String audience = (String) audienceBox.getSelectedItem();
         if ("BATCH".equals(audience)) {
-            try {
-                batchId = Integer.valueOf(batchField.getText().trim());
-            } catch (NumberFormatException invalid) {
-                batchRow.setError("Enter a whole number.");
+            Object selected = batchBox.getSelectedItem();
+            if (!(selected instanceof SelectionOption option) || option.id() <= 0) {
+                batchRow.setError("Choose an available batch.");
                 return;
             }
+            batchId = option.id();
         }
         Role role = "ROLE".equals(audience) ? (Role) roleBox.getSelectedItem() : null;
         NoticeRow notice = new NoticeRow(0, titleField.getText().trim(), bodyArea.getText().trim(), audience,

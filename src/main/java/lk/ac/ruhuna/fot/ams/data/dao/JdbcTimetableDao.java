@@ -83,6 +83,19 @@ public final class JdbcTimetableDao implements TimetableDao {
     }
 
     @Override
+    public List<TimetableRow> findTimetables(int departmentId, int semesterId, int level) {
+        return jdbc.query("SELECT t.timetable_id,t.title,t.department_id,t.semester_id,t.level_no,"
+                        + "t.created_by_user_id,u.username,u.role FROM timetables t "
+                        + "LEFT JOIN users u ON u.user_id=t.created_by_user_id "
+                        + "WHERE t.department_id=? AND t.semester_id=? AND t.level_no=? ORDER BY t.title",
+                statement -> { statement.setInt(1,departmentId); statement.setInt(2,semesterId); statement.setInt(3,level); },
+                result -> new TimetableRow(result.getInt("timetable_id"),result.getString("title"),
+                        result.getInt("department_id"),result.getInt("semester_id"),result.getInt("level_no"),
+                        result.getObject("created_by_user_id",Long.class),result.getString("username"),
+                        result.getString("role")==null?null:lk.ac.ruhuna.fot.ams.domain.enums.Role.valueOf(result.getString("role"))));
+    }
+
+    @Override
     public Optional<EntryRow> findEntry(int entryId) {
         return jdbc.query("SELECT timetable_entry_id, timetable_id, offering_id, component_id, "
                         + "day_of_week, start_time, end_time, location "

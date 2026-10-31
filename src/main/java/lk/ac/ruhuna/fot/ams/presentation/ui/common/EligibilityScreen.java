@@ -69,9 +69,11 @@ public final class EligibilityScreen extends JPanel {
                                                                     boolean selected, boolean focus) {
                 String shown;
                 if (value instanceof OfferingSummary o) {
-                    shown = o.courseCode() + " \u2013 " + o.courseTitle();
+                    shown = o.courseCode() + " \u2013 " + o.courseTitle() + " — " + o.academicYear()
+                            + (o.semesterNumber() > 0 ? " Semester " + o.semesterNumber() : "");
                 } else if (value instanceof StudentOffering o) {
-                    shown = o.courseCode() + " \u2013 " + o.courseTitle();
+                    shown = o.courseCode() + " \u2013 " + o.courseTitle() + " — " + o.academicYear()
+                            + (o.semesterNumber() > 0 ? " Semester " + o.semesterNumber() : "");
                 } else {
                     shown = String.valueOf(value);
                 }
@@ -93,6 +95,8 @@ public final class EligibilityScreen extends JPanel {
             }
         });
         studentBox.getAccessibleContext().setAccessibleName("Student");
+        SelectionOption.enableSearch(offeringBox);
+        SelectionOption.enableSearch(studentBox);
         studentBox.addActionListener(event -> {
             if (!populating) {
                 checkButton.setEnabled(studentBox.getSelectedItem() != null);

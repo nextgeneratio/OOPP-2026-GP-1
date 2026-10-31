@@ -18,6 +18,8 @@ public interface CourseDao {
     record CourseRow(int id, int departmentId, String code, String title, double credits, boolean active) {
     }
 
+    record LecturerOption(int id, String username, String fullName, String departmentCode, int departmentId) { }
+
     record ComponentRow(int id, int courseId, ComponentType type, double credits, int plannedSessions) {
     }
 
@@ -71,6 +73,8 @@ public interface CourseDao {
     int unassignLecturer(Connection connection, int offeringId, int lecturerId);
 
     List<DepartmentRow> findDepartments(boolean activeOnly);
+
+    List<LecturerOption> findLecturerOptions();
 
     List<BatchRow> findBatches(int departmentId);
 

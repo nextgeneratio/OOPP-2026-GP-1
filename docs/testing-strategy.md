@@ -1,5 +1,24 @@
 # Testing Strategy
 
+## 2026-10-31 resource visibility update
+
+- `MaterialFileStoreTest` and `ContentMaterialVisibilityTest` use temporary
+  directories and synthetic files. They cover readable files, missing files,
+  directories, malformed/outside references, symlink escape rejection,
+  student offering authorization, unpublished rows, and rechecking a file
+  deleted after list loading.
+- `mvn clean test` and `mvn clean verify`: 105 tests discovered, 104 passed,
+  0 failures, 0 errors, 1 skipped (`DatabaseConnectivityTest`; isolated DB
+  credentials are not configured).
+- Real DAO/database integration and interactive Swing acceptance remain
+  unverified. No production database writes were performed.
+- Generated 45 synthetic PDFs (five for each of the nine source courses).
+  They are under `src/main/resources/uploads/materials/demo-readings/`; the
+  manifest is `docs/generated-course-materials-manifest.csv`. The manual SQL
+  registers them to the synthetic course offerings; no database import ran.
+- `manual-demo-replacement.sql` passed static schema/path/hash/FK-order checks.
+  It has not been executed against any database.
+
 The project uses unit, integration, and system test sources under the Maven layout.
 JUnit 5, Mockito, and AssertJ provide the automated test foundation. Swing panel
 construction/navigation checks are automated; live GUI acceptance remains a

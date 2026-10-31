@@ -68,8 +68,12 @@ public final class GradesGpaScreen extends JPanel {
             info("No finalized course results are available yet.", "Finalized results");
             return;
         }
+        var semesterResponse = courses.semestersForActor(actor);
+        if (!semesterResponse.successful()) { error(semesterResponse.error().message()); return; }
         String text = response.data().stream().map(result -> result.courseCode()
-                + " | semester " + result.semesterId() + " | attempt " + result.attemptNumber()
+                + " | " + semesterResponse.data().stream().filter(term -> term.id() == result.semesterId())
+                        .map(term -> term.academicYear() + " — Semester " + term.semesterNumber())
+                        .findFirst().orElse("Academic term") + " | attempt " + result.attemptNumber()
                 + " | grade point " + result.gradePoint() + " | credits " + result.credits()
                 + " | completed " + result.completedAt().toLocalDate())
                 .collect(java.util.stream.Collectors.joining("\n"));
@@ -102,16 +106,23 @@ public final class GradesGpaScreen extends JPanel {
             error(response.error().message());
             return null;
         }
-        List<Integer> semesters = response.data().stream().map(ResultController.StudentResultResponse::semesterId)
+        List<Integer> semesterIds = response.data().stream().map(ResultController.StudentResultResponse::semesterId)
                 .distinct().sorted().toList();
-        if (semesters.isEmpty()) {
+        if (semesterIds.isEmpty()) {
             info("No finalized results are available for GPA calculation.", "Grades & GPA");
             return null;
         }
-        JComboBox<Integer> semester = new JComboBox<>(semesters.toArray(Integer[]::new));
+        var semesterResponse = courses.semestersForActor(actor);
+        if (!semesterResponse.successful()) { error(semesterResponse.error().message()); return null; }
+        List<SelectionOption> semesterOptions = semesterResponse.data().stream()
+                .filter(term -> semesterIds.contains(term.id()))
+                .map(term -> new SelectionOption(term.id(), term.academicYear() + " — Semester " + term.semesterNumber())).toList();
+        JComboBox<SelectionOption> semester = new JComboBox<>(semesterOptions.toArray(SelectionOption[]::new));
+        SelectionOption.enableSearch(semester);
         if (JOptionPane.showConfirmDialog(this, panel("Semester", semester), "Choose semester",
                 JOptionPane.OK_CANCEL_OPTION) != JOptionPane.OK_OPTION) return null;
-        return (Integer) semester.getSelectedItem();
+        Object selected = semester.getSelectedItem();
+        return selected instanceof SelectionOption option ? option.id() : null;
     }
 
     private void showGpa(lk.ac.ruhuna.fot.ams.api.controller.ApiResponse<GpaController.GpaResponse> sgpa,
@@ -139,7 +150,7 @@ public final class GradesGpaScreen extends JPanel {
             return null;
         }
         JComboBox<OfferingView> offering = offeringBox(offers.data());
-        JComboBox<EnrollmentRow> student = new JComboBox<>();
+        JComboBox<StudentEnrollmentChoice> student = new JComboBox<>();
         offering.addActionListener(event -> loadResultEnrollments(student,
                 (OfferingView) offering.getSelectedItem()));
         if (!loadResultEnrollments(student, (OfferingView) offering.getSelectedItem())) return null;
@@ -148,16 +159,16 @@ public final class GradesGpaScreen extends JPanel {
         form.add(new JLabel("Student enrolment")); form.add(student);
         if (JOptionPane.showConfirmDialog(this, form, title, JOptionPane.OK_CANCEL_OPTION)
                 != JOptionPane.OK_OPTION) return null;
-        EnrollmentRow selected = (EnrollmentRow) student.getSelectedItem();
+        StudentEnrollmentChoice selected = (StudentEnrollmentChoice) student.getSelectedItem();
         if (selected == null) {
             error("Choose a student enrolment.");
             return null;
         }
         OfferingView selectedOffering = (OfferingView) offering.getSelectedItem();
-        return new LecturerSelection(selected.studentId(), selectedOffering.offering().id());
+        return new LecturerSelection(selected.enrollment().studentId(), selectedOffering.offering().id());
     }
 
-    private boolean loadResultEnrollments(JComboBox<EnrollmentRow> box, OfferingView offering) {
+    private boolean loadResultEnrollments(JComboBox<StudentEnrollmentChoice> box, OfferingView offering) {
         box.removeAllItems();
         if (offering == null) return false;
         var response = results.resultEnrollmentsForOffering(actor, offering.offering().id());
@@ -169,13 +180,17 @@ public final class GradesGpaScreen extends JPanel {
             info("This offering has no enrolments.", "Grades & GPA");
             return false;
         }
-        response.data().forEach(box::addItem);
+        var roster = courses.rosterForOffering(actor, offering.offering().id());
+        if (!roster.successful()) { error(roster.error().message()); return false; }
+        response.data().forEach(enrollment -> roster.data().stream()
+                .filter(student -> student.enrollmentId() == enrollment.id())
+                .findFirst().ifPresent(student -> box.addItem(new StudentEnrollmentChoice(enrollment,
+                        student.studentNumber() + " — " + student.fullName()))));
         box.setRenderer(new DefaultListCellRenderer() {
             @Override public java.awt.Component getListCellRendererComponent(JList<?> list, Object value,
                     int index, boolean selected, boolean focused) {
                 super.getListCellRendererComponent(list, value, index, selected, focused);
-                if (value instanceof EnrollmentRow enrollment) setText("Student " + enrollment.studentId()
-                        + " — " + enrollment.enrollmentStatus().toLowerCase() + " enrolment " + enrollment.id());
+                if (value instanceof StudentEnrollmentChoice enrollment) setText(enrollment.label());
                 return this;
             }
         });
@@ -189,7 +204,7 @@ public final class GradesGpaScreen extends JPanel {
                     int index, boolean selected, boolean focused) {
                 super.getListCellRendererComponent(list, value, index, selected, focused);
                 if (value instanceof OfferingView item) setText(item.course().code() + " — "
-                        + item.course().title() + " (semester " + item.offering().semesterId() + ")");
+                        + item.course().title() + " — " + item.semesterLabel());
                 return this;
             }
         });
@@ -211,4 +226,7 @@ public final class GradesGpaScreen extends JPanel {
     }
 
     private record LecturerSelection(int studentId, int offeringId) { }
+    private record StudentEnrollmentChoice(EnrollmentRow enrollment, String label) {
+        @Override public String toString() { return label; }
+    }
 }

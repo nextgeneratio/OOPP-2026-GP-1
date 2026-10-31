@@ -1,5 +1,15 @@
 # SRS Requirement Traceability and Verification Status
 
+## 2026-10-31 learning-resource update
+
+Student material loading now filters database-visible rows against the configured
+uploads directory, and opening a selected resource reauthorizes the student and
+resolves the file again. Real-path checks reject traversal and symlink escapes;
+missing, unreadable, and non-regular files are excluded. Publishing a missing or
+unreadable resource is rejected. Assigned lecturers can inspect their resource
+records and see an incomplete-file warning. Temporary-file unit tests pass; real
+database and interactive Swing acceptance remain unverified.
+
 **Basis:** current `SRS/SRS.html`, assignment brief `ICT2132 - Mini Project -
 B09.pdf`, and the explicit role policies supplied with the 2026-10-30 audit.
 This map identifies the implemented path and the evidence actually available;
@@ -11,7 +21,7 @@ it is not a claim that every workflow has passed acceptance.
 | FR-002, FR-004: admin user maintenance and self profiles | `UserManagementScreen`, `ProfileScreen` | `UserController`, `ProfileController` | `UserService`, `ProfileService`, `AuthorizationService` | `JdbcUserDao`, `JdbcAuditLogDao` | `users`, `admins`, `lecturers`, `technical_officers`, `undergraduates`, `audit_logs` | `ProfileServiceTest`, `AuthorizationServiceTest` | Profile reads pass live for all roles; CRUD/password persistence blocked |
 | FR-003: departments, batches, courses, offerings, components, lecturer assignment | `CourseManagementScreen`, `CourseOfferingsScreen` | `CourseController` | `CourseService`, authorization | `JdbcCourseDao` | `departments`, `batches`, `courses`, `course_components`, `semesters`, `course_offerings`, `course_offering_lecturers`, `course_enrollments`, `audit_logs` | `DomainValidationTest`, `AuthorizationScopeServiceTest` | Read paths pass; mutations and constraints need isolated DB |
 | FR-003, FR-013: timetable creation and scoped viewing | `TimetableScreen` | `TimetableController` | `TimetableService`, `TimetableConflictValidator` | `JdbcTimetableDao` | `timetables`, `timetable_entries`, course/offering tables | `AcademicRulesTest`, `AuthorizationScopeServiceTest` | Service rules covered in part; live persistence/UI blocked |
-| FR-005: assigned course materials | `CourseMaterialsScreen` | `ContentController` | `ContentService` | `JdbcContentDao` | `course_materials`, offerings, lecturer/enrollment tables | UI/navigation coverage; no dedicated persistence test | Schema/read access not acceptance-tested; file workflow blocked |
+| FR-005: assigned course materials | `CourseMaterialsScreen` | `ContentController` | `ContentService`, `MaterialFileStore` | `JdbcContentDao` | `course_materials`, offerings, lecturer/enrollment tables | `ContentMaterialVisibilityTest`, `MaterialFileStoreTest`; no persistence test | File visibility/security unit pass; real persistence and interactive GUI remain unverified |
 | Learning activities: quizzes, questions, attempts, assignments, submissions | `LearningActivitiesScreen` | `LearningActivityController` | `LearningActivityService` | `JdbcLearningActivityDao` | `course_quizzes`, `quiz_questions`, `quiz_attempts`, `course_assignments`, `assignment_submissions` | `LearningActivityServiceTest` | Service tests pass; isolated persistence blocked |
 | FR-006/007, BR-004/011: assessment plans, 100% weights, CA, marks | `AssessmentsMarksScreen`, lecturer `MarksScreen` | `AssessmentController`, `MarksController` | `AssessmentService`, `MarksService`, `AssessmentCalculator` | `JdbcAssessmentDao` | `assessments`, `marks`, `audit_logs`, `course_enrollments` | `AssessmentServiceSecurityTest`, new `AssessmentServiceWorkflowTest`, `MarksServiceWorkflowTest`, `AcademicRulesTest` | Unit transaction/validation pass; live plan/mark reads pass; live writes blocked |
 | FR-008/009, BR-006–009: attendance sessions, theory/practical, medical calculation | common role-adaptive `AttendanceScreen` | `AttendanceController` | `AttendanceService`, `AttendanceCalculator`, `AuthorizationService` | `JdbcAttendanceDao`, `JdbcCourseDao`, `JdbcMedicalDao` | `attendance_sessions`, `attendance_records`, `course_enrollments`, `course_components`, `medical_records`, timetable tables | `AttendanceWorkflowPermissionsTest`, `AttendanceTechnicalOfficerPermissionsTest`, `AttendanceSessionRosterTest`, `AcademicRulesTest` | Unit/service reads and calculations pass; live DB schema/constraint read passes; write/delete only mocked; GUI not exercised |
@@ -70,6 +80,16 @@ implementation retains the explicit role restriction; it does not grant
 Lecturer approval access.
 
 ## Test boundary
+
+UI selector follow-up (2026-10-31): `mvn clean test` and `mvn clean verify`
+both pass with 107 discovered, 106 passed, 0 failed, 0 errors, and 1 skipped
+(`DatabaseConnectivityTest`, since isolated test DB credentials are absent).
+Searchable name/code selectors were added across course, user, timetable,
+attendance, assessment, eligibility, grades, reports, materials, learning
+activities, medical, and batch-notice workflows. SelectionOption behavior has
+dedicated unit coverage. Role-scoped service APIs supply the choices. GUI and
+live database acceptance remain unverified in this environment; no migration
+was introduced.
 
 Latest `mvn clean verify`: **94 discovered, 93 passed, 0 failed, 0 errors, 1
 skipped** (`DatabaseConnectivityTest`, because test DB credentials are absent).

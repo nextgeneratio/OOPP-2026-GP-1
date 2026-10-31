@@ -20,6 +20,8 @@ import javax.swing.SwingWorker;
 import javax.swing.table.DefaultTableModel;
 import lk.ac.ruhuna.fot.ams.api.controller.ApiResponse;
 import lk.ac.ruhuna.fot.ams.api.controller.UserController;
+import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
+import lk.ac.ruhuna.fot.ams.business.service.CourseService.CourseCatalog;
 import lk.ac.ruhuna.fot.ams.business.service.UserService.CreateUser;
 import lk.ac.ruhuna.fot.ams.business.service.UserService.UpdateUser;
 import lk.ac.ruhuna.fot.ams.business.service.UserService.UserView;
@@ -27,11 +29,13 @@ import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.AppButton;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.UiTheme;
+import lk.ac.ruhuna.fot.ams.presentation.ui.common.SelectionOption;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
 public final class UserManagementScreen extends JPanel {
     private final AuthenticatedSession actor;
     private final UserController users;
+    private final CourseController courses;
     private final ApplicationErrorHandler errors;
     private final Role fixedRole;
     private final JTextField search = new JTextField(20);
@@ -49,10 +53,12 @@ public final class UserManagementScreen extends JPanel {
     private List<UserView> rows = List.of();
 
     public UserManagementScreen(
-            AuthenticatedSession actor, UserController users, ApplicationErrorHandler errors, Role fixedRole) {
+            AuthenticatedSession actor, UserController users, CourseController courses,
+            ApplicationErrorHandler errors, Role fixedRole) {
         super(new BorderLayout(UiTheme.SPACE_MD, UiTheme.SPACE_MD));
         this.actor = actor;
         this.users = users;
+        this.courses = courses;
         this.errors = errors;
         this.fixedRole = fixedRole;
         setBorder(BorderFactory.createEmptyBorder(
@@ -164,13 +170,25 @@ public final class UserManagementScreen extends JPanel {
         JTextField email = new JTextField();
         JTextField fullName = new JTextField();
         JTextField phone = new JTextField();
-        JTextField departmentId = new JTextField("1");
-        JTextField batchId = new JTextField("1");
+        CourseCatalog catalog = loadCatalog();
+        if (catalog == null) return;
+        JComboBox<SelectionOption> department = departmentOptions(catalog, null);
+        JComboBox<SelectionOption> batch = batchOptions(catalog, null, null);
+        department.addActionListener(event -> refreshBatches(catalog, department, batch, null));
+        refreshBatches(catalog, department, batch, null);
+        department.setEnabled(true);
+        batch.setEnabled(true);
+        role.addActionListener(event -> {
+            Role selected = (Role) role.getSelectedItem();
+            department.setEnabled(selected == Role.LECTURER || selected == Role.TECHNICAL_OFFICER
+                    || selected == Role.UNDERGRADUATE);
+            batch.setEnabled(selected == Role.UNDERGRADUATE);
+        });
         JTextField studentNumber = new JTextField();
-        JPanel form = form(new Object[][]{
+        JScrollPane form = form(new Object[][]{
                 {"Username", username}, {"Initial password", password}, {"Role", role},
                 {"Email", email}, {"Full name", fullName}, {"Phone", phone},
-                {"Department ID (staff)", departmentId}, {"Batch ID (student)", batchId},
+                {"Department (staff; choose to filter student batches)", department}, {"Batch (student)", batch},
                 {"Student number (student)", studentNumber}
         });
         int choice = JOptionPane.showConfirmDialog(this, form, "Create account",
@@ -182,27 +200,27 @@ public final class UserManagementScreen extends JPanel {
             return;
         }
         Role selectedRole = (Role) role.getSelectedItem();
-        Integer department;
-        Integer batch;
         try {
-            department = selectedRole == Role.LECTURER || selectedRole == Role.TECHNICAL_OFFICER
-                    ? parseOptionalId(departmentId.getText()) : null;
-            batch = selectedRole == Role.UNDERGRADUATE ? parseOptionalId(batchId.getText()) : null;
-        } catch (NumberFormatException failure) {
-            showError("Department and batch IDs must be whole numbers.");
-            Arrays.fill(rawPassword, '\0');
-            return;
-        }
-        String studentNo = selectedRole == Role.UNDERGRADUATE ? studentNumber.getText().trim() : null;
-        CreateUser request = new CreateUser(username.getText(), rawPassword, selectedRole, email.getText(),
-                fullName.getText(), phone.getText(), department, batch, studentNo);
-        runMutation(() -> {
-            try {
-                return users.create(actor, request);
-            } finally {
+            Integer departmentId = selectedRole == Role.LECTURER || selectedRole == Role.TECHNICAL_OFFICER
+                    ? selectedId(department) : null;
+            Integer batchId = selectedRole == Role.UNDERGRADUATE ? selectedId(batch) : null;
+            if ((selectedRole == Role.LECTURER || selectedRole == Role.TECHNICAL_OFFICER) && departmentId == null
+                    || selectedRole == Role.UNDERGRADUATE && batchId == null) {
+                showError("Choose a department or batch for this role.");
                 Arrays.fill(rawPassword, '\0');
+                return;
             }
-        }, "Account created.");
+            String studentNo = selectedRole == Role.UNDERGRADUATE ? studentNumber.getText().trim() : null;
+            CreateUser request = new CreateUser(username.getText(), rawPassword, selectedRole, email.getText(),
+                    fullName.getText(), phone.getText(), departmentId, batchId, studentNo);
+            runMutation(() -> {
+                try { return users.create(actor, request); }
+                finally { Arrays.fill(rawPassword, '\0'); }
+            }, "Account created.");
+        } catch (RuntimeException failure) {
+            Arrays.fill(rawPassword, '\0');
+            showError("Choose a valid role profile and check the account details.");
+        }
     }
 
     private void editUser() {
@@ -213,31 +231,36 @@ public final class UserManagementScreen extends JPanel {
         JTextField email = new JTextField(selected.email());
         JTextField fullName = new JTextField(selected.fullName());
         JTextField phone = new JTextField(selected.phone() == null ? "" : selected.phone());
-        JTextField departmentId = new JTextField(text(selected.departmentId()));
-        JTextField batchId = new JTextField(text(selected.batchId()));
+        CourseCatalog catalog = loadCatalog();
+        if (catalog == null) return;
+        Integer selectedDepartment = selected.departmentId() != null ? selected.departmentId() : catalog.batches().stream()
+                .filter(option -> java.util.Objects.equals(option.id(), selected.batchId()))
+                .map(lk.ac.ruhuna.fot.ams.data.dao.CourseDao.BatchRow::departmentId).findFirst().orElse(null);
+        JComboBox<SelectionOption> department = departmentOptions(catalog, selectedDepartment);
+        JComboBox<SelectionOption> batch = batchOptions(catalog, selectedDepartment, selected.batchId());
+        department.addActionListener(event -> refreshBatches(catalog, department, batch, null));
         JTextField studentNumber = new JTextField(
                 selected.studentNumber() == null ? "" : selected.studentNumber());
-        JPanel form = form(new Object[][]{
+        JScrollPane form = form(new Object[][]{
                 {"Username", new JLabel(selected.username())}, {"Role", new JLabel(selected.role().name())},
                 {"Email", email}, {"Full name", fullName}, {"Phone", phone},
-                {"Department ID (staff)", departmentId}, {"Batch ID (student)", batchId},
+                {"Department (staff)", department}, {"Batch (student)", batch},
                 {"Student number (student)", studentNumber}
         });
         if (JOptionPane.showConfirmDialog(this, form, "Edit account",
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION) {
             return;
         }
-        Integer department;
-        Integer batch;
-        try {
-            department = parseForRole(selected.role(), departmentId.getText(), batchId.getText(), true);
-            batch = parseForRole(selected.role(), departmentId.getText(), batchId.getText(), false);
-        } catch (NumberFormatException failure) {
-            showError("Department and batch IDs must be whole numbers.");
+        Integer departmentId = selected.role() == Role.LECTURER || selected.role() == Role.TECHNICAL_OFFICER
+                ? selectedId(department) : null;
+        Integer batchId = selected.role() == Role.UNDERGRADUATE ? selectedId(batch) : null;
+        if ((selected.role() == Role.LECTURER || selected.role() == Role.TECHNICAL_OFFICER) && departmentId == null
+                || selected.role() == Role.UNDERGRADUATE && batchId == null) {
+            showError("Choose a valid department or batch for this account.");
             return;
         }
         UpdateUser request = new UpdateUser(selected.id(), selected.role(), email.getText(),
-                selected.active(), fullName.getText(), phone.getText(), department, batch,
+                selected.active(), fullName.getText(), phone.getText(), departmentId, batchId,
                 selected.role() == Role.UNDERGRADUATE ? studentNumber.getText().trim() : null);
         runMutation(() -> users.update(actor, request), "Account updated.");
     }
@@ -299,34 +322,65 @@ public final class UserManagementScreen extends JPanel {
         }.execute();
     }
 
-    private JPanel form(Object[][] fields) {
+    private JScrollPane form(Object[][] fields) {
         JPanel form = new JPanel(new GridLayout(fields.length, 2, UiTheme.SPACE_SM, UiTheme.SPACE_SM));
         for (Object[] field : fields) {
             form.add(new JLabel((String) field[0]));
             form.add((java.awt.Component) field[1]);
         }
-        return form;
+        JScrollPane scroll = new JScrollPane(form);
+        scroll.setBorder(null);
+        scroll.setPreferredSize(new java.awt.Dimension(640, Math.min(500, fields.length * 48 + 30)));
+        return scroll;
     }
 
-    private Integer parseOptionalId(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return Integer.valueOf(value.trim());
+    private CourseCatalog loadCatalog() {
+        ApiResponse<CourseCatalog> response = courses.catalog(actor);
+        if (!response.successful()) { showError(response.error().message()); return null; }
+        return response.data();
     }
 
-    private Integer parseForRole(Role role, String departmentId, String batchId, boolean department) {
-        if (department && (role == Role.LECTURER || role == Role.TECHNICAL_OFFICER)) {
-            return parseOptionalId(departmentId);
-        }
-        if (!department && role == Role.UNDERGRADUATE) {
-            return parseOptionalId(batchId);
-        }
-        return null;
+    private JComboBox<SelectionOption> departmentOptions(CourseCatalog catalog, Integer selected) {
+        JComboBox<SelectionOption> box = new JComboBox<>();
+        box.addItem(new SelectionOption(0, "Select department…"));
+        catalog.departments().forEach(d -> box.addItem(new SelectionOption(d.id(), d.code() + " — " + d.name())));
+        box.setSelectedItem(catalog.departments().stream().filter(d -> java.util.Objects.equals(d.id(), selected))
+                .findFirst().<Object>map(d -> new SelectionOption(d.id(), d.code() + " — " + d.name()))
+                .orElse(box.getItemAt(0)));
+        SelectionOption.enableSearch(box);
+        return box;
     }
 
-    private String text(Integer value) {
-        return value == null ? "" : value.toString();
+    private JComboBox<SelectionOption> batchOptions(CourseCatalog catalog, Integer departmentId, Integer selected) {
+        JComboBox<SelectionOption> box = new JComboBox<>();
+        refreshBatches(catalog, null, box, selected, departmentId);
+        SelectionOption.enableSearch(box);
+        return box;
+    }
+
+    private void refreshBatches(CourseCatalog catalog, JComboBox<SelectionOption> department,
+            JComboBox<SelectionOption> batch, Integer selected) {
+        refreshBatches(catalog, department, batch, selected, null);
+    }
+
+    private void refreshBatches(CourseCatalog catalog, JComboBox<SelectionOption> department,
+            JComboBox<SelectionOption> batch, Integer selected, Integer initialDepartment) {
+        Integer deptId = initialDepartment != null ? initialDepartment : selectedId(department);
+        batch.removeAllItems();
+        batch.addItem(new SelectionOption(0, deptId == null ? "Select department first" : "Select batch…"));
+        if (deptId == null) { batch.setSelectedIndex(0); return; }
+        catalog.batches().stream().filter(b -> b.departmentId() == deptId)
+                .forEach(b -> batch.addItem(new SelectionOption(b.id(), b.code() + " — Level " + b.level()
+                        + " — " + b.intakeYear())));
+        if (selected != null) for (int i = 0; i < batch.getItemCount(); i++) {
+            if (batch.getItemAt(i).id() == selected) { batch.setSelectedIndex(i); return; }
+        }
+        batch.setSelectedIndex(0);
+    }
+
+    private Integer selectedId(JComboBox<SelectionOption> combo) {
+        Object selected = combo.getSelectedItem();
+        return selected instanceof SelectionOption option && option.id() > 0 ? option.id() : null;
     }
 
     private void setStatus(String message) {
