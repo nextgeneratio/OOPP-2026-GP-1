@@ -1,8 +1,8 @@
 # Final System Test Results
 
-## Latest repository and system audit — 2026-10-30
+## Historical repository and system audit — before latest follow-up
 
-**Audited branch:** `Amjad`, commit `a3e2574ad30c9f8271a3b288ac796ddba9e9b72f`.
+**Audited branch at that time:** `Amjad`, commit `a3e2574ad30c9f8271a3b288ac796ddba9e9b72f`.
 HTTPS fetch succeeded. The fetched `Nirmal` head is
 `348bdc1e9d592d67ac26ca98dca0f1b3091b06a9`; after common ancestor
 `2f96413e274db3a2f0d2a574458b5e497f443636`, Amjad has 3 unique commits and
@@ -41,7 +41,7 @@ push was made.
   timing, and role login. No DDL/DML, migration, seed, or application-data write
   was executed during this audit.
 
-### Manual migration — proposed, not applied
+### Manual migration — historical proposal; now applied outside that audit
 
 The configured target is **`university_management`** (MariaDB 11.8.8). Existing
 reads work; the one migration below adds a database-level guard so session rows
@@ -78,7 +78,7 @@ FROM attendance_sessions;
 ```
 
 The inspected result was 120 sessions, 0 missing Technical Officer IDs, 0
-Lecturer recorder values, and no existing CHECK constraint. **Stop and review
+Lecturer recorder values, and no existing CHECK constraint at that time. **Stop and review
 the data** if your preflight result differs, either column is absent, or an
 equivalent constraint already exists. Back up the database first; the DDL is
 additive, but MariaDB DDL commits independently.
@@ -113,7 +113,9 @@ WHERE tc.CONSTRAINT_SCHEMA = DATABASE()
 ```
 
 Expected: one Technical Officer-only CHECK constraint, zero invalid rows, and
-the same 120 attendance sessions. The migration was **not executed** here.
+the same 120 attendance sessions. The migration was **not executed** in that
+audit. The latest read-only inspection now finds the constraint present; do not
+run this historical SQL again.
 
 ### Test execution detail
 
@@ -153,6 +155,39 @@ diff deletes, including database failure diagnostics and marks workflow tests.
 For the requirement traceability matrix and per-system test status, see
 [requirement-traceability.md](./requirement-traceability.md). The older dated
 sections below are historical reports and do not override this latest audit.
+
+## Latest acceptance verification — 2026-10-30
+
+- GitHub `Amjad`: `aa4eeb6732a712f2ac0806fc1fb1ab268018517c`; parent
+  `a3e2574ad30c9f8271a3b288ac796ddba9e9b72f`. `Nirmal`:
+  `348bdc1e9d592d67ac26ca98dca0f1b3091b06a9`. Common ancestor
+  `2f96413e274db3a2f0d2a574458b5e497f443636`; divergence is 4 Amjad-only and
+  8 Nirmal-only commits. Local Amjad matched remote before follow-up changes.
+- OpenJDK 25.0.4.1 and Maven 3.9.11. Latest `mvn clean verify`: 94 tests, 93 passed,
+  0 failed, 0 errors, 1 skipped. Only `DatabaseConnectivityTest` skipped because
+  test credentials are absent. `git diff --check` passed after that run.
+- Read-only live DB recheck: `university_management`, MariaDB 11.8.8. The
+  Technical Officer-only CHECK constraint is now present and correct, with both
+  recorder foreign keys; `recorded_by` is NOT NULL, `recorded_by_lecturer` is
+  nullable, and the 120 existing rows have zero invalid or lecturer-recorder
+  values. No migration is currently needed. No DDL or DML was executed.
+- The dedicated `university_management_test` connection is not configured:
+  environment credentials are absent and the ignored test credential file has
+  blank fields. No real JDBC write/integration workflow ran; the application
+  database was queried read-only only.
+- GUI inventory returned no native app windows and no browser tabs for the
+  application. No credentials were entered and no interactive acceptance was
+  performed. Historical controller smoke checks are not equivalent to login or
+  GUI acceptance.
+- Follow-up fixes: session-roster access now returns the same public denial for
+  an unknown session ID and an out-of-scope session ID for Lecturer/Technical
+  Officer callers. Marks selectors now display academic year and semester
+  number instead of raw semester IDs. The undergraduate attendance screen no
+  longer requests an offering-wide session list, which the service correctly
+  denies; a screen regression test verifies the request is not made. Regression
+  tests cover session access and the undergraduate screen path.
+- Readiness: **PARTIALLY VERIFIED**. Real persistence, role login/UI flows, and
+  several SRS reports remain unverified; see `requirement-traceability.md`.
 
 ## Documentation consistency check — 2026-10-27
 

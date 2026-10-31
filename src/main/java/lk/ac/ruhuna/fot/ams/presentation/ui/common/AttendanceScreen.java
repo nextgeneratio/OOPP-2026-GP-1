@@ -68,8 +68,8 @@ public final class AttendanceScreen extends JPanel {
             offering.addItem(new OfferingOption(view.offering().id(),
                     view.course().code() + " — " + view.course().title()));
         }
-        offering.addActionListener(event -> refreshSetup());
         if (offering.getItemCount() > 0) offering.setSelectedIndex(0);
+        offering.addActionListener(event -> refreshSetup());
         refreshSetup();
     }
 
@@ -109,6 +109,9 @@ public final class AttendanceScreen extends JPanel {
     private void refreshSetup() {
         OfferingOption selected = (OfferingOption) offering.getSelectedItem();
         setup = null;
+        component.setModel(new DefaultComboBoxModel<>());
+        student.setModel(new DefaultComboBoxModel<>());
+        session.setModel(new DefaultComboBoxModel<>());
         if (selected == null) return;
         ApiResponse<AttendanceService.SessionSetup> response = attendance.sessionSetup(actor, selected.id());
         if (!response.successful()) { error(response.error().message()); return; }
@@ -127,11 +130,17 @@ public final class AttendanceScreen extends JPanel {
 
     private void refreshSessions() {
         if (setup == null) { session.setModel(new DefaultComboBoxModel<>()); return; }
+        // Undergraduates only see their own summary/history. Fetching an offering-wide
+        // session list is intentionally denied by AttendanceService for this role.
+        if (actor.role() == Role.UNDERGRADUATE) {
+            session.setModel(new DefaultComboBoxModel<>());
+            return;
+        }
         OfferingOption selected = (OfferingOption) offering.getSelectedItem();
         ComponentRow selectedComponent = (ComponentRow) component.getSelectedItem();
         if (selected == null || selectedComponent == null) { session.setModel(new DefaultComboBoxModel<>()); return; }
         ApiResponse<List<SessionRow>> response = attendance.sessionsForOffering(actor, selected.id());
-        if (!response.successful()) { error(response.error().message()); return; }
+        if (!response.successful()) { session.setModel(new DefaultComboBoxModel<>()); error(response.error().message()); return; }
         List<SessionRow> matching = response.data().stream().filter(row -> row.componentId() == selectedComponent.id()).toList();
         List<SessionOption> options = new java.util.ArrayList<>();
         for (int i = 0; i < matching.size(); i++) {
@@ -245,31 +254,31 @@ public final class AttendanceScreen extends JPanel {
     }
 
     private void loadSelectedSession() {
-        SessionOption selected = (SessionOption) session.getSelectedItem();
+        SessionOption selected = selectedSession();
         if (selected == null || setup == null) return;
         var recordsResponse = attendance.recordsForSession(actor, selected.session().id());
         if (!recordsResponse.successful()) { error(recordsResponse.error().message()); return; }
-        Map<Integer, Boolean> attendanceByEnrollment = new HashMap<>();
-        recordsResponse.data().forEach(record -> attendanceByEnrollment.put(record.enrollmentId(), record.present()));
+        Map<Integer, Boolean> attendanceByEnrollment = recordsForCurrentRoster(recordsResponse.data());
+        if (attendanceByEnrollment == null) return;
         JTable marks = rosterTable(false);
         for (int row = 0; row < setup.roster().size(); row++) {
             int enrollmentId = setup.roster().get(row).enrollmentId();
-            marks.setValueAt(attendanceByEnrollment.getOrDefault(enrollmentId, false), row, 2);
+            marks.setValueAt(attendanceByEnrollment.get(enrollmentId), row, 2);
         }
         JOptionPane.showMessageDialog(this, new JScrollPane(marks), selected.label(), JOptionPane.PLAIN_MESSAGE);
     }
 
     private void saveChanges() {
-        SessionOption selected = (SessionOption) session.getSelectedItem();
+        SessionOption selected = selectedSession();
         if (selected == null || setup == null) return;
         var recordsResponse = attendance.recordsForSession(actor, selected.session().id());
         if (!recordsResponse.successful()) { error(recordsResponse.error().message()); return; }
-        Map<Integer, Boolean> attendanceByEnrollment = new HashMap<>();
-        recordsResponse.data().forEach(record -> attendanceByEnrollment.put(record.enrollmentId(), record.present()));
+        Map<Integer, Boolean> attendanceByEnrollment = recordsForCurrentRoster(recordsResponse.data());
+        if (attendanceByEnrollment == null) return;
         JTable marks = rosterTable(true);
         for (int row = 0; row < setup.roster().size(); row++) {
             int enrollmentId = setup.roster().get(row).enrollmentId();
-            marks.setValueAt(attendanceByEnrollment.getOrDefault(enrollmentId, false), row, 2);
+            marks.setValueAt(attendanceByEnrollment.get(enrollmentId), row, 2);
         }
         if (JOptionPane.showConfirmDialog(this, new JScrollPane(marks), "Update attendance", JOptionPane.OK_CANCEL_OPTION)
                 != JOptionPane.OK_OPTION) return;
@@ -279,6 +288,31 @@ public final class AttendanceScreen extends JPanel {
         var response = attendance.reviseSession(actor,
                 new AttendanceController.ReviseSessionRequest(selected.session().id(), updates));
         if (!response.successful()) error(response.error().message()); else info("Attendance changes saved.");
+    }
+
+    private SessionOption selectedSession() {
+        SessionOption selected = (SessionOption) session.getSelectedItem();
+        OfferingOption selectedOffering = (OfferingOption) offering.getSelectedItem();
+        ComponentRow selectedComponent = (ComponentRow) component.getSelectedItem();
+        if (selected == null || selectedOffering == null || selectedComponent == null) return null;
+        if (selected.session().offeringId() != selectedOffering.id()
+                || selected.session().componentId() != selectedComponent.id()) {
+            error("The selected session no longer matches this course and component. Reload the selection.");
+            return null;
+        }
+        return selected;
+    }
+
+    private Map<Integer, Boolean> recordsForCurrentRoster(List<AttendanceRow> records) {
+        Map<Integer, Boolean> byEnrollment = new HashMap<>();
+        records.forEach(record -> byEnrollment.put(record.enrollmentId(), record.present()));
+        java.util.Set<Integer> rosterIds = setup.roster().stream().map(AttendanceService.RosterEntry::enrollmentId)
+                .collect(java.util.stream.Collectors.toSet());
+        if (byEnrollment.size() != records.size() || !byEnrollment.keySet().equals(rosterIds)) {
+            error("The session roster does not match the current enrolments. Attendance was not loaded or changed.");
+            return null;
+        }
+        return byEnrollment;
     }
 
     private JTable rosterTable(boolean editable) {
@@ -292,7 +326,7 @@ public final class AttendanceScreen extends JPanel {
     }
 
     private void deleteSession() {
-        SessionOption selected = (SessionOption) session.getSelectedItem();
+        SessionOption selected = selectedSession();
         if (selected == null) return;
         if (JOptionPane.showConfirmDialog(this, "Delete " + selected.label() + " and its attendance records?",
                 "Confirm deletion", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {

@@ -41,7 +41,16 @@ public final class CourseService {
     }
 
     /** UI-friendly offering data: users see a course name rather than opaque foreign-key IDs. */
-    public record OfferingView(OfferingRow offering, CourseRow course, boolean enrolled) { }
+    public record OfferingView(OfferingRow offering, CourseRow course, boolean enrolled,
+            String academicYear, int semesterNumber) {
+        public OfferingView(OfferingRow offering, CourseRow course, boolean enrolled) {
+            this(offering, course, enrolled, "", 0);
+        }
+        public String semesterLabel() {
+            return academicYear == null || academicYear.isBlank() || semesterNumber <= 0
+                    ? "Academic term unavailable" : academicYear + " — Semester " + semesterNumber;
+        }
+    }
 
     private final CourseDao courseDao;
     private final AuditLogDao auditLogDao;
@@ -200,26 +209,42 @@ public final class CourseService {
     }
 
     public List<OfferingView> offeringViewsForActor(AuthenticatedSession actor) {
-        return offeringsForActor(actor).stream().map(offering -> new OfferingView(offering,
-                courseDao.findCourse(offering.courseId()).orElseThrow(() ->
-                        new NotFoundException("Course for an offering was not found.")), true)).toList();
+        List<OfferingRow> offerings = offeringsForActor(actor);
+        java.util.Map<Integer, CourseDao.SemesterRow> semesters = courseDao.findSemesters().stream()
+                .collect(java.util.stream.Collectors.toMap(CourseDao.SemesterRow::id, semester -> semester));
+        return offerings.stream().map(offering -> {
+            CourseDao.SemesterRow semester = semesters.get(offering.semesterId());
+            return new OfferingView(offering,
+                    courseDao.findCourse(offering.courseId()).orElseThrow(() ->
+                            new NotFoundException("Course for an offering was not found.")), true,
+                    semester == null ? "" : semester.academicYear(),
+                    semester == null ? 0 : semester.semesterNumber());
+        }).toList();
     }
 
     public List<OfferingView> availableOfferingsForCurrentStudent(AuthenticatedSession actor) {
         int batchId = authorization.studentBatchId(actor);
         int studentId = authorization.studentId(actor);
+        java.util.Map<Integer, CourseDao.SemesterRow> semesters = courseDao.findSemesters().stream()
+                .collect(java.util.stream.Collectors.toMap(CourseDao.SemesterRow::id, semester -> semester));
         return courseDao.findOfferings(batchId, null).stream()
                 .filter(offering -> "OPEN".equals(offering.status()))
-                .map(offering -> new OfferingView(offering, courseDao.findCourse(offering.courseId())
+                .map(offering -> {
+                    CourseDao.SemesterRow semester = semesters.get(offering.semesterId());
+                    return new OfferingView(offering, courseDao.findCourse(offering.courseId())
                         .orElseThrow(() -> new NotFoundException("Course for an offering was not found.")),
-                        courseDao.hasActiveEnrollment(studentId, offering.id())))
+                        courseDao.hasActiveEnrollment(studentId, offering.id()),
+                        semester == null ? "" : semester.academicYear(),
+                        semester == null ? 0 : semester.semesterNumber());
+                })
                 .toList();
     }
 
     public List<CourseDao.OfferingSummary> offeringSummariesForActor(AuthenticatedSession actor) {
         return offeringViewsForActor(actor).stream().map(view -> new CourseDao.OfferingSummary(
                 view.offering().id(), view.course().id(), view.course().code(), view.course().title(),
-                view.course().departmentId(), view.offering().semesterId())).toList();
+                view.course().departmentId(), view.offering().semesterId(),
+                view.academicYear(), view.semesterNumber())).toList();
     }
 
     public List<CourseDao.RosterRow> rosterForOffering(AuthenticatedSession actor, int offeringId) {

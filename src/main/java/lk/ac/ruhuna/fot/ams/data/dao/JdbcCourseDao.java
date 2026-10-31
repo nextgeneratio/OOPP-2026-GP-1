@@ -373,8 +373,9 @@ public final class JdbcCourseDao implements CourseDao {
     @Override
     public List<OfferingSummary> findOfferingSummariesForLecturer(int lecturerId) {
         return jdbc.query("SELECT DISTINCT o.offering_id, o.course_id, c.course_code, c.title, "
-                        + "c.department_id, o.semester_id FROM course_offerings o "
+                        + "c.department_id, o.semester_id, s.academic_year, s.semester_no FROM course_offerings o "
                         + "JOIN courses c ON c.course_id = o.course_id "
+                        + "JOIN semesters s ON s.semester_id = o.semester_id "
                         + "LEFT JOIN course_offering_lecturers a ON a.offering_id = o.offering_id "
                         + "WHERE o.coordinator_id = ? OR a.lecturer_id = ? "
                         + "ORDER BY o.semester_id, o.offering_id",
@@ -385,7 +386,7 @@ public final class JdbcCourseDao implements CourseDao {
     @Override
     public List<OfferingSummary> findOfferingSummariesForTechnicalOfficer(int technicalOfficerId) {
         return jdbc.query("SELECT DISTINCT o.offering_id, o.course_id, c.course_code, c.title, "
-                        + "c.department_id, o.semester_id FROM technical_officers t "
+                        + "c.department_id, o.semester_id, s.academic_year, s.semester_no FROM technical_officers t "
                         + "JOIN batches b ON b.department_id = t.department_id "
                         + "JOIN course_offerings o ON o.batch_id = b.batch_id "
                         + "JOIN courses c ON c.course_id = o.course_id "
@@ -398,7 +399,8 @@ public final class JdbcCourseDao implements CourseDao {
     private OfferingSummary mapOfferingSummary(ResultSet result) throws SQLException {
         return new OfferingSummary(result.getInt("offering_id"), result.getInt("course_id"),
                 result.getString("course_code"), result.getString("title"),
-                result.getInt("department_id"), result.getInt("semester_id"));
+                result.getInt("department_id"), result.getInt("semester_id"),
+                result.getString("academic_year"), result.getInt("semester_no"));
     }
 
     @Override

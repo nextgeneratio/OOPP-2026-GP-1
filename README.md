@@ -39,6 +39,17 @@ Run the checks from a terminal with:
 mvn clean test
 ```
 
+## Acceptance status
+
+The 2026-10-30 repository acceptance follow-up is **partially verified**. The
+automated suite currently has unit and mocked service/controller coverage, but
+the real database integration test is skipped until isolated `_test` database
+credentials are configured. No live GUI login or role acceptance was performed
+in this environment. See [system test results](docs/system-test-results.md) and
+[requirement traceability](docs/requirement-traceability.md) for the verified
+scope and remaining gaps. Do not use the populated development database for
+write testing.
+
 The MySQL connectivity test uses the isolated `university_management_test`
 database by default. Configure `DB_USERNAME` and `DB_PASSWORD`, or the ignored
 repository-root `test-credentials.properties`, before running it. An optional

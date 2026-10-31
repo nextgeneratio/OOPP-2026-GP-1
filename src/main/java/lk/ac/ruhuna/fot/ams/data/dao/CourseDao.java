@@ -37,7 +37,12 @@ public interface CourseDao {
     record RosterRow(int enrollmentId, int studentId, String studentNumber, String fullName) { }
 
     record OfferingSummary(int offeringId, int courseId, String courseCode, String courseTitle,
-            int departmentId, int semesterId) { }
+            int departmentId, int semesterId, String academicYear, int semesterNumber) {
+        public OfferingSummary(int offeringId, int courseId, String courseCode, String courseTitle,
+                int departmentId, int semesterId) {
+            this(offeringId, courseId, courseCode, courseTitle, departmentId, semesterId, "", 0);
+        }
+    }
 
     long insertDepartment(Connection connection, DepartmentRow row);
 

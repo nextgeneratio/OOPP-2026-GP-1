@@ -8,21 +8,24 @@ separate requirement and must not be inferred from panel tests.
 ## Latest verified environment — 2026-10-30
 
 - Build toolchain: OpenJDK 25.0.4.1 and Maven 3.9.11.
-- Latest `mvn clean verify`: 90 tests discovered, 89 passed, 0 failures, 0 errors,
-  and 1 skipped. The skipped case is `DatabaseConnectivityTest` because test
-  database credentials are not configured.
+- Latest `mvn clean verify`: 94 tests discovered, 93 passed, 0 failures, 0 errors,
+  and 1 skipped. `DatabaseConnectivityTest` is skipped because test database
+  credentials are not configured. `mvn clean verify` also passed after the
+  follow-up changes with the same counts.
 - The configured application database was inspected read-only as
-  `university_management` on MariaDB 11.8.8. No integration writes were run.
-  The dedicated `university_management_test` is not configured for tests.
-- One policy-hardening SQL migration is proposed, not applied: adding a
-  Technical Officer-only check to `attendance_sessions`. Its read-only preflight
-  and exact SQL are in `system-test-results.md`.
+  `university_management` on MariaDB 11.8.8. Its attendance CHECK constraint
+  is present. No integration writes were run. A read-only catalog check found
+  that `university_management_test` does not exist.
+- The Technical Officer-only attendance recorder CHECK constraint is now
+  present in the application database. It was detected read-only; no DDL/DML
+  was executed and no migration is currently needed.
 - Live database-backed controller smoke checks were read-only. They verified
   profile and offering reads for all four roles, attendance setup reads for all
   four roles, and assessment plan, marks sheet, and attendance session reads for
   a Lecturer. This is not a login, write-persistence, or GUI acceptance test.
-- Separate `mvn clean test`: 90 tests, 0 failures, 0 errors, 1 skipped; build
-  succeeded. The Surefire report identifies the same skipped connectivity test.
+- Test type boundary: the suite has unit, mocked service/controller, and Swing
+  construction/navigation coverage plus one skipped connectivity test. There
+  are no real DAO integration workflows in the suite yet.
 
 ## Requirement-to-test coverage map
 
@@ -45,6 +48,26 @@ Create the test database using `src/test/resources/db/test-schema.sql`, then app
 test database selected as the client's default database. The shared schema and
 seed files do not select a database, preventing them from silently switching
 from the test database to the development database.
+
+The catalog check during the latest audit found the dedicated database does not
+exist. With a database administrator account, create and prepare it explicitly:
+
+```sql
+CREATE DATABASE `university_management_test`;
+```
+
+Then apply the checked-in scripts only with the `_test` catalog selected:
+
+```sh
+mariadb --database=university_management_test < src/main/resources/db/schema.sql
+mariadb --database=university_management_test < src/main/resources/db/seed.sql
+```
+
+Set `DB_USERNAME` and `DB_PASSWORD` to a test-only database user, and keep
+`DB_URL` at its default `jdbc:mysql://localhost:3306/university_management_test`
+or another URL whose database ends in `_test`. Verify the JDBC catalog matches
+the URL before adding persistence tests. `seed.sql` truncates tables, so never
+run it against `university_management`.
 
 Example with a local MariaDB/MySQL option file that contains credentials:
 

@@ -75,7 +75,10 @@ public final class MarksScreen extends JPanel {
             @Override public Component getListCellRendererComponent(JList<?> list, Object value, int index,
                                                                     boolean selected, boolean focus) {
                 Object shown = value instanceof OfferingSummary o
-                        ? o.courseCode() + " \u2013 " + o.courseTitle() + " (semester " + o.semesterId() + ")"
+                        ? o.courseCode() + " \u2013 " + o.courseTitle() + " ("
+                                + (o.academicYear() == null || o.academicYear().isBlank()
+                                        || o.semesterNumber() <= 0 ? "Academic term unavailable"
+                                        : o.academicYear() + " \u2014 Semester " + o.semesterNumber()) + ")"
                         : value;
                 return super.getListCellRendererComponent(list, shown, index, selected, focus);
             }

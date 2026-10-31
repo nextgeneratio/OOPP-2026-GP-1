@@ -28,6 +28,7 @@ import lk.ac.ruhuna.fot.ams.domain.enums.ComponentType;
 import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 import lk.ac.ruhuna.fot.ams.error.exception.AuthorizationException;
 import lk.ac.ruhuna.fot.ams.error.exception.ValidationException;
+import lk.ac.ruhuna.fot.ams.error.exception.NotFoundException;
 import lk.ac.ruhuna.fot.ams.security.authorization.AuthorizationService;
 import lk.ac.ruhuna.fot.ams.security.authorization.AuthorizationService.ReportType;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
@@ -160,15 +161,28 @@ public final class AttendanceService {
         if (actor == null) throw new AuthorizationException("Sign in to view attendance details.");
         authorization.requireRole(actor, Role.ADMIN, Role.TECHNICAL_OFFICER, Role.LECTURER);
         if (sessionId <= 0) throw new ValidationException("Attendance session identifier is invalid.");
-        SessionRow session = attendanceDao.findSessionsForSessionId(sessionId)
-                .orElseThrow(() -> new ValidationException("Attendance session was not found."));
-        if (actor.role() == Role.ADMIN) authorization.requireAdmin(actor);
-        else if (actor.role() == Role.TECHNICAL_OFFICER)
-            authorization.requireTechnicalOfficerForOffering(actor, session.offeringId());
-        else if (actor.role() == Role.LECTURER)
-            authorization.requireLecturerForOffering(actor, session.offeringId());
-        else throw new AuthorizationException("You do not have permission to view session attendance.");
+        SessionRow session = attendanceDao.findSessionsForSessionId(sessionId).orElse(null);
+        if (actor.role() == Role.ADMIN) {
+            authorization.requireAdmin(actor);
+            if (session == null) throw new NotFoundException("Attendance session was not found.");
+        } else {
+            // Hide whether a session ID exists from offering-scoped roles. Both an unknown ID
+            // and an existing session outside the actor's scope have the same public response.
+            if (session == null) throw unavailableSession();
+            try {
+                if (actor.role() == Role.TECHNICAL_OFFICER)
+                    authorization.requireTechnicalOfficerForOffering(actor, session.offeringId());
+                else if (actor.role() == Role.LECTURER)
+                    authorization.requireLecturerForOffering(actor, session.offeringId());
+            } catch (AuthorizationException denied) {
+                throw unavailableSession();
+            }
+        }
         return attendanceDao.findRecordsForSession(sessionId);
+    }
+
+    private AuthorizationException unavailableSession() {
+        return new AuthorizationException("Attendance session is unavailable or not authorized.");
     }
 
     public void reviseRecord(AuthenticatedSession actor, AttendanceRow record) {

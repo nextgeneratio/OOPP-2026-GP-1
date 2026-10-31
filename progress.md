@@ -1,5 +1,34 @@
 # Project Progress
 
+## Latest acceptance follow-up — 2026-10-30
+
+- Fetched GitHub branches over HTTPS. Latest `Amjad` is
+  `aa4eeb6732a712f2ac0806fc1fb1ab268018517c` (parent
+  `a3e2574ad30c9f8271a3b288ac796ddba9e9b72f`); latest `Nirmal` is
+  `348bdc1e9d592d67ac26ca98dca0f1b3091b06a9`. Their common ancestor is
+  `2f96413e274db3a2f0d2a574458b5e497f443636`; divergence is 4/8 commits.
+- Fixed session ID existence disclosure: Lecturer/Technical Officer now receive
+  the same response for missing and out-of-scope sessions. Added allowed and
+  denied service regression cases, including a no-roster-DAO-read assertion.
+- Replaced raw semester IDs in the assessment and lecturer marks selectors with
+  academic year and semester number from database semester data.
+- Fixed the undergraduate Attendance screen loading error: setup previously
+  requested an offering-wide session list, which the service correctly denies
+  to students. The screen now skips that request; its regression test also caught
+  and removed a duplicate initial setup call.
+- Read-only database recheck found the Technical Officer-only attendance CHECK
+  constraint already present, both recorder FKs present, and 120 session rows
+  with no invalid/lecturer recorder values. No migration is currently required;
+  no DDL/DML was executed.
+- `mvn clean verify`: 94 discovered, 93 passed, 0 failed, 0 errors, 1 skipped
+  (`DatabaseConnectivityTest`, isolated test credentials are blank). GUI
+  inventory has no running application/window. Real persistence and GUI
+  acceptance remain unverified. No commit or push was made.
+- Readiness: **PARTIALLY VERIFIED**. Detailed evidence and gaps are in
+  `docs/system-test-results.md` and `docs/requirement-traceability.md`.
+
+## Historical full repository audit — before 2026-10-30 follow-up
+
 ## Full repository audit — 2026-10-30
 
 - Fetched public `origin/Amjad` (`a3e2574ad30c9f8271a3b288ac796ddba9e9b72f`) and

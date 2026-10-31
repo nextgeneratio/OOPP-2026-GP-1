@@ -52,7 +52,7 @@ public final class AssessmentsMarksScreen extends JPanel {
                     int index, boolean selected, boolean focus) {
                 super.getListCellRendererComponent(list, value, index, selected, focus);
                 if (value instanceof OfferingView view) setText(view.course().code() + " — " + view.course().title()
-                        + " — semester " + view.offering().semesterId());
+                        + " — " + view.semesterLabel());
                 return this;
             }
         });
