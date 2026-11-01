@@ -22,7 +22,14 @@ public final class Application {
             ApplicationComponents components = ApplicationComponents.create(config);
             UiTheme.apply();
             SwingUtilities.invokeLater(() -> new LoginFrame(
-                    components.authController(), components.errorHandler()).setVisible(true));
+                    components.authController(), components.dashboardController(),
+                    components.userController(), components.profileController(),
+                    components.courseController(), components.timetableController(),
+                    components.contentController(), components.attendanceController(),
+                    components.learningActivityController(), components.medicalController(),
+                    components.assessmentController(), components.marksController(), components.eligibilityController(),
+                    components.gpaController(), components.reportController(), components.resultController(), components.errorHandler())
+                    .setVisible(true));
         } catch (Exception failure) {
             LOGGER.error("Application startup failed", failure);
             SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(

@@ -1,82 +1,98 @@
 package lk.ac.ruhuna.fot.ams.presentation.ui.auth;
 
+import java.awt.Dimension;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import javax.swing.JFrame;
 import lk.ac.ruhuna.fot.ams.api.controller.AuthController;
+import lk.ac.ruhuna.fot.ams.api.controller.DashboardController;
+import lk.ac.ruhuna.fot.ams.api.controller.ProfileController;
+import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
+import lk.ac.ruhuna.fot.ams.api.controller.TimetableController;
+import lk.ac.ruhuna.fot.ams.api.controller.ContentController;
+import lk.ac.ruhuna.fot.ams.api.controller.AttendanceController;
+import lk.ac.ruhuna.fot.ams.api.controller.LearningActivityController;
+import lk.ac.ruhuna.fot.ams.api.controller.MedicalController;
+import lk.ac.ruhuna.fot.ams.api.controller.UserController;
+import lk.ac.ruhuna.fot.ams.api.controller.AssessmentController;
+import lk.ac.ruhuna.fot.ams.api.controller.MarksController;
+import lk.ac.ruhuna.fot.ams.api.controller.EligibilityController;
+import lk.ac.ruhuna.fot.ams.api.controller.GpaController;
+import lk.ac.ruhuna.fot.ams.api.controller.ReportController;
+import lk.ac.ruhuna.fot.ams.api.controller.ResultController;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
-import lk.ac.ruhuna.fot.ams.presentation.ui.common.AppButton;
 import lk.ac.ruhuna.fot.ams.presentation.ui.common.MainFrame;
-import lk.ac.ruhuna.fot.ams.presentation.ui.common.UiTheme;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JPasswordField;
-import javax.swing.JTextField;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
-
+/** Login window containing the Nirmal banner/form UI; authenticated navigation stays on Amjad's wired MainFrame. */
 public final class LoginFrame extends JFrame {
     private final AuthController authController;
+    private final DashboardController dashboardController;
+    private final UserController userController;
+    private final ProfileController profileController;
+    private final CourseController courseController;
+    private final TimetableController timetableController;
+    private final ContentController contentController;
+    private final AttendanceController attendanceController;
+    private final LearningActivityController learningActivityController;
+    private final MedicalController medicalController;
+    private final AssessmentController assessmentController;
+    private final MarksController marksController;
+    private final EligibilityController eligibilityController;
+    private final GpaController gpaController;
+    private final ReportController reportController;
+    private final ResultController resultController;
     private final ApplicationErrorHandler errorHandler;
-    private final JTextField usernameField = new JTextField(20);
-    private final JPasswordField passwordField = new JPasswordField(20);
-    private final JLabel errorLabel = new JLabel(" ");
 
-    public LoginFrame(AuthController authController, ApplicationErrorHandler errorHandler) {
+    public LoginFrame(AuthController authController, DashboardController dashboardController,
+                      UserController userController, ProfileController profileController,
+                      CourseController courseController, TimetableController timetableController,
+                      ContentController contentController, AttendanceController attendanceController,
+                      LearningActivityController learningActivityController, MedicalController medicalController,
+                      AssessmentController assessmentController, MarksController marksController,
+                      EligibilityController eligibilityController, GpaController gpaController,
+                      ReportController reportController, ResultController resultController,
+                      ApplicationErrorHandler errorHandler) {
         super("Academic Management System - Login");
         this.authController = authController;
+        this.dashboardController = dashboardController;
+        this.userController = userController;
+        this.profileController = profileController;
+        this.courseController = courseController;
+        this.timetableController = timetableController;
+        this.contentController = contentController;
+        this.attendanceController = attendanceController;
+        this.learningActivityController = learningActivityController;
+        this.medicalController = medicalController;
+        this.assessmentController = assessmentController;
+        this.marksController = marksController;
+        this.eligibilityController = eligibilityController;
+        this.gpaController = gpaController;
+        this.reportController = reportController;
+        this.resultController = resultController;
         this.errorHandler = errorHandler;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setContentPane(createContent());
-        pack();
+        LoginPanel panel = new LoginPanel(authController::login, errorHandler, this::openShell);
+        setContentPane(panel);
+        getRootPane().setDefaultButton(panel.defaultButton());
+        setMinimumSize(new Dimension(900, 560));
+        setSize(1100, 660);
         setLocationRelativeTo(null);
+        addWindowListener(new WindowAdapter() {
+            @Override public void windowOpened(WindowEvent event) { panel.focusUsername(); }
+        });
     }
 
-    private JPanel createContent() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(32, 32, 32, 32));
-        GridBagConstraints constraints = new GridBagConstraints();
-        constraints.insets = new Insets(8, 8, 8, 8);
-        constraints.fill = GridBagConstraints.HORIZONTAL;
-
-        JLabel title = new JLabel("Faculty of Technology AMS");
-        title.setFont(title.getFont().deriveFont(24f));
-        add(panel, title, constraints, 0, 0, 2);
-        add(panel, new JLabel("Username"), constraints, 0, 1, 1);
-        add(panel, usernameField, constraints, 1, 1, 1);
-        add(panel, new JLabel("Password"), constraints, 0, 2, 1);
-        add(panel, passwordField, constraints, 1, 2, 1);
-        errorLabel.setForeground(UiTheme.ERROR);
-        add(panel, errorLabel, constraints, 0, 3, 2);
-        JButton loginButton = new AppButton("Login");
-        loginButton.addActionListener(event -> login());
-        passwordField.addActionListener(event -> login());
-        add(panel, loginButton, constraints, 0, 4, 2);
-        return panel;
-    }
-
-    private void add(JPanel panel, java.awt.Component component, GridBagConstraints template,
-                     int gridX, int gridY, int width) {
-        GridBagConstraints constraints = (GridBagConstraints) template.clone();
-        constraints.gridx = gridX;
-        constraints.gridy = gridY;
-        constraints.gridwidth = width;
-        panel.add(component, constraints);
-    }
-
-    private void login() {
-        try {
-            AuthenticatedSession session = authController.login(usernameField.getText(), passwordField.getPassword());
-            dispose();
-            MainFrame mainFrame = new MainFrame();
-            mainFrame.setTitle(mainFrame.getTitle() + " - " + session.role());
-            mainFrame.setVisible(true);
-        } catch (RuntimeException failure) {
-            errorHandler.log(failure);
-            errorLabel.setText(errorHandler.userMessage(failure));
-        }
+    private void openShell(AuthenticatedSession session) {
+        dispose();
+        new MainFrame(session, dashboardController, userController, profileController, courseController,
+                timetableController, contentController, attendanceController, learningActivityController,
+                medicalController, assessmentController, marksController, eligibilityController, gpaController,
+                reportController, resultController, errorHandler,
+                () -> new LoginFrame(authController, dashboardController, userController, profileController,
+                        courseController, timetableController, contentController, attendanceController,
+                        learningActivityController, medicalController, assessmentController, marksController,
+                        eligibilityController, gpaController, reportController, resultController, errorHandler)
+                        .setVisible(true)).setVisible(true);
     }
 }

@@ -6,4 +6,8 @@ import lk.ac.ruhuna.fot.ams.domain.model.User;
 @FunctionalInterface
 public interface UserLookup {
     Optional<User> findActiveByUsername(String username);
+
+    default Optional<User> findByUsername(String username) {
+        return findActiveByUsername(username);
+    }
 }

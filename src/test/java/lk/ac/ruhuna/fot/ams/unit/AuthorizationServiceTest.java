@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class AuthorizationServiceTest {
     private final AuthorizationService authorization = new AuthorizationService();
     private final AuthenticatedSession lecturer =
-            new AuthenticatedSession(2, "LEC001", Role.LECTURER, "Lecturer 001");
+            new AuthenticatedSession(2, "LE001", Role.LECTURER, "Lecturer 001");
 
     @Test
     void acceptsAllowedRole() {

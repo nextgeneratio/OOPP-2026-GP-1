@@ -29,8 +29,9 @@ class DomainValidationTest {
     }
 
     @Test
-    void rejectsNonPositiveAssessmentWeight() {
-        assertThatThrownBy(() -> new Assessment("Quiz", 0, true))
+    void acceptsZeroAssessmentWeightAndRejectsNegativeWeight() {
+        assertThat(new Assessment("Quiz", 0, true).weightPercent()).isZero();
+        assertThatThrownBy(() -> new Assessment("Quiz", -0.01, true))
                 .isInstanceOf(ValidationException.class);
     }
 }
