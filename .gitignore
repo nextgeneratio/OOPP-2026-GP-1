@@ -1,40 +1,44 @@
-### IntelliJ IDEA ###
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
-.kotlin
-target/
-*.log
-logs/
-uploads/
-!src/main/resources/uploads/
-!src/main/resources/uploads/**
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+.envrc
 application.properties
 test-application.properties
 test-credentials.properties
-!src/test/resources/test-application.properties
+credentials.csv
+manual-demo-replacement.sql
+generated-credential-manifest.*
 
-### Eclipse ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-
-### VS Code ###
+# IDE metadata
+.idea/
+*.iml
 .vscode/
 
-### Mac OS ###
+# Build outputs
+out/
+target/
+*.class
+
+# Logs and temporary files
+*.log
+logs/
+*.tmp
+*.temp
+*.swp
+*~
+
+# Local database dumps and backups
+*.sql.gz
+*.dump
+*.backup
+*.bak
+
+# Keep application-managed upload resources in source control
+uploads/
+!src/main/resources/uploads/
+!src/main/resources/uploads/**
+
+# OS files
 .DS_Store
+Thumbs.db

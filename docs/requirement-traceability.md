@@ -79,22 +79,13 @@ Admin and Technical Officer and excludes Lecturer medical navigation. This
 implementation retains the explicit role restriction; it does not grant
 Lecturer approval access.
 
-## Test boundary
+## Release verification boundary
 
-UI selector follow-up (2026-10-31): `mvn clean test` and `mvn clean verify`
-both pass with 107 discovered, 106 passed, 0 failed, 0 errors, and 1 skipped
-(`DatabaseConnectivityTest`, since isolated test DB credentials are absent).
-Searchable name/code selectors were added across course, user, timetable,
-attendance, assessment, eligibility, grades, reports, materials, learning
-activities, medical, and batch-notice workflows. SelectionOption behavior has
-dedicated unit coverage. Role-scoped service APIs supply the choices. GUI and
-live database acceptance remain unverified in this environment; no migration
-was introduced.
+The single release installer is `database/install.sql`. It was exercised on a
+disposable MariaDB 11.8.8 test instance with database name
+`university_management_test`; a deliberately mismatched test schema was rejected
+before deleting its sentinel row. Do not treat that test as having modified or
+validated an existing user's populated database.
 
-Latest `mvn clean verify`: **94 discovered, 93 passed, 0 failed, 0 errors, 1
-skipped** (`DatabaseConnectivityTest`, because test DB credentials are absent).
-The configured `university_management` database was queried read-only; its
-Technical Officer-only attendance CHECK constraint is present. The isolated
-`university_management_test` database was not used. No live GUI acceptance,
-login, schema write, seed, CRUD, or transaction-persistence test is claimed. See
-[testing-strategy.md](./testing-strategy.md) for safe test DB setup.
+See [system-test-results.md](./system-test-results.md) for importer counts,
+automated test outcomes, and the GUI acceptance limitation.

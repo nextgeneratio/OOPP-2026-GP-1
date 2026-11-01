@@ -33,18 +33,18 @@ class ProfileServiceTest {
     void returnsOnlyTheSignedInUsersProfileFields() {
         UserDao userDao = mock(UserDao.class);
         when(userDao.findProfileById(11L)).thenReturn(Optional.of(new UserProfile(
-                11, "STU001", "password-hash-must-not-leak", Role.UNDERGRADUATE,
+                11, "ST001", "password-hash-must-not-leak", Role.UNDERGRADUATE,
                 "stu001@example.edu", true, "Undergraduate 001", null,
-                null, 1, "STU001", null)));
+                null, 1, "ST001", null)));
         ProfileService service = service(userDao);
 
         ProfileService.ProfileView profile = service.ownProfile(
-                new AuthenticatedSession(11, "STU001", Role.UNDERGRADUATE, "Undergraduate 001"));
+                new AuthenticatedSession(11, "ST001", Role.UNDERGRADUATE, "Undergraduate 001"));
 
-        assertThat(profile.username()).isEqualTo("STU001");
+        assertThat(profile.username()).isEqualTo("ST001");
         assertThat(profile.role()).isEqualTo(Role.UNDERGRADUATE);
         assertThat(profile.email()).isEqualTo("stu001@example.edu");
-        assertThat(profile.studentNumber()).isEqualTo("STU001");
+        assertThat(profile.studentNumber()).isEqualTo("ST001");
         assertThat(profile.toString()).doesNotContain("password-hash-must-not-leak");
     }
 
@@ -74,7 +74,7 @@ class ProfileServiceTest {
         char[] replacement = "NewPassword#27".toCharArray();
         char[] confirmation = "NewPassword#27".toCharArray();
         passwordService(userDao, auditDao, connectionProvider, hasher).changePassword(
-                new AuthenticatedSession(11, "STU001", Role.UNDERGRADUATE, "Undergraduate 001"),
+                new AuthenticatedSession(11, "ST001", Role.UNDERGRADUATE, "Undergraduate 001"),
                 current, replacement, confirmation);
 
         org.mockito.Mockito.verify(auditDao).insert(eq(connection), argThat(event ->
@@ -97,7 +97,7 @@ class ProfileServiceTest {
 
         assertThatThrownBy(() -> passwordService(userDao, mock(AuditLogDao.class),
                 mock(ConnectionProvider.class), hasher).changePassword(
-                        new AuthenticatedSession(11, "STU001", Role.UNDERGRADUATE, "Undergraduate 001"),
+                        new AuthenticatedSession(11, "ST001", Role.UNDERGRADUATE, "Undergraduate 001"),
                         current, replacement, confirmation))
                 .isInstanceOf(AuthenticationException.class);
         assertThat(current).containsOnly('\0');
@@ -114,7 +114,7 @@ class ProfileServiceTest {
         ProfileService service = passwordService(
                 userDao, mock(AuditLogDao.class), mock(ConnectionProvider.class), hasher);
         AuthenticatedSession actor =
-                new AuthenticatedSession(11, "STU001", Role.UNDERGRADUATE, "Undergraduate 001");
+                new AuthenticatedSession(11, "ST001", Role.UNDERGRADUATE, "Undergraduate 001");
 
         assertThatThrownBy(() -> service.changePassword(actor, "Current#26".toCharArray(),
                 "NewPassword#27".toCharArray(), "DifferentPassword".toCharArray()))
@@ -144,9 +144,9 @@ class ProfileServiceTest {
     }
 
     private UserProfile userProfile(String passwordHash, boolean active) {
-        return new UserProfile(11, "STU001", passwordHash, Role.UNDERGRADUATE,
+        return new UserProfile(11, "ST001", passwordHash, Role.UNDERGRADUATE,
                 "stu001@example.edu", active, "Undergraduate 001", null,
-                null, 1, "STU001", null);
+                null, 1, "ST001", null);
     }
 
     private Connection connection(AtomicBoolean committed) {

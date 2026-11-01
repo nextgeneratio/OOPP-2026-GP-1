@@ -17,7 +17,7 @@ class DashboardServiceTest {
         DashboardService service = new DashboardService(dashboardDao);
 
         Map<String, String> metrics = service.loadMetrics(
-                new AuthenticatedSession(11, "STU001", Role.UNDERGRADUATE, "Undergraduate 001"));
+                new AuthenticatedSession(11, "ST001", Role.UNDERGRADUATE, "Undergraduate 001"));
 
         assertThat(metrics).containsEntry("Current courses", "2");
     }

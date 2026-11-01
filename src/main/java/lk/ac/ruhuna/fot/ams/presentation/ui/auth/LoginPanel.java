@@ -113,7 +113,7 @@ public final class LoginPanel extends JPanel {
         subtitle.setForeground(UiTheme.MUTED);
         subtitle.setAlignmentX(LEFT_ALIGNMENT);
 
-        usernameField.putClientProperty("JTextField.placeholderText", "Your username, for example STU001");
+        usernameField.putClientProperty("JTextField.placeholderText", "Your username, for example ST001");
         passwordField.putClientProperty("JTextField.placeholderText", "Your password");
 
         showPassword.setOpaque(false);
