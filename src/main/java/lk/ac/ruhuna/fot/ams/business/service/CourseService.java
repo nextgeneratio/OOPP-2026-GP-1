@@ -80,7 +80,7 @@ public final class CourseService {
             CourseRow course,
             List<ComponentRow> components,
             OfferingSetup offeringSetup) {
-        requireCourseManager(actor);
+        authorization.requireAdmin(actor);
         validateCourse(course, components);
         if (offeringSetup != null) {
             validateOfferingSetup(course, offeringSetup);
@@ -150,7 +150,7 @@ public final class CourseService {
     }
 
     public int createOffering(AuthenticatedSession actor, int courseId, OfferingSetup setup) {
-        requireCourseManager(actor);
+        authorization.requireAdmin(actor);
         if (courseId <= 0 || setup == null || setup.batchId() <= 0 || setup.semesterId() <= 0
                 || setup.status() == null || !List.of("OPEN", "CLOSED").contains(setup.status())) {
             throw new ValidationException("Enter a valid course offering.");

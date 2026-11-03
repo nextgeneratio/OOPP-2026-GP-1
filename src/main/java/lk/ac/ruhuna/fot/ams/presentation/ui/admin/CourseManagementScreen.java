@@ -49,8 +49,8 @@ public final class CourseManagementScreen extends JPanel {
             addAction(actions, "Create semester", this::createSemester);
             addAction(actions, "Create course", this::createCourse);
             addAction(actions, "Edit course details", this::editCourse);
+            addAction(actions, "Create course offering", this::createOffering);
         }
-        addAction(actions, "Create course offering", this::createOffering);
         addAction(actions, "Assign lecturer", this::assignLecturer);
         addAction(actions, "Browse course catalog", this::browseCatalog);
         if (actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.ADMIN) addAction(actions, "Deactivate course", this::deactivateCourse);

@@ -16,6 +16,18 @@ public final class PasswordHasher {
 
     public String hash(char[] password) {
         validate(password);
+        return hashUnchecked(password);
+    }
+
+    /** Hashes an administrator-provided initial password without the self-service length policy. */
+    public String hashInitialPassword(char[] password) {
+        if (password == null || password.length == 0) {
+            throw new ValidationException("Password is required.");
+        }
+        return hashUnchecked(password);
+    }
+
+    private String hashUnchecked(char[] password) {
         byte[] salt = new byte[SALT_BYTES];
         secureRandom.nextBytes(salt);
         byte[] derived = derive(password, salt, ITERATIONS, KEY_BITS);

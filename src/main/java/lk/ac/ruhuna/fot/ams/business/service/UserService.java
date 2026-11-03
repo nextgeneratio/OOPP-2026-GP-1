@@ -82,7 +82,7 @@ public final class UserService {
         validateCreate(request);
         String hash;
         try {
-            hash = passwordHasher.hash(request.password());
+            hash = passwordHasher.hashInitialPassword(request.password());
         } finally {
             if (request.password() != null) {
                 Arrays.fill(request.password(), '\0');

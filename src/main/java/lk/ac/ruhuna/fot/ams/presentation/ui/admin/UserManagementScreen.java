@@ -170,37 +170,88 @@ public final class UserManagementScreen extends JPanel {
         JTextField email = new JTextField();
         JTextField fullName = new JTextField();
         JTextField phone = new JTextField();
-        CourseCatalog catalog = loadCatalog();
-        if (catalog == null) return;
-        JComboBox<SelectionOption> department = departmentOptions(catalog, null);
-        JComboBox<SelectionOption> batch = batchOptions(catalog, null, null);
-        department.addActionListener(event -> refreshBatches(catalog, department, batch, null));
-        refreshBatches(catalog, department, batch, null);
-        department.setEnabled(true);
-        batch.setEnabled(true);
-        role.addActionListener(event -> {
+        JComboBox<SelectionOption> department = new JComboBox<>();
+        department.addItem(new SelectionOption(0, "Loading departments…"));
+        JComboBox<SelectionOption> batch = new JComboBox<>();
+        batch.addItem(new SelectionOption(0, "Loading batches…"));
+        CourseCatalog[] catalog = {null};
+        JLabel catalogStatus = new JLabel("Loading department and batch options…");
+        department.addActionListener(event -> {
+            if (catalog[0] != null) refreshBatches(catalog[0], department, batch, null);
+        });
+        department.setEnabled(false);
+        batch.setEnabled(false);
+        Runnable updateRoleFields = () -> {
             Role selected = (Role) role.getSelectedItem();
-            department.setEnabled(selected == Role.LECTURER || selected == Role.TECHNICAL_OFFICER
-                    || selected == Role.UNDERGRADUATE);
-            batch.setEnabled(selected == Role.UNDERGRADUATE);
+            boolean needsDepartment = selected == Role.LECTURER || selected == Role.TECHNICAL_OFFICER
+                    || selected == Role.UNDERGRADUATE;
+            department.setEnabled(catalog[0] != null && needsDepartment);
+            batch.setEnabled(catalog[0] != null && selected == Role.UNDERGRADUATE);
+        };
+        role.addActionListener(event -> {
+            updateRoleFields.run();
         });
         JTextField studentNumber = new JTextField();
         JScrollPane form = form(new Object[][]{
                 {"Username", username}, {"Initial password", password}, {"Role", role},
                 {"Email", email}, {"Full name", fullName}, {"Phone", phone},
                 {"Department (staff; choose to filter student batches)", department}, {"Batch (student)", batch},
-                {"Student number (student)", studentNumber}
+                {"Student number (student)", studentNumber}, {"Options", catalogStatus}
         });
-        int choice = JOptionPane.showConfirmDialog(this, form, "Create account",
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        Object createChoice = "Create account";
+        Object cancelChoice = "Cancel";
+        JOptionPane optionPane = new JOptionPane(form, JOptionPane.QUESTION_MESSAGE,
+                JOptionPane.OK_CANCEL_OPTION, null, new Object[]{createChoice, cancelChoice}, createChoice);
+        javax.swing.JDialog dialog = optionPane.createDialog(this, "Create account");
+
+        new SwingWorker<ApiResponse<CourseCatalog>, Void>() {
+            @Override
+            protected ApiResponse<CourseCatalog> doInBackground() {
+                return courses.catalog(actor);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    ApiResponse<CourseCatalog> response = get();
+                    if (!response.successful()) {
+                        catalogStatus.setText("Could not load options: " + response.error().message());
+                        return;
+                    }
+                    catalog[0] = response.data();
+                    department.removeAllItems();
+                    department.addItem(new SelectionOption(0, "Select department…"));
+                    catalog[0].departments().forEach(value -> department.addItem(
+                            new SelectionOption(value.id(), value.code() + " — " + value.name())));
+                    refreshBatches(catalog[0], department, batch, null);
+                    updateRoleFields.run();
+                    catalogStatus.setText("Department and batch options loaded.");
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    catalogStatus.setText("Loading options was interrupted.");
+                } catch (ExecutionException failure) {
+                    errors.log(failure.getCause());
+                    catalogStatus.setText(errors.userMessage(failure.getCause()));
+                }
+            }
+        }.execute();
+
+        dialog.setVisible(true);
+        Object choice = optionPane.getValue();
         char[] rawPassword = password.getPassword();
         password.setText("");
-        if (choice != JOptionPane.OK_OPTION) {
+        if (!createChoice.equals(choice)) {
             Arrays.fill(rawPassword, '\0');
             return;
         }
         Role selectedRole = (Role) role.getSelectedItem();
         try {
+            if (catalog[0] == null && (selectedRole == Role.LECTURER
+                    || selectedRole == Role.TECHNICAL_OFFICER || selectedRole == Role.UNDERGRADUATE)) {
+                showError("Department and batch options are still unavailable. Wait for them to load and try again.");
+                Arrays.fill(rawPassword, '\0');
+                return;
+            }
             Integer departmentId = selectedRole == Role.LECTURER || selectedRole == Role.TECHNICAL_OFFICER
                     ? selectedId(department) : null;
             Integer batchId = selectedRole == Role.UNDERGRADUATE ? selectedId(batch) : null;
