@@ -130,18 +130,14 @@ public final class ProfileService {
     }
 
     public void updateUndergraduateProfile(
-            AuthenticatedSession actor, String email, String profilePicture) {
+            AuthenticatedSession actor, String fullName, String phone) {
         authorization.requireRole(actor, Role.UNDERGRADUATE);
-        if (!validEmail(email)) {
-            throw new ValidationException("Enter a valid email address.");
-        }
-        if (profilePicture != null
-                && !profilePicture.matches("^uploads/[0-9a-fA-F-]{36}\\.(png|jpe?g)$")) {
-            throw new ValidationException("Profile picture reference must use a controlled UUID file path.");
+        if (fullName == null || fullName.isBlank()) {
+            throw new ValidationException("Enter a full name.");
         }
         transactions.execute(connection -> {
             int updated = userDao.updateUndergraduateContact(
-                    connection, actor.userId(), email.trim(), profilePicture);
+                    connection, actor.userId(), fullName.trim(), phone);
             if (updated != 1) {
                 throw new NotFoundException("User profile was not found.");
             }

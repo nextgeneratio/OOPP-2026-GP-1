@@ -14,31 +14,38 @@ plaintext passwords.
 - 5 Lecturers: `LE001`–`LE005`.
 - 3 synthetic departments, 1 batch, 9 courses, 12 course components, and one
   semester (`2026/2027`, semester 1).
-- 9 course offerings, lecturer assignments, and 175 course enrollments.
-- 36 assessment plan rows and 528 compatible demonstration marks.
-- 12 attendance sessions and 234 synthetic attendance records.
+- 9 course offerings, lecturer assignments, and 180 course enrollments; every
+  undergraduate is registered in every offering.
+- 36 assessment plan rows. Every enrolment receives all 26 coursework/CA marks;
+  final exam marks are added only for students passing CA (at least 40%) and
+  attendance (at least 80% in each course component). The final mark-row count
+  varies with randomized attendance.
+- 135 attendance sessions (15 per offering) and 2,700 synthetic attendance
+  records. Each student attends 9-15 sessions per course; one randomly selected
+  course per student has full attendance, so every undergraduate can view at
+  least one finalized result when their CA mark passes.
 - 3 timetables with 12 timetable entries.
+- Finalized results for eligible demo enrolments. The exact count varies with
+  randomized attendance; results are available to SGPA/CGPA calculations.
 - 12 `UGC-2024-v1` grade boundaries and one synthetic notice.
 - 45 generated PDF learning materials, five for each of nine courses.
 
-The importer leaves the following tables empty because there is no compatible,
-honest synthetic source for those records: medical records, quiz definitions
-and attempts, course assignments and submissions, finalized course results,
-and audit history. In particular, medical evidence is not fabricated. Source
-quiz best-two-of-three scores are omitted because that calculation is not
-implemented in the application result workflow; a quiz assessment-plan row is
-retained without pretending ordinary marks represent that scoring rule. The
-dataset does not claim finalized results.
+The installer leaves medical records, quiz definitions and attempts, course
+assignments and submissions, and audit history empty. In particular, medical
+evidence is not fabricated. Source quiz best-two-of-three scores are omitted
+because that calculation is not implemented in the application result
+workflow; a synthetic aggregate quiz assessment and marks are used for the
+demo's finalized-result workflow instead.
 
 ## Academic assumptions
 
-The academic period is `2026/2027`, semester 1, with dates 2026-09-01 through
+The academic period is `2026/2027`, semester 1, with dates 2026-07-13 through
 2027-01-31. The course placement of TCS2112 (Business Economics), TCS2121 (Soft
 Skills), and ENG2112 to departments BST/ET is provisional demonstration data,
 not an official faculty mapping. Courses are offered to a synthetic ICT batch.
-ICT2142 uses the application catalog title “Database Systems.” Marks and
-attendance values are deterministic examples for demonstrating application
-rules; they are not actual student records.
+ICT2142 uses the application catalog title “Database Systems.” Marks are
+deterministic examples; attendance is randomized per enrollment. Neither
+represents actual student records.
 
 ## Passwords and generated materials
 

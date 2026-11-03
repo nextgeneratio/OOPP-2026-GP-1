@@ -9,7 +9,7 @@ public final class ProfileController {
     public record StaffProfileRequest(String email, String fullName, String phone) {
     }
 
-    public record UndergraduateProfileRequest(String email, String profilePictureReference) {
+    public record UndergraduateProfileRequest(String fullName, String phone) {
     }
 
     public record ChangePasswordRequest(char[] currentPassword, char[] newPassword, char[] confirmation) {
@@ -39,7 +39,7 @@ public final class ProfileController {
             AuthenticatedSession actor, UndergraduateProfileRequest request) {
         return support.execute(request, () -> {
             service.updateUndergraduateProfile(
-                    actor, request.email(), request.profilePictureReference());
+                    actor, request.fullName(), request.phone());
             return null;
         });
     }

@@ -54,6 +54,5 @@ public interface UserDao extends UserLookup {
     int updateStaffContact(
             Connection connection, long userId, Role role, String email, String fullName, String phone);
 
-    int updateUndergraduateContact(
-            Connection connection, long userId, String email, String profilePicture);
+    int updateUndergraduateContact(Connection connection, long userId, String fullName, String phone);
 }

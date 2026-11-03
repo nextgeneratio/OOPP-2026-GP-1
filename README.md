@@ -67,6 +67,16 @@ If you use the MySQL client, substitute `mysql` for `mariadb` in that command.
 The administrator account is used only to install the database; the application
 connects as the separate, database-scoped `ams_app` account.
 
+For an existing demonstration database, add any missing aggregate quiz marks
+without replacing other data by running
+`mariadb -u root -p < database/repair_demo_quiz_marks.sql`.
+To regenerate only synthetic demonstration attendance, with 15 sessions per
+offering and 9-15 attended sessions per student/course, run
+`mariadb -u root -p < database/repair_demo_attendance.sql`.
+Then create finalized results for demo enrolments that meet the CA and
+attendance rules, and make them available to calculated SGPA/CGPA, by running
+`mariadb -u root -p < database/repair_demo_results_gpa.sql`.
+
 The installer creates `university_management` with `utf8mb4`, creates all 30
 tables, creates or resets `ams_app@localhost`, grants it only `SELECT`,
 `INSERT`, `UPDATE`, and `DELETE` on this database, and transactionally replaces

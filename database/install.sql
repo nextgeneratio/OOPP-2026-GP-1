@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS `undergraduates` (
     batch_id INT NOT NULL,
     student_no VARCHAR(25) NOT NULL,
     full_name VARCHAR(120) NOT NULL,
+    phone VARCHAR(20) NULL,
     profile_picture VARCHAR(255) NULL,
 
     PRIMARY KEY (student_id),
@@ -733,7 +734,7 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Schema preflight failed: all 30 application tables must exist as InnoDB with utf8mb4_unicode_ci.';
   END IF;
   IF (SELECT COUNT(*) FROM information_schema.columns
-      WHERE table_schema=DATABASE() AND table_name IN ('users', 'admins', 'departments', 'batches', 'undergraduates', 'lecturers', 'technical_officers', 'courses', 'course_components', 'semesters', 'course_offerings', 'course_offering_lecturers', 'course_enrollments', 'assessments', 'marks', 'attendance_sessions', 'attendance_records', 'medical_records', 'course_materials', 'course_quizzes', 'quiz_questions', 'quiz_attempts', 'course_assignments', 'assignment_submissions', 'notices', 'timetables', 'timetable_entries', 'grades', 'course_results', 'audit_logs')) <> 192
+      WHERE table_schema=DATABASE() AND table_name IN ('users', 'admins', 'departments', 'batches', 'undergraduates', 'lecturers', 'technical_officers', 'courses', 'course_components', 'semesters', 'course_offerings', 'course_offering_lecturers', 'course_enrollments', 'assessments', 'marks', 'attendance_sessions', 'attendance_records', 'medical_records', 'course_materials', 'course_quizzes', 'quiz_questions', 'quiz_attempts', 'course_assignments', 'assignment_submissions', 'notices', 'timetables', 'timetable_entries', 'grades', 'course_results', 'audit_logs')) <> 193
      OR EXISTS (
        SELECT 1 FROM (
       SELECT 'users' AS table_name, 'user_id' AS column_name
@@ -789,6 +790,8 @@ BEGIN
       SELECT 'undergraduates' AS table_name, 'student_no' AS column_name
       UNION ALL
       SELECT 'undergraduates' AS table_name, 'full_name' AS column_name
+      UNION ALL
+      SELECT 'undergraduates' AS table_name, 'phone' AS column_name
       UNION ALL
       SELECT 'undergraduates' AS table_name, 'profile_picture' AS column_name
       UNION ALL
@@ -1183,6 +1186,8 @@ BEGIN
       SELECT 'undergraduates' AS table_name, 'student_no' AS column_name, 'varchar' AS data_type, 'NO' AS is_nullable, 25 AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
       SELECT 'undergraduates' AS table_name, 'full_name' AS column_name, 'varchar' AS data_type, 'NO' AS is_nullable, 120 AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
+      UNION ALL
+      SELECT 'undergraduates' AS table_name, 'phone' AS column_name, 'varchar' AS data_type, 'YES' AS is_nullable, 20 AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
       SELECT 'undergraduates' AS table_name, 'profile_picture' AS column_name, 'varchar' AS data_type, 'YES' AS is_nullable, 255 AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
@@ -1905,7 +1910,7 @@ BEGIN
   SELECT d.department_id,2026,CONCAT('Synthetic ',d.code,' Demonstration Cohort'),CONCAT('DEMO-',d.code,'-2026'),2
   FROM departments d WHERE d.code='ICT';
   -- Synthetic demonstration semester; dates are not official university dates.
-  INSERT INTO `semesters` (academic_year,semester_no,start_date,end_date) VALUES ('2026/2027',1,'2026-09-01','2027-01-31');
+  INSERT INTO `semesters` (academic_year,semester_no,start_date,end_date) VALUES ('2026/2027',1,'2026-07-13','2027-01-31');
   -- Unique synthetic accounts. Password hashes were created and verified by the application PasswordHasher.
   INSERT INTO `users` (username,password_hash,role,email,is_active,created_at) VALUES
     ('admin', 'PBKDF2$210000$krmRqNWMtRrV3ensidhmkg==$MYE9+WLbCZqmqLNWeWVS2BAxYbKq/FGI6mjZl7Sv3Sk=', 'ADMIN', 'demo.admin@example.invalid', TRUE, NOW()),
@@ -2007,11 +2012,10 @@ BEGIN
        UNION ALL SELECT 'ENG2112', 'LE002') m
   JOIN courses c ON c.course_code=m.course_code JOIN course_offerings o ON o.course_id=c.course_id
   JOIN users u ON u.username=m.lecturer_username JOIN lecturers l ON l.user_id=u.user_id;
-  -- Preserve the source enrollment pattern against deterministic synthetic students; no borrowed identities are retained.
+  -- Register every undergraduate in every demo course offering.
   INSERT INTO `course_enrollments` (student_id,offering_id,attempt_no,student_status,enrollment_status)
   SELECT ug.student_id,o.offering_id,1,CASE WHEN u.username IN ('ST018','ST019') THEN 'REPEAT' WHEN u.username='ST020' THEN 'BATCH_MISSED' ELSE 'NORMAL' END,'ACTIVE' FROM undergraduates ug JOIN users u ON u.user_id=ug.user_id
-  JOIN course_offerings o ON o.batch_id=ug.batch_id JOIN courses c ON c.course_id=o.course_id
-  WHERE NOT (u.username='ST020' AND c.course_code IN ('ICT2132','ICT2162','ENG2112')) AND NOT (u.username IN ('ST018','ST019') AND c.course_code='ENG2112');
+  CROSS JOIN course_offerings o;
   -- One aggregate quiz assessment preserves the source quiz weight; individual best-two attempts are omitted because scores cannot be represented losslessly as question counts.
   INSERT INTO `assessments` (offering_id,name,assessment_type,weight_percent,is_ca_component)
   SELECT o.offering_id,v.name,v.assessment_type,v.weight_percent,v.is_ca FROM (SELECT 'ICT2113' AS `course_code`, 'DEMO Quiz Aggregate' AS `name`, 'QUIZ' AS `assessment_type`, 10 AS `weight_percent`, 1 AS `is_ca`
@@ -2051,12 +2055,13 @@ BEGIN
        UNION ALL SELECT 'ENG2112', 'DEMO Assignment', 'ASSIGNMENT', 30, 1
        UNION ALL SELECT 'ENG2112', 'DEMO Final Theory', 'FINAL', 50, 0) v
   JOIN courses c ON c.course_code=v.course_code JOIN course_offerings o ON o.course_id=c.course_id;
-  -- Source formula-based non-quiz marks, linked to synthetic students and assigned synthetic lecturers.
+  -- Allocate all coursework/CA marks to every enrolled student. Final marks are
+  -- inserted only after attendance is generated and eligibility is evaluated.
   INSERT INTO `marks` (assessment_id,enrollment_id,score,entered_by)
-  SELECT a.assessment_id,e.enrollment_id,CASE MOD(CAST(RIGHT(u.username,3) AS UNSIGNED),5) WHEN 0 THEN 88.00 WHEN 1 THEN 78.00 WHEN 2 THEN 68.00 WHEN 3 THEN 52.00 ELSE 42.00 END,o.coordinator_id
+  SELECT a.assessment_id,e.enrollment_id,CASE MOD(CAST(RIGHT(u.username,3) AS UNSIGNED)+o.offering_id,5) WHEN 0 THEN 88.00 WHEN 1 THEN 78.00 WHEN 2 THEN 68.00 WHEN 3 THEN 52.00 ELSE 32.00 END,o.coordinator_id
   FROM assessments a JOIN course_offerings o ON o.offering_id=a.offering_id JOIN course_enrollments e ON e.offering_id=o.offering_id
   JOIN undergraduates ug ON ug.student_id=e.student_id JOIN users u ON u.user_id=ug.user_id
-  WHERE a.assessment_type <> 'QUIZ';
+  WHERE a.is_ca_component=TRUE;
   -- Exactly one synthetic timetable per department. Entries are synthetic demo schedules.
   INSERT INTO `timetables` (title,department_id,semester_id,level_no,created_by_user_id)
   SELECT CONCAT('DEMO ',d.code,' 2026/2027 Semester 1'),d.department_id,s.semester_id,2,u.user_id FROM departments d
@@ -2078,16 +2083,102 @@ BEGIN
   JOIN semesters s ON s.semester_id=t.semester_id AND s.academic_year='2026/2027' AND s.semester_no=1
   JOIN courses c ON c.course_code=v.course_code JOIN course_components cc ON cc.course_id=c.course_id AND cc.component_type=v.component_type
   JOIN course_offerings o ON o.course_id=c.course_id AND o.batch_id=(SELECT b.batch_id FROM batches b WHERE b.batch_code='DEMO-ICT-2026');
-  -- Synthetic past sessions and attendance only for explicitly synthetic demonstration accounts.
+  -- Fifteen weekly lecture slots per offering, distributed across its timetable
+  -- components and spread across the semester. Attendance is randomized per student/course
+  -- with each student attending between 9 and 15 sessions.
   INSERT INTO `attendance_sessions` (offering_id,component_id,session_date,timetable_entry_id,recorded_by,recorded_by_lecturer)
-  SELECT e.offering_id,e.component_id,CASE e.day_of_week WHEN 'MON' THEN '2026-10-19' WHEN 'TUE' THEN '2026-10-20' WHEN 'WED' THEN '2026-10-21' WHEN 'THU' THEN '2026-10-22' ELSE '2026-10-23' END,e.timetable_entry_id,toff.officer_id,NULL
-  FROM timetable_entries e JOIN timetables t ON t.timetable_id=e.timetable_id JOIN departments d ON d.department_id=t.department_id
+  SELECT schedule.offering_id,schedule.component_id,
+         DATE_ADD('2026-07-13', INTERVAL (
+           FLOOR(FLOOR((n.session_no-1)/schedule.entry_count)*14 /
+             (FLOOR((15+schedule.entry_count-schedule.entry_no)/schedule.entry_count)-1))*7
+           + CASE schedule.day_of_week WHEN 'MON' THEN 0 WHEN 'TUE' THEN 1 WHEN 'WED' THEN 2
+                 WHEN 'THU' THEN 3 WHEN 'FRI' THEN 4 END
+         ) DAY),
+         schedule.timetable_entry_id,toff.officer_id,NULL
+  FROM (
+    SELECT e.offering_id,e.component_id,e.day_of_week,e.timetable_entry_id,e.timetable_id,
+           t.department_id,
+           ROW_NUMBER() OVER (PARTITION BY e.offering_id ORDER BY e.timetable_entry_id) AS entry_no,
+           COUNT(*) OVER (PARTITION BY e.offering_id) AS entry_count
+    FROM timetable_entries e JOIN timetables t ON t.timetable_id=e.timetable_id
+    WHERE t.title LIKE 'DEMO %'
+  ) schedule
+  JOIN timetables t ON t.timetable_id=schedule.timetable_id
+  JOIN departments d ON d.department_id=t.department_id
   JOIN users u ON u.username=CASE d.code WHEN 'ICT' THEN 'TE001' WHEN 'BST' THEN 'TE002' ELSE 'TE003' END
-  JOIN technical_officers toff ON toff.user_id=u.user_id;
+  JOIN technical_officers toff ON toff.user_id=u.user_id
+  JOIN (SELECT 1 AS session_no UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
+        UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8
+        UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12
+        UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15) n
+    ON schedule.entry_no=MOD(n.session_no-1,schedule.entry_count)+1;
+  UPDATE course_components cc
+  JOIN (
+    SELECT sessions.component_id,COUNT(*) AS planned_sessions
+    FROM attendance_sessions sessions
+    JOIN timetable_entries entries ON entries.timetable_entry_id=sessions.timetable_entry_id
+    JOIN timetables timetable ON timetable.timetable_id=entries.timetable_id
+    WHERE timetable.title LIKE 'DEMO %'
+    GROUP BY sessions.component_id
+  ) session_counts ON session_counts.component_id=cc.component_id
+  SET cc.planned_sessions=session_counts.planned_sessions;
   INSERT INTO `attendance_records` (session_id,enrollment_id,is_present)
-  SELECT s.session_id,e.enrollment_id,CASE WHEN MOD(CAST(RIGHT(u.username,3) AS UNSIGNED)+DAYOFMONTH(s.session_date),5)=0 THEN FALSE ELSE TRUE END
-  FROM attendance_sessions s JOIN course_enrollments e ON e.offering_id=s.offering_id
-  JOIN undergraduates ug ON ug.student_id=e.student_id JOIN users u ON u.user_id=ug.user_id;
+  SELECT randomized.session_id,randomized.enrollment_id,randomized.attendance_rank<=randomized.attendance_target
+  FROM (
+    SELECT sessions.session_id,enrollments.enrollment_id,
+           ROW_NUMBER() OVER (PARTITION BY sessions.offering_id,enrollments.enrollment_id ORDER BY RAND()) AS attendance_rank,
+           targets.attendance_target
+    FROM attendance_sessions sessions
+    JOIN course_enrollments enrollments ON enrollments.offering_id=sessions.offering_id
+    JOIN (
+      SELECT assigned.enrollment_id,assigned.offering_id,
+             CASE WHEN assigned.course_rank=1 THEN 15 ELSE 9+FLOOR(RAND()*7) END AS attendance_target
+      FROM (
+        SELECT enrollment.enrollment_id,enrollment.offering_id,enrollment.student_id,
+               ROW_NUMBER() OVER (PARTITION BY enrollment.student_id
+                 ORDER BY CASE WHEN MOD(CAST(RIGHT(app_user.username,3) AS UNSIGNED)+enrollment.offering_id,5)=4
+                               THEN 1 ELSE 0 END,enrollment.offering_id) AS course_rank
+        FROM course_enrollments enrollment
+        JOIN undergraduates undergraduate ON undergraduate.student_id=enrollment.student_id
+        JOIN users app_user ON app_user.user_id=undergraduate.user_id
+      ) assigned
+    ) targets ON targets.enrollment_id=enrollments.enrollment_id
+             AND targets.offering_id=enrollments.offering_id
+  ) randomized;
+  -- Final exam marks are recorded only when the student's weighted CA is at
+  -- least 40% and attendance is at least 80% in every course component.
+  INSERT INTO `marks` (assessment_id,enrollment_id,score,entered_by)
+  SELECT final_assessment.assessment_id,enrollment.enrollment_id,
+         CASE MOD(CAST(RIGHT(app_user.username,3) AS UNSIGNED)+final_assessment.assessment_id,5)
+           WHEN 0 THEN 88.00 WHEN 1 THEN 78.00 WHEN 2 THEN 68.00 WHEN 3 THEN 52.00 ELSE 42.00 END,
+         offering.coordinator_id
+  FROM course_enrollments enrollment
+  JOIN undergraduates undergraduate ON undergraduate.student_id=enrollment.student_id
+  JOIN users app_user ON app_user.user_id=undergraduate.user_id
+  JOIN course_offerings offering ON offering.offering_id=enrollment.offering_id
+  JOIN assessments final_assessment ON final_assessment.offering_id=offering.offering_id
+                                  AND final_assessment.assessment_type='FINAL'
+  JOIN (
+    SELECT mark.enrollment_id,assessment.offering_id,
+           SUM(mark.score*assessment.weight_percent)/SUM(assessment.weight_percent) AS ca_mark
+    FROM marks mark JOIN assessments assessment ON assessment.assessment_id=mark.assessment_id
+    WHERE assessment.is_ca_component=TRUE
+    GROUP BY mark.enrollment_id,assessment.offering_id
+  ) ca ON ca.enrollment_id=enrollment.enrollment_id AND ca.offering_id=enrollment.offering_id
+  JOIN (
+    SELECT component_attendance.enrollment_id,component_attendance.offering_id
+    FROM (
+      SELECT session.offering_id,record.enrollment_id,session.component_id,
+             SUM(CASE WHEN record.is_present=TRUE THEN 1 ELSE 0 END)/COUNT(*) AS attendance_rate
+      FROM attendance_sessions session
+      JOIN attendance_records record ON record.session_id=session.session_id
+      GROUP BY session.offering_id,record.enrollment_id,session.component_id
+    ) component_attendance
+    GROUP BY component_attendance.enrollment_id,component_attendance.offering_id
+    HAVING MIN(component_attendance.attendance_rate)>=0.80
+  ) attendance_ok ON attendance_ok.enrollment_id=enrollment.enrollment_id
+                 AND attendance_ok.offering_id=enrollment.offering_id
+  WHERE ca.ca_mark>=40.00;
   -- Course material records exactly match the verified PDF manifest and upload-root paths.
   INSERT INTO `course_materials` (offering_id,lecturer_id,title,file_path,is_visible)
   SELECT o.offering_id,l.lecturer_id,v.title,v.file_path,TRUE FROM (SELECT 'ICT2113' AS `course_code`, 'Foundations and Orientation' AS `title`, 'uploads/materials/demo-readings/ICT2113/01_Foundations.pdf' AS `file_path`, 'LE001' AS `lecturer_username`
@@ -2151,9 +2242,53 @@ BEGIN
     ('UGC-2024-v1', 'D+', 40, 44.99, 1.3),
     ('UGC-2024-v1', 'D', 35, 39.99, 1.0),
     ('UGC-2024-v1', 'E', 0, 34.99, 0.0);
+  -- Materialize demo results only for complete marks and attempts meeting the same
+  -- CA (40%) and per-component attendance (80%) rules used by the application.
+  INSERT INTO `course_results` (enrollment_id,final_mark,scheme_version,grade_letter,grade_point,
+      credits_counted,completed_at,recorded_by)
+  SELECT enrollment.enrollment_id,calculated.final_mark,grade.scheme_version,grade.grade_letter,
+         grade.grade_point,course.total_credits,'2026-10-20 12:00:00',offering.coordinator_id
+  FROM course_enrollments enrollment
+  JOIN course_offerings offering ON offering.offering_id=enrollment.offering_id
+  JOIN courses course ON course.course_id=offering.course_id
+  JOIN (
+    SELECT mark.enrollment_id,assessment.offering_id,
+           ROUND(SUM(mark.score*assessment.weight_percent)/SUM(assessment.weight_percent),2) AS final_mark,
+           ROUND(SUM(CASE WHEN assessment.is_ca_component=TRUE
+               THEN mark.score*assessment.weight_percent ELSE 0 END)
+             /SUM(CASE WHEN assessment.is_ca_component=TRUE
+               THEN assessment.weight_percent ELSE 0 END),8) AS ca_mark,
+           COUNT(*) AS mark_count
+    FROM marks mark JOIN assessments assessment ON assessment.assessment_id=mark.assessment_id
+    GROUP BY mark.enrollment_id,assessment.offering_id
+  ) calculated ON calculated.enrollment_id=enrollment.enrollment_id
+              AND calculated.offering_id=enrollment.offering_id
+  JOIN (
+    SELECT components.enrollment_id,components.offering_id
+    FROM (
+      SELECT session.offering_id,record.enrollment_id,session.component_id,
+             SUM(CASE WHEN record.is_present=TRUE THEN 1 ELSE 0 END)/COUNT(*) AS attendance_rate
+      FROM attendance_sessions session
+      JOIN attendance_records record ON record.session_id=session.session_id
+      GROUP BY session.offering_id,record.enrollment_id,session.component_id
+    ) components
+    GROUP BY components.enrollment_id,components.offering_id
+    HAVING MIN(components.attendance_rate)>=0.80
+  ) eligible_attendance ON eligible_attendance.enrollment_id=enrollment.enrollment_id
+                       AND eligible_attendance.offering_id=enrollment.offering_id
+  JOIN grades grade ON grade.scheme_version='UGC-2024-v1'
+                   AND calculated.final_mark BETWEEN grade.min_mark AND grade.max_mark
+  WHERE enrollment.enrollment_status<>'WITHDRAWN'
+    AND calculated.ca_mark>=40.00
+    AND calculated.mark_count=(SELECT COUNT(*) FROM assessments required
+                               WHERE required.offering_id=enrollment.offering_id);
+  UPDATE course_enrollments enrollment
+  JOIN course_results result ON result.enrollment_id=enrollment.enrollment_id
+                            AND result.is_current=TRUE
+  SET enrollment.enrollment_status='COMPLETED';
   INSERT INTO `notices` (title,body,audience,target_role,target_batch_id,publish_date,expiry_date) VALUES
     ('DEMO: semester resource access','Synthetic demonstration notice. Accounts and related activity in this dataset are test data, not official academic records.','ALL',NULL,NULL,'2026-09-01 00:00:00','2027-01-31 23:59:59');
-  -- Borrowed identity fields and medical cases are excluded; quiz attempt scores are omitted due incompatible score semantics; no final results are synthesized.
+  -- Borrowed identity fields and medical cases are excluded; quiz attempt scores are omitted due incompatible score semantics.
   COMMIT;
 END$$
 CALL `ams_install_replace_demo_data`()$$
@@ -2201,6 +2336,44 @@ SELECT 'duplicate_username' AS check_name,COUNT(*) duplicate_groups FROM (SELECT
 SELECT 'orphan_enrollment' AS check_name,COUNT(*) orphan_rows FROM course_enrollments e LEFT JOIN undergraduates u ON u.student_id=e.student_id LEFT JOIN course_offerings o ON o.offering_id=e.offering_id WHERE u.student_id IS NULL OR o.offering_id IS NULL UNION ALL SELECT 'orphan_mark',COUNT(*) FROM marks m LEFT JOIN assessments a ON a.assessment_id=m.assessment_id LEFT JOIN course_enrollments e ON e.enrollment_id=m.enrollment_id LEFT JOIN lecturers l ON l.lecturer_id=m.entered_by WHERE a.assessment_id IS NULL OR e.enrollment_id IS NULL OR l.lecturer_id IS NULL UNION ALL SELECT 'orphan_attendance',COUNT(*) FROM attendance_records r LEFT JOIN attendance_sessions s ON s.session_id=r.session_id LEFT JOIN course_enrollments e ON e.enrollment_id=r.enrollment_id WHERE s.session_id IS NULL OR e.enrollment_id IS NULL;
 SELECT COUNT(*) AS sessions_outside_demo_semester FROM attendance_sessions a JOIN timetable_entries e ON e.timetable_entry_id=a.timetable_entry_id JOIN timetables t ON t.timetable_id=e.timetable_id JOIN semesters s ON s.semester_id=t.semester_id WHERE a.session_date<s.start_date OR a.session_date>s.end_date;
 SELECT COUNT(*) AS invalid_recorder_policy FROM attendance_sessions WHERE recorded_by IS NULL OR recorded_by_lecturer IS NOT NULL;
+SELECT COUNT(*) AS missing_student_course_enrollments
+FROM undergraduates ug CROSS JOIN course_offerings offering
+LEFT JOIN course_enrollments enrollment ON enrollment.student_id=ug.student_id
+                                        AND enrollment.offering_id=offering.offering_id
+WHERE enrollment.enrollment_id IS NULL;
+SELECT COUNT(*) AS missing_ca_marks
+FROM course_enrollments enrollment
+JOIN assessments assessment ON assessment.offering_id=enrollment.offering_id
+                            AND assessment.is_ca_component=TRUE
+LEFT JOIN marks mark ON mark.assessment_id=assessment.assessment_id
+                    AND mark.enrollment_id=enrollment.enrollment_id
+WHERE mark.mark_id IS NULL;
+SELECT COUNT(*) AS final_marks_for_ineligible_students
+FROM marks final_mark
+JOIN assessments final_assessment ON final_assessment.assessment_id=final_mark.assessment_id
+                                  AND final_assessment.assessment_type='FINAL'
+JOIN course_enrollments enrollment ON enrollment.enrollment_id=final_mark.enrollment_id
+LEFT JOIN (
+  SELECT mark.enrollment_id,assessment.offering_id,
+         SUM(mark.score*assessment.weight_percent)/SUM(assessment.weight_percent) AS ca_mark
+  FROM marks mark JOIN assessments assessment ON assessment.assessment_id=mark.assessment_id
+  WHERE assessment.is_ca_component=TRUE
+  GROUP BY mark.enrollment_id,assessment.offering_id
+) ca ON ca.enrollment_id=enrollment.enrollment_id AND ca.offering_id=enrollment.offering_id
+LEFT JOIN (
+  SELECT component.enrollment_id,component.offering_id
+  FROM (
+    SELECT session.offering_id,record.enrollment_id,session.component_id,
+           SUM(CASE WHEN record.is_present=TRUE THEN 1 ELSE 0 END)/COUNT(*) AS attendance_rate
+    FROM attendance_sessions session
+    JOIN attendance_records record ON record.session_id=session.session_id
+    GROUP BY session.offering_id,record.enrollment_id,session.component_id
+  ) component
+  GROUP BY component.enrollment_id,component.offering_id
+  HAVING MIN(component.attendance_rate)>=0.80
+) attendance_ok ON attendance_ok.enrollment_id=enrollment.enrollment_id
+               AND attendance_ok.offering_id=enrollment.offering_id
+WHERE ca.ca_mark IS NULL OR ca.ca_mark<40 OR attendance_ok.enrollment_id IS NULL;
 SELECT COUNT(*) AS canonical_grade_rows FROM grades WHERE scheme_version='UGC-2024-v1';
 SELECT course_code,COUNT(*) AS resources,MIN(is_visible) AS all_visible FROM courses c JOIN course_offerings o ON o.course_id=c.course_id JOIN course_materials m ON m.offering_id=o.offering_id GROUP BY course_code ORDER BY course_code;
 SELECT role,COUNT(*) AS account_count,SUM(is_active=TRUE) AS active_count FROM users GROUP BY role ORDER BY role;

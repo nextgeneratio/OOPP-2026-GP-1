@@ -2,8 +2,11 @@ package lk.ac.ruhuna.fot.ams.presentation.ui.common;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.FlowLayout;
+import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListCellRenderer;
@@ -81,6 +84,7 @@ public final class EligibilityScreen extends JPanel {
             }
         });
         offeringBox.getAccessibleContext().setAccessibleName("Course offering");
+        offeringBox.setPreferredSize(new Dimension(420, offeringBox.getPreferredSize().height));
         offeringBox.addActionListener(event -> {
             if (!populating) {
                 onOfferingSelected();
@@ -105,19 +109,47 @@ public final class EligibilityScreen extends JPanel {
 
         checkButton.addActionListener(event -> check());
 
-        JPanel filters = new JPanel(new FlowLayout(FlowLayout.LEFT, UiTheme.SPACE_SM, UiTheme.SPACE_SM));
+        JPanel filters = new JPanel(new GridBagLayout());
         filters.setOpaque(false);
         filters.setAlignmentX(LEFT_ALIGNMENT);
         JLabel offeringLabel = new JLabel("Offering");
         offeringLabel.setLabelFor(offeringBox);
-        filters.add(offeringLabel);
-        filters.add(offeringBox);
+        GridBagConstraints labelConstraints = new GridBagConstraints();
+        labelConstraints.gridx = 0;
+        labelConstraints.gridy = 0;
+        labelConstraints.anchor = GridBagConstraints.LINE_START;
+        labelConstraints.insets = new Insets(UiTheme.SPACE_SM, UiTheme.SPACE_SM,
+                UiTheme.SPACE_SM, UiTheme.SPACE_SM);
+        filters.add(offeringLabel, labelConstraints);
+
+        GridBagConstraints offeringConstraints = new GridBagConstraints();
+        offeringConstraints.gridx = 1;
+        offeringConstraints.gridy = 0;
+        offeringConstraints.weightx = 1;
+        offeringConstraints.fill = GridBagConstraints.HORIZONTAL;
+        offeringConstraints.insets = labelConstraints.insets;
+        filters.add(offeringBox, offeringConstraints);
         if (lecturerMode) {
             studentLabel.setLabelFor(studentBox);
-            filters.add(studentLabel);
-            filters.add(studentBox);
+            GridBagConstraints studentLabelConstraints = (GridBagConstraints) labelConstraints.clone();
+            studentLabelConstraints.gridx = 0;
+            studentLabelConstraints.gridy = 1;
+            filters.add(studentLabel, studentLabelConstraints);
+
+            GridBagConstraints studentConstraints = new GridBagConstraints();
+            studentConstraints.gridx = 1;
+            studentConstraints.gridy = 1;
+            studentConstraints.weightx = 1;
+            studentConstraints.fill = GridBagConstraints.HORIZONTAL;
+            studentConstraints.insets = labelConstraints.insets;
+            filters.add(studentBox, studentConstraints);
         }
-        filters.add(checkButton);
+        GridBagConstraints checkConstraints = new GridBagConstraints();
+        checkConstraints.gridx = 2;
+        checkConstraints.gridy = lecturerMode ? 1 : 0;
+        checkConstraints.anchor = GridBagConstraints.LINE_START;
+        checkConstraints.insets = labelConstraints.insets;
+        filters.add(checkButton, checkConstraints);
         header.add(title);
         header.add(filters);
         return header;
@@ -129,6 +161,7 @@ public final class EligibilityScreen extends JPanel {
         result.setEditable(false);
         result.setLineWrap(false);
         result.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 14));
+        result.setText("Select an offering, then choose Check eligibility to view your result.");
         result.setBackground(UiTheme.SURFACE);
         result.setBorder(BorderFactory.createEmptyBorder(
                 UiTheme.SPACE_MD, UiTheme.SPACE_MD, UiTheme.SPACE_MD, UiTheme.SPACE_MD));

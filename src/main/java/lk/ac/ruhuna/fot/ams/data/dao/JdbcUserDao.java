@@ -122,7 +122,7 @@ public final class JdbcUserDao implements UserDao {
     private String profileSelect() {
         return "SELECT u.user_id, u.username, u.password_hash, u.role, u.email, u.is_active, "
                 + "COALESCE(a.full_name, l.full_name, t.full_name, s.full_name) AS full_name, "
-                + "COALESCE(l.phone, t.phone, a.phone) AS phone, "
+                + "COALESCE(l.phone, t.phone, a.phone, s.phone) AS phone, "
                 + "COALESCE(l.department_id, t.department_id) AS department_id, "
                 + "s.batch_id, s.student_no, s.profile_picture, d.name AS department_name, "
                 + "b.batch_code, b.level_no, (SELECT MAX(sem.semester_no) FROM course_enrollments e "
@@ -301,18 +301,14 @@ public final class JdbcUserDao implements UserDao {
 
     @Override
     public int updateUndergraduateContact(
-            Connection connection, long userId, String email, String profilePicture) {
+            Connection connection, long userId, String fullName, String phone) {
         if (!userExists(connection, userId) || !roleProfileExists(connection, userId, Role.UNDERGRADUATE)) {
             return 0;
         }
-        jdbc.update(connection, "UPDATE users SET email = ? WHERE user_id = ?",
+        jdbc.update(connection, "UPDATE undergraduates SET full_name = ?, phone = ? WHERE user_id = ?",
                 statement -> {
-                    statement.setString(1, email);
-                    statement.setLong(2, userId);
-                });
-        jdbc.update(connection, "UPDATE undergraduates SET profile_picture = ? WHERE user_id = ?",
-                statement -> {
-                    statement.setString(1, profilePicture);
+                    statement.setString(1, fullName);
+                    statement.setString(2, phone);
                     statement.setLong(2, userId);
                 });
         return 1;

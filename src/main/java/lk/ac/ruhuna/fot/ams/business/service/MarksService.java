@@ -193,7 +193,8 @@ public final class MarksService {
             AssessmentRow assessment, Map<Integer, MarkRow> marks) {
         MarkRow mark = marks.get(assessment.id());
         if (mark == null) {
-            throw new BusinessRuleException("Results are unavailable until all required marks are entered.");
+            throw new BusinessRuleException("Results are unavailable because a mark is missing for \""
+                    + assessment.name() + "\".");
         }
         return new AssessmentCalculator.WeightedMark(
                 mark.score(), assessment.weight(), assessment.caComponent());

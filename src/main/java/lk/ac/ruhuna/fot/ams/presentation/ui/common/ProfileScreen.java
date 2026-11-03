@@ -21,6 +21,7 @@ public final class ProfileScreen extends JPanel {
     private final AuthenticatedSession actor;
     private final ProfileController profiles;
     private final ApplicationErrorHandler errors;
+    private final boolean canChangePassword;
     private final JLabel username = new JLabel("Loading...");
     private final JLabel role = new JLabel(" ");
     private final JLabel status = new JLabel(" ");
@@ -41,12 +42,24 @@ public final class ProfileScreen extends JPanel {
         this.actor = actor;
         this.profiles = profiles;
         this.errors = errors;
+        this.canChangePassword = actor.role() != Role.UNDERGRADUATE;
         setBorder(BorderFactory.createEmptyBorder(
                 UiTheme.SPACE_LG, UiTheme.SPACE_LG, UiTheme.SPACE_LG, UiTheme.SPACE_LG));
 
         JLabel heading = new JLabel("My Profile");
         heading.setFont(UiTheme.pageTitle());
         add(heading, BorderLayout.NORTH);
+
+        configureValue(username);
+        configureValue(role);
+        configureValue(accountDetail);
+        configureInput(email);
+        configureInput(phone);
+        username.setText(actor.username());
+        role.setText(actor.role().name());
+        accountDetail.setText(value(actor.displayName()));
+        email.setText("Loading...");
+        phone.setText("Loading...");
 
         JPanel form = new JPanel(new GridLayout(0, 2, UiTheme.SPACE_MD, UiTheme.SPACE_MD));
         form.setOpaque(false);
@@ -90,14 +103,16 @@ public final class ProfileScreen extends JPanel {
         body.setOpaque(false);
         body.setLayout(new javax.swing.BoxLayout(body, javax.swing.BoxLayout.Y_AXIS));
         body.add(form);
-        body.add(javax.swing.Box.createVerticalStrut(UiTheme.SPACE_MD));
-        body.add(passwordForm);
         save.addActionListener(event -> saveProfile());
         changePassword.addActionListener(event -> submitPasswordChange());
         JPanel actions = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, UiTheme.SPACE_SM, 0));
         actions.setOpaque(false);
         actions.add(save);
-        actions.add(changePassword);
+        if (canChangePassword) {
+            body.add(javax.swing.Box.createVerticalStrut(UiTheme.SPACE_MD));
+            body.add(passwordForm);
+            actions.add(changePassword);
+        }
         body.add(javax.swing.Box.createVerticalStrut(UiTheme.SPACE_MD));
         body.add(actions);
         JScrollPane profileScroll = new JScrollPane(body);
@@ -146,10 +161,12 @@ public final class ProfileScreen extends JPanel {
                                 + "  |  Semester: " + value(loadedProfile.semesterNumber())
                                 + "  |  Student number: " + value(loadedProfile.studentNumber());
                     });
-                    fullName.setEditable(loadedProfile.role() != Role.UNDERGRADUATE);
-                    phone.setEditable(loadedProfile.role() != Role.UNDERGRADUATE);
+                    boolean editableContact = loadedProfile.role() != Role.ADMIN;
+                    fullName.setEditable(editableContact);
+                    phone.setEditable(editableContact);
+                    email.setEditable(loadedProfile.role() == Role.ADMIN);
                     save.setEnabled(loadedProfile.active());
-                    changePassword.setEnabled(loadedProfile.active());
+                    changePassword.setEnabled(canChangePassword && loadedProfile.active());
                     status.setForeground(UiTheme.MUTED);
                     status.setText(loadedProfile.active() ? " " : "This account is inactive.");
                 } catch (InterruptedException interrupted) {
@@ -179,7 +196,7 @@ public final class ProfileScreen extends JPanel {
                 if (profile.role() == Role.UNDERGRADUATE) {
                     return profiles.updateUndergraduate(actor,
                             new ProfileController.UndergraduateProfileRequest(
-                                    updatedEmail, profile.profilePicture()));
+                                    updatedName, updatedPhone));
                 }
                 return profiles.updateStaff(actor,
                         new ProfileController.StaffProfileRequest(
@@ -244,22 +261,43 @@ public final class ProfileScreen extends JPanel {
                         status.setForeground(UiTheme.MUTED);
                         status.setText("Password changed. Use the new password the next time you sign in.");
                     }
-                    changePassword.setEnabled(loadedProfile != null && loadedProfile.active());
+                    changePassword.setEnabled(canChangePassword && loadedProfile != null && loadedProfile.active());
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
                     showError("Changing your password was interrupted.");
-                    changePassword.setEnabled(loadedProfile != null && loadedProfile.active());
+                    changePassword.setEnabled(canChangePassword && loadedProfile != null && loadedProfile.active());
                 } catch (ExecutionException failure) {
                     errors.log(failure.getCause());
                     showError(errors.userMessage(failure.getCause()));
-                    changePassword.setEnabled(loadedProfile != null && loadedProfile.active());
+                    changePassword.setEnabled(canChangePassword && loadedProfile != null && loadedProfile.active());
                 }
             }
         }.execute();
     }
 
     private String value(Object value) {
-        return value == null ? "Not set" : value.toString();
+        return value == null || value.toString().isBlank() ? "Not set" : value.toString();
+    }
+
+    private void configureValue(JLabel label) {
+        label.setForeground(java.awt.Color.BLACK);
+        label.setFont(UiTheme.body());
+        label.setOpaque(true);
+        label.setBackground(java.awt.Color.WHITE);
+        label.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+        label.setMinimumSize(new java.awt.Dimension(220, 32));
+        label.setPreferredSize(new java.awt.Dimension(320, 32));
+        label.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(UiTheme.BORDER),
+                BorderFactory.createEmptyBorder(6, 8, 6, 8)));
+    }
+
+    private void configureInput(JTextField field) {
+        field.setForeground(java.awt.Color.BLACK);
+        field.setBackground(java.awt.Color.WHITE);
+        field.setCaretColor(java.awt.Color.BLACK);
+        field.setMinimumSize(new java.awt.Dimension(220, 32));
+        field.setPreferredSize(new java.awt.Dimension(320, 32));
     }
 
     private void showError(String message) {
