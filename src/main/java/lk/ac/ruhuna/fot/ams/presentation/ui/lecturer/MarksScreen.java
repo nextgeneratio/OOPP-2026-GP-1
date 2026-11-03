@@ -106,6 +106,7 @@ public final class MarksScreen extends JPanel {
     private JPanel buildTablePanel() {
         table.getAccessibleContext().setAccessibleName("Marks table");
         table.putClientProperty("JTable.autoStartsEdit", Boolean.TRUE);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         tableState.setFont(UiTheme.helper());
         tableState.setForeground(UiTheme.MUTED);
         JPanel panel = new JPanel(new BorderLayout(0, UiTheme.SPACE_SM));
@@ -155,15 +156,30 @@ public final class MarksScreen extends JPanel {
         ApiCall.run(() -> marks.sheet(session, selected.offeringId()), loaded -> {
             sheet = loaded;
             model.load(loaded);
+            configureColumnWidths();
             if (loaded.assessments().isEmpty()) {
                 tableState.setText("No assessment plan has been published for this offering.");
             } else if (loaded.students().isEmpty()) {
                 tableState.setText("No active students are enrolled in this offering.");
             } else {
-                tableState.setText(loaded.students().size() + " student(s). Enter marks from 0 to 100.");
+                tableState.setText(loaded.students().size()
+                        + " student(s). Edit assessment cells from 0 to 100; final exams require CA and attendance eligibility.");
                 saveButton.setEnabled(true);
             }
         }, this::loadFailed);
+    }
+
+    private void configureColumnWidths() {
+        for (int column = 0; column < table.getColumnCount(); column++) {
+            int width;
+            if (column == 0) width = 100;
+            else if (column == 1) width = 190;
+            else if (column < FIXED_COLUMNS + model.assessmentCount()) {
+                AssessmentRow assessment = model.assessmentAt(column - FIXED_COLUMNS);
+                width = "FINAL".equalsIgnoreCase(assessment.type()) ? 190 : 155;
+            } else width = column == FIXED_COLUMNS + model.assessmentCount() ? 125 : 95;
+            table.getColumnModel().getColumn(column).setPreferredWidth(width);
+        }
     }
 
     private void loadFailed(ApiError error) {
@@ -219,16 +235,24 @@ public final class MarksScreen extends JPanel {
         private boolean[] invalid = new boolean[0];
 
         void load(MarkSheet loaded) {
-            sheet = loaded;
-            int rows = loaded == null ? 0 : loaded.students().size();
-            int columns = loaded == null ? 0 : loaded.assessments().size();
+            if (loaded == null) {
+                sheet = null;
+            } else {
+                List<AssessmentRow> displayOrder = loaded.assessments().stream()
+                        .sorted(java.util.Comparator.comparingInt(assessment ->
+                                "FINAL".equalsIgnoreCase(assessment.type()) ? 0 : 1))
+                        .toList();
+                sheet = new MarkSheet(loaded.offeringId(), displayOrder, loaded.students());
+            }
+            int rows = sheet == null ? 0 : sheet.students().size();
+            int columns = sheet == null ? 0 : sheet.assessments().size();
             original = new String[rows][columns];
             current = new String[rows][columns];
             invalid = new boolean[rows];
             for (int r = 0; r < rows; r++) {
-                StudentMarks student = loaded.students().get(r);
+                StudentMarks student = sheet.students().get(r);
                 for (int c = 0; c < columns; c++) {
-                    BigDecimal score = student.scores().get(loaded.assessments().get(c).id());
+                    BigDecimal score = student.scores().get(sheet.assessments().get(c).id());
                     String text = score == null ? "" : score.stripTrailingZeros().toPlainString();
                     original[r][c] = text;
                     current[r][c] = text;
@@ -265,6 +289,8 @@ public final class MarksScreen extends JPanel {
             return sheet == null ? 0 : sheet.assessments().size();
         }
 
+        private AssessmentRow assessmentAt(int index) { return sheet.assessments().get(index); }
+
         private String rowStatus(int row) {
             if (invalid[row]) {
                 return "INVALID";
@@ -294,7 +320,8 @@ public final class MarksScreen extends JPanel {
             int index = column - FIXED_COLUMNS;
             if (index < assessmentCount()) {
                 AssessmentRow assessment = sheet.assessments().get(index);
-                return assessment.name() + " (" + assessment.weight().stripTrailingZeros().toPlainString() + "%"
+                String label = "FINAL".equalsIgnoreCase(assessment.type()) ? "Final exam — " : "";
+                return label + assessment.name() + " (" + assessment.weight().stripTrailingZeros().toPlainString() + "%"
                         + (assessment.caComponent() ? ", CA" : "") + ")";
             }
             return index == assessmentCount() ? "CA contribution" : "Status";
@@ -321,7 +348,10 @@ public final class MarksScreen extends JPanel {
 
         @Override public boolean isCellEditable(int row, int column) {
             int index = column - FIXED_COLUMNS;
-            return index >= 0 && index < assessmentCount();
+            if (index < 0 || index >= assessmentCount()) return false;
+            AssessmentRow assessment = sheet.assessments().get(index);
+            return !"FINAL".equalsIgnoreCase(assessment.type())
+                    || sheet.students().get(row).finalExamEligible();
         }
 
         @Override public void setValueAt(Object value, int row, int column) {

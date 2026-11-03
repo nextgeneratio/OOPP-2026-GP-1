@@ -106,7 +106,12 @@ public interface CourseDao {
 
     List<AttendanceRosterRow> findAttendanceRoster(int offeringId);
 
+    List<AttendanceRosterRow> findAttendanceViewRoster(int offeringId);
+
     List<RosterRow> findRoster(int offeringId);
+
+    /** Mark-entry roster includes completed enrollments so their final assessment rows remain visible. */
+    List<RosterRow> findMarksRoster(int offeringId);
 
     List<EnrollmentRow> findEnrollmentsForStudent(int studentId);
 

@@ -1,7 +1,11 @@
 package lk.ac.ruhuna.fot.ams.presentation.ui.common;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.time.LocalTime;
 import java.util.List;
 import javax.swing.BorderFactory;
@@ -133,9 +137,22 @@ public final class TimetableScreen extends JPanel {
     private EntryRow entryValue(JComboBox<SelectionOption>b){Integer x=selectionId(b);if(x==null)return null;return loadedEntries.stream().filter(r->r.id()==x).findFirst().orElse(null);}
     private String offeringLabel(CourseCatalog d,OfferingRow o){CourseRow c=d.courses().stream().filter(x->x.id()==o.courseId()).findFirst().orElse(null);
         var batch=d.batches().stream().filter(x->x.id()==o.batchId()).findFirst().orElse(null);var sem=d.semesters().stream().filter(x->x.id()==o.semesterId()).findFirst().orElse(null);
-        return (c==null?"Course":c.code()+" — "+c.title())+" — "+(batch==null?"Batch":batch.code()+" Level "+batch.level())+" — "+(sem==null?"Term":sem.academicYear()+" Semester "+sem.semesterNumber());}
+        return (c==null?"Course":c.code())+" — "+(batch==null?"Batch":batch.code())+" — "+(sem==null?"Term":sem.academicYear()+" Semester "+sem.semesterNumber());}
     private String entryLabel(CourseCatalog d,EntryRow e){var c=d.components().stream().filter(x->x.id()==e.componentId()).findFirst().orElse(null);return offeringLabel(d,d.offerings().stream().filter(o->o.id()==e.offeringId()).findFirst().orElseThrow())+" — "+(c==null?"Component":c.type())+" — "+e.dayOfWeek()+" "+e.start();}
-    private boolean form(String title,String[]labels,java.awt.Component...fields){JPanel p=new JPanel(new GridLayout(labels.length,2,8,8));for(int i=0;i<labels.length;i++){p.add(new JLabel(labels[i]));p.add(fields[i]);}JScrollPane scroll=new JScrollPane(p);scroll.setBorder(null);scroll.setPreferredSize(new java.awt.Dimension(650,Math.min(500,labels.length*48+24)));return JOptionPane.showConfirmDialog(this,scroll,title,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE)==JOptionPane.OK_OPTION;}
+    private boolean form(String title,String[]labels,java.awt.Component...fields){
+        JPanel panel=new JPanel(new GridBagLayout());
+        for(int i=0;i<labels.length;i++){
+            java.awt.Component field=fields[i];
+            if(field instanceof JComboBox<?> combo)combo.setPreferredSize(new Dimension(390,combo.getPreferredSize().height));
+            else if(field instanceof JTextField text)text.setPreferredSize(new Dimension(390,text.getPreferredSize().height));
+            else if(field instanceof JScrollPane fieldScroll)fieldScroll.setPreferredSize(new Dimension(390,110));
+            GridBagConstraints label=new GridBagConstraints();label.gridx=0;label.gridy=i;label.anchor=GridBagConstraints.LINE_START;label.insets=new Insets(6,4,6,12);panel.add(new JLabel(labels[i]),label);
+            GridBagConstraints input=new GridBagConstraints();input.gridx=1;input.gridy=i;input.weightx=1;input.fill=GridBagConstraints.HORIZONTAL;input.insets=new Insets(6,0,6,4);panel.add(field,input);
+        }
+        JScrollPane scroll=new JScrollPane(panel,JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);scroll.setBorder(null);
+        scroll.setPreferredSize(new Dimension(650,Math.min(500,labels.length*58+24)));
+        return JOptionPane.showConfirmDialog(this,scroll,title,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE)==JOptionPane.OK_OPTION;
+    }
     private void button(JPanel p,String text,Runnable action){javax.swing.JButton b=new javax.swing.JButton(text);b.addActionListener(e->{try{action.run();}catch(RuntimeException x){error("Check the selected records and time values: "+x.getMessage());}});p.add(b);}
     private void show(ApiResponse<?>r){if(r.successful())JOptionPane.showMessageDialog(this,"Action completed successfully.","Timetable",JOptionPane.INFORMATION_MESSAGE);else error(r.error().message());}
     private void error(String message){JOptionPane.showMessageDialog(this,message,"Timetable",JOptionPane.ERROR_MESSAGE);}

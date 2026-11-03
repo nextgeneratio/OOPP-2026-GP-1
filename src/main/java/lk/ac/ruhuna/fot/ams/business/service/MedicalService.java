@@ -50,16 +50,70 @@ public final class MedicalService {
     }
 
     public long submit(AuthenticatedSession actor, MedicalRow request) {
-        if (request == null) {
-            throw new ValidationException("Medical record details are required.");
+        MedicalRow pending = validateSubmission(actor, request);
+        return persistPending(actor, pending);
+    }
+
+    /** Creates one medical record per selected course in a single database transaction. */
+    public int submitWithPdfForOfferings(
+            AuthenticatedSession actor, MedicalRow request, List<Integer> offeringIds, Path sourcePdf) {
+        if (request == null) throw new ValidationException("Medical record details are required.");
+        authorization.requireRole(actor, Role.UNDERGRADUATE);
+        validatePdf(sourcePdf);
+        if (offeringIds == null || offeringIds.isEmpty()) {
+            throw new ValidationException("Select at least one course offering.");
         }
+        List<Integer> selectedOfferings = offeringIds.stream().distinct().toList();
+        if (selectedOfferings.stream().anyMatch(id -> id == null || id < 1)) {
+            throw new ValidationException("Select valid course offerings.");
+        }
+
+        Path privateDirectory = Path.of("var", EVIDENCE_DIRECTORY).toAbsolutePath().normalize();
+        Path stored = privateDirectory.resolve(UUID.randomUUID() + ".pdf").normalize();
+        if (!stored.startsWith(privateDirectory)) {
+            throw new ValidationException("Medical proof storage path is invalid.");
+        }
+        try {
+            Files.createDirectories(privateDirectory);
+            Files.copy(sourcePdf, stored, StandardCopyOption.COPY_ATTRIBUTES);
+        } catch (IOException exception) {
+            throw new ValidationException("The medical proof could not be stored safely.");
+        }
+
+        try {
+            String evidenceReference = EVIDENCE_DIRECTORY + "/" + stored.getFileName();
+            List<MedicalRow> pendingRows = selectedOfferings.stream()
+                    .map(offeringId -> new MedicalRow(0, authorization.studentId(actor), offeringId,
+                            request.medicalDate(), request.startDate(), request.endDate(), request.reason(),
+                            evidenceReference, ApprovalStatus.PENDING, false, null))
+                    .map(row -> validateSubmission(actor, row))
+                    .toList();
+            return transactions.execute(connection -> {
+                for (MedicalRow pending : pendingRows) {
+                    long medicalId = medicalDao.insert(connection, pending);
+                    auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
+                            0, actor.userId(), "MEDICAL_CREATE", "MEDICAL_RECORD",
+                            medicalId, LocalDateTime.now(clock)));
+                }
+                return pendingRows.size();
+            });
+        } catch (RuntimeException exception) {
+            try {
+                Files.deleteIfExists(stored);
+            } catch (IOException ignored) {
+                // The private file is inaccessible without an authorised retrieval flow.
+            }
+            throw exception;
+        }
+    }
+
+    private MedicalRow validateSubmission(AuthenticatedSession actor, MedicalRow request) {
+        if (request == null) throw new ValidationException("Medical record details are required.");
         if (actor == null || actor.role() != Role.UNDERGRADUATE) {
             throw new AuthorizationException("Only a student may submit a medical request.");
         }
         authorization.requireUndergraduateForStudent(actor, request.studentId());
-        if (request.offeringId() != null) {
-            authorization.requireUndergraduateForOffering(actor, request.offeringId());
-        }
+        if (request.offeringId() != null) authorization.requireUndergraduateForOffering(actor, request.offeringId());
         new MedicalRecord(request.medicalDate(), request.startDate(), request.endDate(), request.reason());
         validateEvidenceReference(request.evidenceReference());
         if (request.offeringId() != null && courseDao.findActiveEnrollments(request.offeringId()).stream()
@@ -71,9 +125,12 @@ public final class MedicalService {
         if (overlaps.stream().anyMatch(record -> record.status() != ApprovalStatus.REJECTED)) {
             throw new BusinessRuleException("An overlapping pending or approved medical record already exists.");
         }
-        MedicalRow pending = new MedicalRow(0, request.studentId(), request.offeringId(),
-                request.medicalDate(), request.startDate(), request.endDate(), request.reason(),
-                request.evidenceReference(), ApprovalStatus.PENDING, false, null);
+        return new MedicalRow(0, request.studentId(), request.offeringId(), request.medicalDate(),
+                request.startDate(), request.endDate(), request.reason(), request.evidenceReference(),
+                ApprovalStatus.PENDING, false, null);
+    }
+
+    private long persistPending(AuthenticatedSession actor, MedicalRow pending) {
         return transactions.execute(connection -> {
             long medicalId = medicalDao.insert(connection, pending);
             auditLogDao.insert(connection, new AuditLogDao.AuditEvent(

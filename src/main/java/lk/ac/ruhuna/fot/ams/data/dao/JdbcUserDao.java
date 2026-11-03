@@ -309,7 +309,7 @@ public final class JdbcUserDao implements UserDao {
                 statement -> {
                     statement.setString(1, fullName);
                     statement.setString(2, phone);
-                    statement.setLong(2, userId);
+                    statement.setLong(3, userId);
                 });
         return 1;
     }

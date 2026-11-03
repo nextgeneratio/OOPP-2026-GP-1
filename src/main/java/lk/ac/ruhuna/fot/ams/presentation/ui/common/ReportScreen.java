@@ -34,8 +34,8 @@ public final class ReportScreen extends JPanel {
     private final JComboBox<ReportCategory> categoryBox = new JComboBox<>();
     private final JComboBox<OfferingSummary> offeringBox = new JComboBox<>();
     private final JComboBox<RosterRow> studentBox = new JComboBox<>();
-    private final JPanel offeringPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, UiTheme.SPACE_SM, 0));
-    private final JPanel studentPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, UiTheme.SPACE_SM, 0));
+    private final JPanel offeringPanel = new JPanel(new BorderLayout(UiTheme.SPACE_SM, 0));
+    private final JPanel studentPanel = new JPanel(new BorderLayout(UiTheme.SPACE_SM, 0));
     private final ReportTableModel model = new ReportTableModel();
     private final JTable table = new JTable(model);
     private final JLabel status = new JLabel(" ");
@@ -86,30 +86,35 @@ public final class ReportScreen extends JPanel {
         offeringBox.addActionListener(event -> { if (!populating) loadRoster(); });
 
         offeringPanel.setOpaque(false);
-        offeringPanel.add(new JLabel("Offering"));
-        offeringPanel.add(offeringBox);
+        offeringPanel.add(new JLabel("Offering"), BorderLayout.WEST);
+        offeringPanel.add(offeringBox, BorderLayout.CENTER);
         studentPanel.setOpaque(false);
-        studentPanel.add(new JLabel("Student"));
-        studentPanel.add(studentBox);
+        studentPanel.add(new JLabel("Student"), BorderLayout.WEST);
+        studentPanel.add(studentBox, BorderLayout.CENTER);
         runButton.addActionListener(event -> run());
         exportButton.addActionListener(event -> exportCsv());
         printButton.addActionListener(event -> print());
 
-        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, UiTheme.SPACE_MD, UiTheme.SPACE_SM));
-        row.setOpaque(false);
-        row.setAlignmentX(LEFT_ALIGNMENT);
         JPanel reportPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, UiTheme.SPACE_SM, 0));
         reportPanel.setOpaque(false);
         reportPanel.add(new JLabel("Report"));
         reportPanel.add(categoryBox);
-        row.add(reportPanel);
-        row.add(offeringPanel);
-        row.add(studentPanel);
-        row.add(runButton);
-        row.add(exportButton);
-        row.add(printButton);
+        reportPanel.setAlignmentX(LEFT_ALIGNMENT);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, UiTheme.SPACE_SM, 0));
+        actions.setOpaque(false);
+        actions.setAlignmentX(LEFT_ALIGNMENT);
+        actions.add(runButton);
+        actions.add(exportButton);
+        actions.add(printButton);
+
+        offeringPanel.setAlignmentX(LEFT_ALIGNMENT);
+        studentPanel.setAlignmentX(LEFT_ALIGNMENT);
         header.add(title);
-        header.add(row);
+        header.add(reportPanel);
+        header.add(offeringPanel);
+        header.add(studentPanel);
+        header.add(actions);
         return header;
     }
 

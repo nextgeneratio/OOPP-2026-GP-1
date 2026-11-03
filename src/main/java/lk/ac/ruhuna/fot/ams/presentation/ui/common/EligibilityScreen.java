@@ -218,7 +218,7 @@ public final class EligibilityScreen extends JPanel {
             populating = true;
             roster.forEach(studentBox::addItem);
             populating = false;
-            status.setText(roster.isEmpty() ? "No active students are enrolled in this offering." : " ");
+            status.setText(roster.isEmpty() ? "No students are enrolled in this offering." : " ");
         }, this::loadFailed);
     }
 

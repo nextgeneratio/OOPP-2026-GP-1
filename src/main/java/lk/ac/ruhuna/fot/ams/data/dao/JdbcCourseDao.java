@@ -363,10 +363,32 @@ public final class JdbcCourseDao implements CourseDao {
     }
 
     @Override
+    public List<AttendanceRosterRow> findAttendanceViewRoster(int offeringId) {
+        return jdbc.query("SELECT e.enrollment_id, u.student_id, u.student_no, u.full_name "
+                        + "FROM course_enrollments e JOIN undergraduates u ON u.student_id = e.student_id "
+                        + "WHERE e.offering_id = ? AND e.enrollment_status <> 'WITHDRAWN' "
+                        + "ORDER BY u.student_no, e.attempt_no",
+                statement -> statement.setInt(1, offeringId), result -> new AttendanceRosterRow(
+                        result.getInt("enrollment_id"), result.getInt("student_id"),
+                        result.getString("student_no"), result.getString("full_name")));
+    }
+
+    @Override
     public List<RosterRow> findRoster(int offeringId) {
         return jdbc.query("SELECT e.enrollment_id, e.student_id, u.student_no, u.full_name "
                         + "FROM course_enrollments e JOIN undergraduates u ON u.student_id = e.student_id "
                         + "WHERE e.offering_id = ? AND e.enrollment_status = 'ACTIVE' "
+                        + "ORDER BY u.student_no, e.attempt_no",
+                statement -> statement.setInt(1, offeringId), result -> new RosterRow(
+                        result.getInt("enrollment_id"), result.getInt("student_id"),
+                        result.getString("student_no"), result.getString("full_name")));
+    }
+
+    @Override
+    public List<RosterRow> findMarksRoster(int offeringId) {
+        return jdbc.query("SELECT e.enrollment_id, e.student_id, u.student_no, u.full_name "
+                        + "FROM course_enrollments e JOIN undergraduates u ON u.student_id = e.student_id "
+                        + "WHERE e.offering_id = ? AND e.enrollment_status <> 'WITHDRAWN' "
                         + "ORDER BY u.student_no, e.attempt_no",
                 statement -> statement.setInt(1, offeringId), result -> new RosterRow(
                         result.getInt("enrollment_id"), result.getInt("student_id"),

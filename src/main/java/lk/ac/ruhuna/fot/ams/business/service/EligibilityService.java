@@ -44,7 +44,9 @@ public final class EligibilityService {
 
     public List<CourseDao.RosterRow> rosterForOffering(AuthenticatedSession actor, int offeringId) {
         authorization.requireLecturerForOffering(actor, offeringId);
-        return courseDao.findRoster(offeringId);
+        // Eligibility is a read-only check, so include completed enrollments as well as active
+        // ones. The active-only roster hides students whose enrollment has already been completed.
+        return courseDao.findMarksRoster(offeringId);
     }
 
     public List<StudentOffering> offeringsForStudent(AuthenticatedSession actor) {

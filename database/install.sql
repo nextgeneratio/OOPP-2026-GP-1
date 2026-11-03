@@ -245,6 +245,7 @@ CREATE TABLE IF NOT EXISTS `course_offering_lecturers` (
     lecturer_id INT NOT NULL,
 
     PRIMARY KEY (offering_id, lecturer_id),
+    UNIQUE KEY uk_course_offering_lecturers_one_lecturer (offering_id),
     INDEX idx_course_offering_lecturers_lecturer_id (lecturer_id),
 
     CONSTRAINT fk_course_offering_lecturers_offering
@@ -1600,6 +1601,8 @@ BEGIN
       UNION ALL
       SELECT 'course_offering_lecturers' AS table_name, 'PRIMARY' AS index_name
       UNION ALL
+      SELECT 'course_offering_lecturers' AS table_name, 'uk_course_offering_lecturers_one_lecturer' AS index_name
+      UNION ALL
       SELECT 'course_offering_lecturers' AS table_name, 'idx_course_offering_lecturers_lecturer_id' AS index_name
       UNION ALL
       SELECT 'course_offerings' AS table_name, 'PRIMARY' AS index_name
@@ -1704,7 +1707,7 @@ BEGIN
   END IF;
   IF (SELECT COUNT(*) FROM information_schema.table_constraints
       WHERE constraint_schema=DATABASE() AND table_name IN ('users', 'admins', 'departments', 'batches', 'undergraduates', 'lecturers', 'technical_officers', 'courses', 'course_components', 'semesters', 'course_offerings', 'course_offering_lecturers', 'course_enrollments', 'assessments', 'marks', 'attendance_sessions', 'attendance_records', 'medical_records', 'course_materials', 'course_quizzes', 'quiz_questions', 'quiz_attempts', 'course_assignments', 'assignment_submissions', 'notices', 'timetables', 'timetable_entries', 'grades', 'course_results', 'audit_logs')
-        AND constraint_type IN ('PRIMARY KEY','UNIQUE','FOREIGN KEY','CHECK')) <> 131
+        AND constraint_type IN ('PRIMARY KEY','UNIQUE','FOREIGN KEY','CHECK')) <> 132
      OR EXISTS (
        SELECT 1 FROM (
       SELECT 'admins' AS table_name, 'fk_admins_user' AS constraint_name
@@ -1919,6 +1922,10 @@ BEGIN
     ('LE003', 'PBKDF2$210000$NfldvpmrinfQoHmAimJNiw==$3NNtIeCM/8vpsWSjJ1Or54I38Woii8B038iyn2F3bS8=', 'LECTURER', 'demo_lec003@example.invalid', TRUE, NOW()),
     ('LE004', 'PBKDF2$210000$fKLvdQgTNjBZdyC+RPoXFw==$/dPLKwStdSHMmpU8m3E90rTNgkfGBP7r9on1uVYat2M=', 'LECTURER', 'demo_lec004@example.invalid', TRUE, NOW()),
     ('LE005', 'PBKDF2$210000$/HWJQ30/yPDWwPz/rJl2lw==$a77CFC7RlWEV0XU7NaHuP0G1/l02utSoaI0ZZPwnsJ8=', 'LECTURER', 'demo_lec005@example.invalid', TRUE, NOW()),
+    ('LE006', 'PBKDF2$210000$VgF0h+jeg1L8Z4WVVEnjLA==$hk83ZsFYzpFuG/OJQ7NsFqyES7nRQagkQCt3ss8OWPI=', 'LECTURER', 'LE006_Demo_Lecturer_006@fot.ac.lk', TRUE, NOW()),
+    ('LE007', 'PBKDF2$210000$VgF0h+jeg1L8Z4WVVEnjLA==$hk83ZsFYzpFuG/OJQ7NsFqyES7nRQagkQCt3ss8OWPI=', 'LECTURER', 'LE007_Demo_Lecturer_007@fot.ac.lk', TRUE, NOW()),
+    ('LE008', 'PBKDF2$210000$VgF0h+jeg1L8Z4WVVEnjLA==$hk83ZsFYzpFuG/OJQ7NsFqyES7nRQagkQCt3ss8OWPI=', 'LECTURER', 'LE008_Demo_Lecturer_008@fot.ac.lk', TRUE, NOW()),
+    ('LE009', 'PBKDF2$210000$VgF0h+jeg1L8Z4WVVEnjLA==$hk83ZsFYzpFuG/OJQ7NsFqyES7nRQagkQCt3ss8OWPI=', 'LECTURER', 'LE009_Demo_Lecturer_009@fot.ac.lk', TRUE, NOW()),
     ('TE001', 'PBKDF2$210000$nJ+BIYkPLIsBDiAXRUaVoA==$n1Ydezb/l3cJhEyRpMfn++8H4q/fqUoOF24L4fibFp0=', 'TECHNICAL_OFFICER', 'demo_to001@example.invalid', TRUE, NOW()),
     ('TE002', 'PBKDF2$210000$Y3pF8t+aaVPM9TMU07Y5OA==$/uQt0p9p58U59m+AZF2ie6V8qNpd3Tf4BV5QbMc9M/U=', 'TECHNICAL_OFFICER', 'demo_to002@example.invalid', TRUE, NOW()),
     ('TE003', 'PBKDF2$210000$r9L4c6Vpq7lrw7h6OUpsSQ==$/7mg2674iyhxol7vIEV1dZ6GFgRBVdBNzd+fnFJ/r6s=', 'TECHNICAL_OFFICER', 'demo_to003@example.invalid', TRUE, NOW()),
@@ -1951,7 +1958,11 @@ BEGIN
        UNION ALL SELECT 'LE002', 'ICT'
        UNION ALL SELECT 'LE003', 'BST'
        UNION ALL SELECT 'LE004', 'ICT'
-       UNION ALL SELECT 'LE005', 'ICT') m
+       UNION ALL SELECT 'LE005', 'ICT'
+       UNION ALL SELECT 'LE006', 'ICT'
+       UNION ALL SELECT 'LE007', 'ICT'
+       UNION ALL SELECT 'LE008', 'BST'
+       UNION ALL SELECT 'LE009', 'ET') m
   JOIN users u ON u.username=m.username JOIN departments d ON d.code=m.dept;
   INSERT INTO `technical_officers` (user_id,department_id,full_name,phone,designation)
   SELECT u.user_id,d.department_id,CONCAT('Demo Technical Officer ',RIGHT(u.username,3)),NULL,'Synthetic demonstration officer'
@@ -1985,31 +1996,31 @@ BEGIN
        UNION ALL SELECT 'TCS2112', 'THEORY', 2.0
        UNION ALL SELECT 'TCS2121', 'THEORY', 1.0
        UNION ALL SELECT 'ENG2112', 'THEORY', 2.0) v JOIN courses c ON c.course_code=v.course_code;
-  -- One offering per course, in its provisional department cohort, coordinated by its synthetic lecturer.
+  -- Each lecturer is responsible for exactly one course offering in the demonstration semester.
   INSERT INTO `course_offerings` (course_id,batch_id,semester_id,coordinator_id,status)
   SELECT c.course_id,b.batch_id,s.semester_id,l.lecturer_id,'OPEN' FROM (SELECT 'ICT2113' AS `course_code`, 'LE001' AS `lecturer_username`
-       UNION ALL SELECT 'ICT2122', 'LE001'
-       UNION ALL SELECT 'ICT2132', 'LE001'
-       UNION ALL SELECT 'ICT2142', 'LE002'
-       UNION ALL SELECT 'ICT2152', 'LE005'
-       UNION ALL SELECT 'ICT2162', 'LE004'
+       UNION ALL SELECT 'ICT2122', 'LE002'
+       UNION ALL SELECT 'ICT2132', 'LE004'
+       UNION ALL SELECT 'ICT2142', 'LE005'
+       UNION ALL SELECT 'ICT2152', 'LE006'
+       UNION ALL SELECT 'ICT2162', 'LE007'
        UNION ALL SELECT 'TCS2112', 'LE003'
-       UNION ALL SELECT 'TCS2121', 'LE005'
-       UNION ALL SELECT 'ENG2112', 'LE002') m
+       UNION ALL SELECT 'TCS2121', 'LE008'
+       UNION ALL SELECT 'ENG2112', 'LE009') m
   JOIN courses c ON c.course_code=m.course_code JOIN departments d ON d.department_id=c.department_id
   JOIN batches b ON b.batch_code='DEMO-ICT-2026'
   JOIN semesters s ON s.academic_year='2026/2027' AND s.semester_no=1
   JOIN users u ON u.username=m.lecturer_username JOIN lecturers l ON l.user_id=u.user_id;
   INSERT INTO `course_offering_lecturers` (offering_id,lecturer_id)
   SELECT o.offering_id,l.lecturer_id FROM (SELECT 'ICT2113' AS `course_code`, 'LE001' AS `lecturer_username`
-       UNION ALL SELECT 'ICT2122', 'LE001'
-       UNION ALL SELECT 'ICT2132', 'LE001'
-       UNION ALL SELECT 'ICT2142', 'LE002'
-       UNION ALL SELECT 'ICT2152', 'LE005'
-       UNION ALL SELECT 'ICT2162', 'LE004'
+       UNION ALL SELECT 'ICT2122', 'LE002'
+       UNION ALL SELECT 'ICT2132', 'LE004'
+       UNION ALL SELECT 'ICT2142', 'LE005'
+       UNION ALL SELECT 'ICT2152', 'LE006'
+       UNION ALL SELECT 'ICT2162', 'LE007'
        UNION ALL SELECT 'TCS2112', 'LE003'
-       UNION ALL SELECT 'TCS2121', 'LE005'
-       UNION ALL SELECT 'ENG2112', 'LE002') m
+       UNION ALL SELECT 'TCS2121', 'LE008'
+       UNION ALL SELECT 'ENG2112', 'LE009') m
   JOIN courses c ON c.course_code=m.course_code JOIN course_offerings o ON o.course_id=c.course_id
   JOIN users u ON u.username=m.lecturer_username JOIN lecturers l ON l.user_id=u.user_id;
   -- Register every undergraduate in every demo course offering.
@@ -2186,46 +2197,46 @@ BEGIN
        UNION ALL SELECT 'ICT2113', 'Worked Examples', 'uploads/materials/demo-readings/ICT2113/03_Worked_Examples.pdf', 'LE001'
        UNION ALL SELECT 'ICT2113', 'Practical Tutorial', 'uploads/materials/demo-readings/ICT2113/04_Practical_Tutorial.pdf', 'LE001'
        UNION ALL SELECT 'ICT2113', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ICT2113/05_Revision_Guide.pdf', 'LE001'
-       UNION ALL SELECT 'ICT2122', 'Foundations and Orientation', 'uploads/materials/demo-readings/ICT2122/01_Foundations.pdf', 'LE001'
-       UNION ALL SELECT 'ICT2122', 'Core Concepts', 'uploads/materials/demo-readings/ICT2122/02_Core_Concepts.pdf', 'LE001'
-       UNION ALL SELECT 'ICT2122', 'Worked Examples', 'uploads/materials/demo-readings/ICT2122/03_Worked_Examples.pdf', 'LE001'
-       UNION ALL SELECT 'ICT2122', 'Practical Tutorial', 'uploads/materials/demo-readings/ICT2122/04_Practical_Tutorial.pdf', 'LE001'
-       UNION ALL SELECT 'ICT2122', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ICT2122/05_Revision_Guide.pdf', 'LE001'
-       UNION ALL SELECT 'ICT2132', 'Foundations and Orientation', 'uploads/materials/demo-readings/ICT2132/01_Foundations.pdf', 'LE001'
-       UNION ALL SELECT 'ICT2132', 'Core Concepts', 'uploads/materials/demo-readings/ICT2132/02_Core_Concepts.pdf', 'LE001'
-       UNION ALL SELECT 'ICT2132', 'Worked Examples', 'uploads/materials/demo-readings/ICT2132/03_Worked_Examples.pdf', 'LE001'
-       UNION ALL SELECT 'ICT2132', 'Practical Tutorial', 'uploads/materials/demo-readings/ICT2132/04_Practical_Tutorial.pdf', 'LE001'
-       UNION ALL SELECT 'ICT2132', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ICT2132/05_Revision_Guide.pdf', 'LE001'
-       UNION ALL SELECT 'ICT2142', 'Foundations and Orientation', 'uploads/materials/demo-readings/ICT2142/01_Foundations.pdf', 'LE002'
-       UNION ALL SELECT 'ICT2142', 'Core Concepts', 'uploads/materials/demo-readings/ICT2142/02_Core_Concepts.pdf', 'LE002'
-       UNION ALL SELECT 'ICT2142', 'Worked Examples', 'uploads/materials/demo-readings/ICT2142/03_Worked_Examples.pdf', 'LE002'
-       UNION ALL SELECT 'ICT2142', 'Practical Tutorial', 'uploads/materials/demo-readings/ICT2142/04_Practical_Tutorial.pdf', 'LE002'
-       UNION ALL SELECT 'ICT2142', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ICT2142/05_Revision_Guide.pdf', 'LE002'
-       UNION ALL SELECT 'ICT2152', 'Foundations and Orientation', 'uploads/materials/demo-readings/ICT2152/01_Foundations.pdf', 'LE005'
-       UNION ALL SELECT 'ICT2152', 'Core Concepts', 'uploads/materials/demo-readings/ICT2152/02_Core_Concepts.pdf', 'LE005'
-       UNION ALL SELECT 'ICT2152', 'Worked Examples', 'uploads/materials/demo-readings/ICT2152/03_Worked_Examples.pdf', 'LE005'
-       UNION ALL SELECT 'ICT2152', 'Practical Tutorial', 'uploads/materials/demo-readings/ICT2152/04_Practical_Tutorial.pdf', 'LE005'
-       UNION ALL SELECT 'ICT2152', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ICT2152/05_Revision_Guide.pdf', 'LE005'
-       UNION ALL SELECT 'ICT2162', 'Foundations and Orientation', 'uploads/materials/demo-readings/ICT2162/01_Foundations.pdf', 'LE004'
-       UNION ALL SELECT 'ICT2162', 'Core Concepts', 'uploads/materials/demo-readings/ICT2162/02_Core_Concepts.pdf', 'LE004'
-       UNION ALL SELECT 'ICT2162', 'Worked Examples', 'uploads/materials/demo-readings/ICT2162/03_Worked_Examples.pdf', 'LE004'
-       UNION ALL SELECT 'ICT2162', 'Practical Tutorial', 'uploads/materials/demo-readings/ICT2162/04_Practical_Tutorial.pdf', 'LE004'
-       UNION ALL SELECT 'ICT2162', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ICT2162/05_Revision_Guide.pdf', 'LE004'
+       UNION ALL SELECT 'ICT2122', 'Foundations and Orientation', 'uploads/materials/demo-readings/ICT2122/01_Foundations.pdf', 'LE002'
+       UNION ALL SELECT 'ICT2122', 'Core Concepts', 'uploads/materials/demo-readings/ICT2122/02_Core_Concepts.pdf', 'LE002'
+       UNION ALL SELECT 'ICT2122', 'Worked Examples', 'uploads/materials/demo-readings/ICT2122/03_Worked_Examples.pdf', 'LE002'
+       UNION ALL SELECT 'ICT2122', 'Practical Tutorial', 'uploads/materials/demo-readings/ICT2122/04_Practical_Tutorial.pdf', 'LE002'
+       UNION ALL SELECT 'ICT2122', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ICT2122/05_Revision_Guide.pdf', 'LE002'
+       UNION ALL SELECT 'ICT2132', 'Foundations and Orientation', 'uploads/materials/demo-readings/ICT2132/01_Foundations.pdf', 'LE004'
+       UNION ALL SELECT 'ICT2132', 'Core Concepts', 'uploads/materials/demo-readings/ICT2132/02_Core_Concepts.pdf', 'LE004'
+       UNION ALL SELECT 'ICT2132', 'Worked Examples', 'uploads/materials/demo-readings/ICT2132/03_Worked_Examples.pdf', 'LE004'
+       UNION ALL SELECT 'ICT2132', 'Practical Tutorial', 'uploads/materials/demo-readings/ICT2132/04_Practical_Tutorial.pdf', 'LE004'
+       UNION ALL SELECT 'ICT2132', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ICT2132/05_Revision_Guide.pdf', 'LE004'
+       UNION ALL SELECT 'ICT2142', 'Foundations and Orientation', 'uploads/materials/demo-readings/ICT2142/01_Foundations.pdf', 'LE005'
+       UNION ALL SELECT 'ICT2142', 'Core Concepts', 'uploads/materials/demo-readings/ICT2142/02_Core_Concepts.pdf', 'LE005'
+       UNION ALL SELECT 'ICT2142', 'Worked Examples', 'uploads/materials/demo-readings/ICT2142/03_Worked_Examples.pdf', 'LE005'
+       UNION ALL SELECT 'ICT2142', 'Practical Tutorial', 'uploads/materials/demo-readings/ICT2142/04_Practical_Tutorial.pdf', 'LE005'
+       UNION ALL SELECT 'ICT2142', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ICT2142/05_Revision_Guide.pdf', 'LE005'
+       UNION ALL SELECT 'ICT2152', 'Foundations and Orientation', 'uploads/materials/demo-readings/ICT2152/01_Foundations.pdf', 'LE006'
+       UNION ALL SELECT 'ICT2152', 'Core Concepts', 'uploads/materials/demo-readings/ICT2152/02_Core_Concepts.pdf', 'LE006'
+       UNION ALL SELECT 'ICT2152', 'Worked Examples', 'uploads/materials/demo-readings/ICT2152/03_Worked_Examples.pdf', 'LE006'
+       UNION ALL SELECT 'ICT2152', 'Practical Tutorial', 'uploads/materials/demo-readings/ICT2152/04_Practical_Tutorial.pdf', 'LE006'
+       UNION ALL SELECT 'ICT2152', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ICT2152/05_Revision_Guide.pdf', 'LE006'
+       UNION ALL SELECT 'ICT2162', 'Foundations and Orientation', 'uploads/materials/demo-readings/ICT2162/01_Foundations.pdf', 'LE007'
+       UNION ALL SELECT 'ICT2162', 'Core Concepts', 'uploads/materials/demo-readings/ICT2162/02_Core_Concepts.pdf', 'LE007'
+       UNION ALL SELECT 'ICT2162', 'Worked Examples', 'uploads/materials/demo-readings/ICT2162/03_Worked_Examples.pdf', 'LE007'
+       UNION ALL SELECT 'ICT2162', 'Practical Tutorial', 'uploads/materials/demo-readings/ICT2162/04_Practical_Tutorial.pdf', 'LE007'
+       UNION ALL SELECT 'ICT2162', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ICT2162/05_Revision_Guide.pdf', 'LE007'
        UNION ALL SELECT 'TCS2112', 'Foundations and Orientation', 'uploads/materials/demo-readings/TCS2112/01_Foundations.pdf', 'LE003'
        UNION ALL SELECT 'TCS2112', 'Core Concepts', 'uploads/materials/demo-readings/TCS2112/02_Core_Concepts.pdf', 'LE003'
        UNION ALL SELECT 'TCS2112', 'Worked Examples', 'uploads/materials/demo-readings/TCS2112/03_Worked_Examples.pdf', 'LE003'
        UNION ALL SELECT 'TCS2112', 'Practical Tutorial', 'uploads/materials/demo-readings/TCS2112/04_Practical_Tutorial.pdf', 'LE003'
        UNION ALL SELECT 'TCS2112', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/TCS2112/05_Revision_Guide.pdf', 'LE003'
-       UNION ALL SELECT 'TCS2121', 'Foundations and Orientation', 'uploads/materials/demo-readings/TCS2121/01_Foundations.pdf', 'LE005'
-       UNION ALL SELECT 'TCS2121', 'Core Concepts', 'uploads/materials/demo-readings/TCS2121/02_Core_Concepts.pdf', 'LE005'
-       UNION ALL SELECT 'TCS2121', 'Worked Examples', 'uploads/materials/demo-readings/TCS2121/03_Worked_Examples.pdf', 'LE005'
-       UNION ALL SELECT 'TCS2121', 'Practical Tutorial', 'uploads/materials/demo-readings/TCS2121/04_Practical_Tutorial.pdf', 'LE005'
-       UNION ALL SELECT 'TCS2121', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/TCS2121/05_Revision_Guide.pdf', 'LE005'
-       UNION ALL SELECT 'ENG2112', 'Foundations and Orientation', 'uploads/materials/demo-readings/ENG2112/01_Foundations.pdf', 'LE002'
-       UNION ALL SELECT 'ENG2112', 'Core Concepts', 'uploads/materials/demo-readings/ENG2112/02_Core_Concepts.pdf', 'LE002'
-       UNION ALL SELECT 'ENG2112', 'Worked Examples', 'uploads/materials/demo-readings/ENG2112/03_Worked_Examples.pdf', 'LE002'
-       UNION ALL SELECT 'ENG2112', 'Practical Tutorial', 'uploads/materials/demo-readings/ENG2112/04_Practical_Tutorial.pdf', 'LE002'
-       UNION ALL SELECT 'ENG2112', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ENG2112/05_Revision_Guide.pdf', 'LE002') v
+       UNION ALL SELECT 'TCS2121', 'Foundations and Orientation', 'uploads/materials/demo-readings/TCS2121/01_Foundations.pdf', 'LE008'
+       UNION ALL SELECT 'TCS2121', 'Core Concepts', 'uploads/materials/demo-readings/TCS2121/02_Core_Concepts.pdf', 'LE008'
+       UNION ALL SELECT 'TCS2121', 'Worked Examples', 'uploads/materials/demo-readings/TCS2121/03_Worked_Examples.pdf', 'LE008'
+       UNION ALL SELECT 'TCS2121', 'Practical Tutorial', 'uploads/materials/demo-readings/TCS2121/04_Practical_Tutorial.pdf', 'LE008'
+       UNION ALL SELECT 'TCS2121', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/TCS2121/05_Revision_Guide.pdf', 'LE008'
+       UNION ALL SELECT 'ENG2112', 'Foundations and Orientation', 'uploads/materials/demo-readings/ENG2112/01_Foundations.pdf', 'LE009'
+       UNION ALL SELECT 'ENG2112', 'Core Concepts', 'uploads/materials/demo-readings/ENG2112/02_Core_Concepts.pdf', 'LE009'
+       UNION ALL SELECT 'ENG2112', 'Worked Examples', 'uploads/materials/demo-readings/ENG2112/03_Worked_Examples.pdf', 'LE009'
+       UNION ALL SELECT 'ENG2112', 'Practical Tutorial', 'uploads/materials/demo-readings/ENG2112/04_Practical_Tutorial.pdf', 'LE009'
+       UNION ALL SELECT 'ENG2112', 'Revision Guide and Exercises', 'uploads/materials/demo-readings/ENG2112/05_Revision_Guide.pdf', 'LE009') v
   JOIN courses c ON c.course_code=v.course_code JOIN course_offerings o ON o.course_id=c.course_id
   JOIN users u ON u.username=v.lecturer_username JOIN lecturers l ON l.user_id=u.user_id;
   -- Canonical UGC-2024 grade configuration, not the conflicting borrowed grade thresholds.
@@ -2295,6 +2306,72 @@ CALL `ams_install_replace_demo_data`()$$
 DROP PROCEDURE `ams_install_replace_demo_data`$$
 DELIMITER ;
 
+-- Prevent one lecturer from being responsible for multiple offerings in a semester.
+DROP TRIGGER IF EXISTS `trg_one_course_per_lecturer_assignment`;
+DROP TRIGGER IF EXISTS `trg_one_course_per_lecturer_assignment_update`;
+DROP TRIGGER IF EXISTS `trg_one_course_per_lecturer_coordinator_insert`;
+DROP TRIGGER IF EXISTS `trg_one_course_per_lecturer_coordinator_update`;
+DELIMITER //
+CREATE TRIGGER `trg_one_course_per_lecturer_assignment`
+BEFORE INSERT ON `course_offering_lecturers` FOR EACH ROW
+BEGIN
+    DECLARE target_semester INT;
+    SELECT semester_id INTO target_semester FROM course_offerings WHERE offering_id=NEW.offering_id;
+    IF EXISTS (
+        SELECT 1 FROM course_offerings other_offering
+        LEFT JOIN course_offering_lecturers other_assignment
+          ON other_assignment.offering_id=other_offering.offering_id
+        WHERE other_offering.semester_id=target_semester
+          AND other_offering.offering_id<>NEW.offering_id
+          AND (other_offering.coordinator_id=NEW.lecturer_id OR other_assignment.lecturer_id=NEW.lecturer_id)
+    ) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='A lecturer can be responsible for only one course per semester.';
+    END IF;
+END//
+CREATE TRIGGER `trg_one_course_per_lecturer_assignment_update`
+BEFORE UPDATE ON `course_offering_lecturers` FOR EACH ROW
+BEGIN
+    DECLARE target_semester INT;
+    SELECT semester_id INTO target_semester FROM course_offerings WHERE offering_id=NEW.offering_id;
+    IF EXISTS (
+        SELECT 1 FROM course_offerings other_offering
+        LEFT JOIN course_offering_lecturers other_assignment
+          ON other_assignment.offering_id=other_offering.offering_id
+        WHERE other_offering.semester_id=target_semester
+          AND other_offering.offering_id<>NEW.offering_id
+          AND (other_offering.coordinator_id=NEW.lecturer_id OR other_assignment.lecturer_id=NEW.lecturer_id)
+    ) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='A lecturer can be responsible for only one course per semester.';
+    END IF;
+END//
+CREATE TRIGGER `trg_one_course_per_lecturer_coordinator_insert`
+BEFORE INSERT ON `course_offerings` FOR EACH ROW
+BEGIN
+    IF NEW.coordinator_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM course_offerings other_offering
+        LEFT JOIN course_offering_lecturers other_assignment
+          ON other_assignment.offering_id=other_offering.offering_id
+        WHERE other_offering.semester_id=NEW.semester_id
+          AND (other_offering.coordinator_id=NEW.coordinator_id OR other_assignment.lecturer_id=NEW.coordinator_id)
+    ) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='A lecturer can be responsible for only one course per semester.';
+    END IF;
+END//
+CREATE TRIGGER `trg_one_course_per_lecturer_coordinator_update`
+BEFORE UPDATE ON `course_offerings` FOR EACH ROW
+BEGIN
+    IF NEW.coordinator_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM course_offerings other_offering
+        LEFT JOIN course_offering_lecturers other_assignment
+          ON other_assignment.offering_id=other_offering.offering_id
+        WHERE other_offering.semester_id=NEW.semester_id
+          AND other_offering.offering_id<>NEW.offering_id
+          AND (other_offering.coordinator_id=NEW.coordinator_id OR other_assignment.lecturer_id=NEW.coordinator_id)
+    ) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='A lecturer can be responsible for only one course per semester.';
+    END IF;
+END//
+DELIMITER ;
 
 -- Post-import row counts: expected counts documented in docs/dataset-transformation-report.md.
 SELECT 'admins' table_name,COUNT(*) row_count FROM admins UNION ALL
@@ -2378,4 +2455,16 @@ SELECT COUNT(*) AS canonical_grade_rows FROM grades WHERE scheme_version='UGC-20
 SELECT course_code,COUNT(*) AS resources,MIN(is_visible) AS all_visible FROM courses c JOIN course_offerings o ON o.course_id=c.course_id JOIN course_materials m ON m.offering_id=o.offering_id GROUP BY course_code ORDER BY course_code;
 SELECT role,COUNT(*) AS account_count,SUM(is_active=TRUE) AS active_count FROM users GROUP BY role ORDER BY role;
 SELECT COUNT(*) AS missing_offering_lecturer_assignments FROM course_offerings o LEFT JOIN course_offering_lecturers cl ON cl.offering_id=o.offering_id WHERE cl.offering_id IS NULL;
+SELECT COUNT(*) AS lecturers_assigned_to_multiple_courses_in_a_semester
+FROM (
+  SELECT lecturer_id,semester_id
+  FROM (
+    SELECT o.semester_id,COALESCE(a.lecturer_id,o.coordinator_id) AS lecturer_id,o.offering_id
+    FROM course_offerings o
+    LEFT JOIN course_offering_lecturers a ON a.offering_id=o.offering_id
+  ) assignments
+  WHERE lecturer_id IS NOT NULL
+  GROUP BY lecturer_id,semester_id
+  HAVING COUNT(DISTINCT offering_id)>1
+) duplicates;
 -- Filesystem validation is not available inside SQL: verify all 45 manifest paths exist under src/main/resources before importing.

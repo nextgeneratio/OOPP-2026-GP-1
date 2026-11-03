@@ -209,6 +209,7 @@ public final class CourseService {
         if (courseDao.findLecturersForOffering(offeringId).contains(lecturerId)) {
             throw new BusinessRuleException("This lecturer is already assigned to the course offering.");
         }
+        requireOneCoursePerLecturerInSemester(lecturerId, offering.semesterId(), offeringId);
         transactions.execute(connection -> {
             courseDao.assignLecturer(connection, offeringId, lecturerId);
             audit(connection, actor.userId(), "LECTURER_ASSIGN", "COURSE_OFFERING", offeringId);
@@ -291,7 +292,12 @@ public final class CourseService {
         }
         int ownStudentId = actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.UNDERGRADUATE
                 ? authorization.studentId(actor) : -1;
-        return courseDao.findRoster(offeringId).stream()
+        // Staff read-only screens (results, GPA, and reports) must still be able to select
+        // students after finalization changes their enrollment status to COMPLETED.
+        List<CourseDao.RosterRow> roster = actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.UNDERGRADUATE
+                ? courseDao.findRoster(offeringId)
+                : courseDao.findMarksRoster(offeringId);
+        return roster.stream()
                 .filter(row -> actor.role() != lk.ac.ruhuna.fot.ams.domain.enums.Role.UNDERGRADUATE
                         || row.studentId() == ownStudentId)
                 .toList();
@@ -445,6 +451,15 @@ public final class CourseService {
         for (Integer lecturerId : lecturerIds) {
             if (lecturerId == null || lecturerId <= 0) throw new ValidationException("Choose valid lecturer assignments.");
             requireLecturerInDepartment(lecturerId, course.departmentId());
+            requireOneCoursePerLecturerInSemester(lecturerId, setup.semesterId(), -1);
+        }
+    }
+
+    private void requireOneCoursePerLecturerInSemester(int lecturerId, int semesterId, int excludedOfferingId) {
+        boolean alreadyResponsible = courseDao.findOfferingsForLecturer(lecturerId, semesterId).stream()
+                .anyMatch(offering -> offering.id() != excludedOfferingId);
+        if (alreadyResponsible) {
+            throw new BusinessRuleException("A lecturer can be responsible for only one course per semester.");
         }
     }
 

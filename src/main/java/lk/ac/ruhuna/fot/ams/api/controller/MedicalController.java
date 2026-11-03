@@ -35,6 +35,12 @@ public final class MedicalController {
         return support.execute(request, () -> new MedicalIdResponse(service.submitWithPdf(actor, request, sourcePdf)));
     }
 
+    public ApiResponse<Integer> submitPdfForOfferings(
+            AuthenticatedSession actor, MedicalRow request, List<Integer> offeringIds, Path sourcePdf) {
+        return support.execute(request,
+                () -> service.submitWithPdfForOfferings(actor, request, offeringIds, sourcePdf));
+    }
+
     public ApiResponse<Void> decide(AuthenticatedSession actor, DecideMedicalRequest request) {
         return support.execute(request, () -> {
             service.decide(actor, request.medicalId(), request.decision(), request.rejectionReason());

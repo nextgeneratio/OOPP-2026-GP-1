@@ -1,7 +1,10 @@
 package lk.ac.ruhuna.fot.ams.presentation.ui.admin;
 
 import java.awt.BorderLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.JComboBox;
@@ -236,10 +239,11 @@ public final class CourseManagementScreen extends JPanel {
         return b.code()+" — "+dept+" — Level "+b.level()+" — "+b.intakeYear();
     }
     private String offeringLabel(CourseCatalog data, OfferingRow o) {
-        String course=data.courses().stream().filter(c -> c.id()==o.courseId()).map(this::courseLabel).findFirst().orElse("Course unavailable");
+        String course=data.courses().stream().filter(c -> c.id()==o.courseId()).map(CourseRow::code).findFirst().orElse("Course unavailable");
         String batch=data.batches().stream().filter(b -> b.id()==o.batchId()).map(b -> batchLabel(data,b)).findFirst().orElse("Batch unavailable");
         String semester=data.semesters().stream().filter(s -> s.id()==o.semesterId()).map(this::semesterLabel).findFirst().orElse("Term unavailable");
-        return course+" — "+batch+" — "+semester;
+        String batchCode=data.batches().stream().filter(b -> b.id()==o.batchId()).map(BatchRow::code).findFirst().orElse(batch);
+        return course+" — "+semester+" — "+batchCode;
     }
     private void addAction(JPanel panel, String label, Runnable action) {
         javax.swing.JButton button=new javax.swing.JButton(label); button.addActionListener(event -> {
@@ -247,9 +251,28 @@ public final class CourseManagementScreen extends JPanel {
         }); panel.add(button);
     }
     private boolean form(String title, String[] labels, java.awt.Component... fields) {
-        JPanel panel=new JPanel(new GridLayout(labels.length,2,8,8));
-        for(int i=0;i<labels.length;i++){panel.add(new JLabel(labels[i]));panel.add(fields[i]);}
-        JScrollPane scroll=new JScrollPane(panel); scroll.setBorder(null); scroll.setPreferredSize(new java.awt.Dimension(620,Math.min(440,labels.length*48+30)));
+        JPanel panel=new JPanel(new GridBagLayout());
+        for(int i=0;i<labels.length;i++){
+            java.awt.Component field=fields[i];
+            if(field instanceof JComboBox<?> combo){
+                combo.setPreferredSize(new java.awt.Dimension(390,combo.getPreferredSize().height));
+            }else if(field instanceof JTextField text){
+                text.setPreferredSize(new java.awt.Dimension(390,text.getPreferredSize().height));
+            }else if(field instanceof JScrollPane fieldScroll){
+                fieldScroll.setPreferredSize(new java.awt.Dimension(390,110));
+            }
+            GridBagConstraints label=new GridBagConstraints();
+            label.gridx=0;label.gridy=i;label.anchor=GridBagConstraints.LINE_START;
+            label.insets=new Insets(6,4,6,12);
+            panel.add(new JLabel(labels[i]),label);
+            GridBagConstraints input=new GridBagConstraints();
+            input.gridx=1;input.gridy=i;input.weightx=1;input.fill=GridBagConstraints.HORIZONTAL;
+            input.insets=new Insets(6,0,6,4);
+            panel.add(field,input);
+        }
+        JScrollPane scroll=new JScrollPane(panel,JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setBorder(null); scroll.setPreferredSize(new java.awt.Dimension(620,Math.min(440,labels.length*58+30)));
         return JOptionPane.showConfirmDialog(this,scroll,title,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE)==JOptionPane.OK_OPTION;
     }
     private JTextField field(String hint){JTextField f=new JTextField();f.setToolTipText(hint);return f;}

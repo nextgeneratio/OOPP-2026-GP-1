@@ -26,7 +26,7 @@ public final class MarksService {
     }
 
     public record StudentMarks(int enrollmentId, String studentNumber, String fullName,
-            Map<Integer, BigDecimal> scores, BigDecimal caContribution) {
+            Map<Integer, BigDecimal> scores, BigDecimal caContribution, boolean finalExamEligible) {
         public StudentMarks { scores = Map.copyOf(scores); }
     }
 
@@ -43,6 +43,7 @@ public final class MarksService {
     private final AuthorizationService authorization;
     private final AssessmentCalculator calculator;
     private final Clock clock;
+    private final AttendanceService attendanceService;
 
     public MarksService(
             AssessmentDao assessmentDao,
@@ -52,6 +53,19 @@ public final class MarksService {
             AuthorizationService authorization,
             AssessmentCalculator calculator,
             Clock clock) {
+        this(assessmentDao, courseDao, auditLogDao, transactions, authorization,
+                calculator, clock, null);
+    }
+
+    public MarksService(
+            AssessmentDao assessmentDao,
+            CourseDao courseDao,
+            AuditLogDao auditLogDao,
+            TransactionManager transactions,
+            AuthorizationService authorization,
+            AssessmentCalculator calculator,
+            Clock clock,
+            AttendanceService attendanceService) {
         this.assessmentDao = Objects.requireNonNull(assessmentDao);
         this.courseDao = Objects.requireNonNull(courseDao);
         this.auditLogDao = Objects.requireNonNull(auditLogDao);
@@ -59,6 +73,7 @@ public final class MarksService {
         this.authorization = Objects.requireNonNull(authorization);
         this.calculator = Objects.requireNonNull(calculator);
         this.clock = Objects.requireNonNull(clock);
+        this.attendanceService = attendanceService;
     }
 
     public int save(AuthenticatedSession actor, int offeringId, List<MarkInput> entries) {
@@ -67,12 +82,13 @@ public final class MarksService {
             throw new ValidationException("At least one valid mark entry is required.");
         }
         int lecturerId = authorization.lecturerId(actor);
-        Set<Integer> assessmentIds = assessmentDao.findAssessments(offeringId).stream()
-                .map(AssessmentRow::id)
-                .collect(java.util.stream.Collectors.toSet());
-        Set<Integer> enrollmentIds = courseDao.findEnrollments(offeringId).stream()
-                .map(CourseDao.EnrollmentRow::id)
-                .collect(java.util.stream.Collectors.toSet());
+        List<AssessmentRow> assessments = assessmentDao.findAssessments(offeringId);
+        Map<Integer, AssessmentRow> assessmentsById = assessments.stream()
+                .collect(java.util.stream.Collectors.toMap(AssessmentRow::id, assessment -> assessment));
+        Set<Integer> assessmentIds = assessmentsById.keySet();
+        Map<Integer, CourseDao.EnrollmentRow> enrollmentsById = courseDao.findEnrollments(offeringId).stream()
+                .collect(java.util.stream.Collectors.toMap(CourseDao.EnrollmentRow::id, enrollment -> enrollment));
+        Set<Integer> enrollmentIds = enrollmentsById.keySet();
         Set<String> uniqueKeys = new HashSet<>();
         for (MarkInput input : entries) {
             if (input.assessmentId() <= 0 || input.enrollmentId() <= 0
@@ -84,6 +100,16 @@ public final class MarksService {
             }
             if (!uniqueKeys.add(input.assessmentId() + ":" + input.enrollmentId())) {
                 throw new ValidationException("A mark can be submitted only once per assessment and enrolment.");
+            }
+        }
+        Map<Integer, List<MarkInput>> marksByEnrollment = entries.stream()
+                .collect(java.util.stream.Collectors.groupingBy(MarkInput::enrollmentId));
+        for (MarkInput input : entries) {
+            AssessmentRow assessment = assessmentsById.get(input.assessmentId());
+            if ("FINAL".equalsIgnoreCase(assessment.type())) {
+                CourseDao.EnrollmentRow enrollment = enrollmentsById.get(input.enrollmentId());
+                requireFinalExamEligibility(actor, offeringId, enrollment,
+                        assessments, marksByEnrollment.get(input.enrollmentId()));
             }
         }
 
@@ -127,17 +153,61 @@ public final class MarksService {
         }
         List<AssessmentRow> caAssessments = assessments.stream().filter(AssessmentRow::caComponent).toList();
         List<StudentMarks> students = new java.util.ArrayList<>();
-        for (CourseDao.RosterRow roster : courseDao.findRoster(offeringId)) {
+        for (CourseDao.RosterRow roster : courseDao.findMarksRoster(offeringId)) {
             Map<Integer, MarkRow> marks = byEnrollment.getOrDefault(roster.enrollmentId(), Map.of());
-            Map<Integer, BigDecimal> scores = new HashMap<>();
-            marks.forEach((assessmentId, mark) -> scores.put(assessmentId, mark.score()));
             BigDecimal ca = null;
             if (!caAssessments.isEmpty() && caAssessments.stream().allMatch(row -> marks.containsKey(row.id()))) {
                 ca = calculator.calculateCaMark(caAssessments.stream().map(row -> weightedMark(row, marks)).toList());
             }
-            students.add(new StudentMarks(roster.enrollmentId(), roster.studentNumber(), roster.fullName(), scores, ca));
+            boolean finalExamEligible = isFinalExamEligible(actor, offeringId, roster.studentId(),
+                    roster.enrollmentId(), ca);
+            Map<Integer, BigDecimal> scores = new HashMap<>();
+            boolean canViewFinalMarks = finalExamEligible;
+            marks.forEach((assessmentId, mark) -> {
+                AssessmentRow assessment = assessments.stream()
+                        .filter(row -> row.id() == assessmentId).findFirst().orElse(null);
+                if (assessment != null && (canViewFinalMarks || !"FINAL".equalsIgnoreCase(assessment.type()))) {
+                    scores.put(assessmentId, mark.score());
+                }
+            });
+            students.add(new StudentMarks(roster.enrollmentId(), roster.studentNumber(), roster.fullName(),
+                    scores, ca, finalExamEligible));
         }
         return new MarkSheet(offeringId, assessments, students);
+    }
+
+    private void requireFinalExamEligibility(AuthenticatedSession actor, int offeringId,
+            CourseDao.EnrollmentRow enrollment, List<AssessmentRow> assessments, List<MarkInput> changes) {
+        if (attendanceService == null) {
+            throw new BusinessRuleException("Final exam eligibility checks are unavailable.");
+        }
+        Map<Integer, BigDecimal> scores = new HashMap<>();
+        assessmentDao.findMarks(offeringId, enrollment.id())
+                .forEach(mark -> scores.put(mark.assessmentId(), mark.score()));
+        changes.forEach(change -> scores.put(change.assessmentId(), change.score()));
+        List<AssessmentRow> caAssessments = assessments.stream().filter(AssessmentRow::caComponent).toList();
+        if (caAssessments.isEmpty() || caAssessments.stream().anyMatch(row -> !scores.containsKey(row.id()))) {
+            throw new BusinessRuleException("Save all CA marks before entering a final exam mark.");
+        }
+        BigDecimal caMark = calculator.calculateCaMark(caAssessments.stream()
+                .map(assessment -> new AssessmentCalculator.WeightedMark(scores.get(assessment.id()),
+                        assessment.weight(), true))
+                .toList());
+        if (caMark.compareTo(new BigDecimal("40.00")) < 0) {
+            throw new BusinessRuleException("A final exam mark cannot be entered when the CA mark is below 40%.");
+        }
+        if (!attendanceService.calculateForEnrollment(actor, enrollment.studentId(), enrollment.id(), offeringId)
+                .eligible()) {
+            throw new BusinessRuleException(
+                    "A final exam mark cannot be entered when attendance is below 80% in any course component.");
+        }
+    }
+
+    private boolean isFinalExamEligible(AuthenticatedSession actor, int offeringId,
+            int studentId, int enrollmentId, BigDecimal caMark) {
+        return attendanceService != null && caMark != null
+                && caMark.compareTo(new BigDecimal("40.00")) >= 0
+                && attendanceService.calculateForEnrollment(actor, studentId, enrollmentId, offeringId).eligible();
     }
 
     public BigDecimal calculateCaMark(

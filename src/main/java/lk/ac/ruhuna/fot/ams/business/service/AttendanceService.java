@@ -100,12 +100,12 @@ public final class AttendanceService {
             throw new ValidationException("Attendance component does not belong to the course offering.");
         }
         Set<Integer> requiredEnrollmentIds = new HashSet<>();
-        courseDao.findActiveEnrollments(request.offeringId())
-                .forEach(enrollment -> requiredEnrollmentIds.add(enrollment.id()));
+        courseDao.findAttendanceViewRoster(request.offeringId())
+                .forEach(enrollment -> requiredEnrollmentIds.add(enrollment.enrollmentId()));
         if (attendanceByEnrollment == null
                 || !attendanceByEnrollment.keySet().equals(requiredEnrollmentIds)
                 || attendanceByEnrollment.values().stream().anyMatch(Objects::isNull)) {
-            throw new ValidationException("Attendance must be recorded for every active enrolment exactly once.");
+            throw new ValidationException("Attendance must be recorded for every non-withdrawn enrolment exactly once.");
         }
         Integer lecturerId = null;
         Integer officerId = authorization.technicalOfficerId(actor);
@@ -133,7 +133,8 @@ public final class AttendanceService {
         CourseDao.OfferingRow offering = courseDao.findOffering(offeringId)
                 .orElseThrow(() -> new ValidationException("Course offering was not found."));
         int ownStudentId = actor.role() == Role.UNDERGRADUATE ? authorization.studentId(actor) : -1;
-        List<RosterEntry> roster = courseDao.findAttendanceRoster(offeringId).stream()
+        List<CourseDao.AttendanceRosterRow> rosterRows = courseDao.findAttendanceViewRoster(offeringId);
+        List<RosterEntry> roster = rosterRows.stream()
                 .filter(row -> actor.role() != Role.UNDERGRADUATE || row.studentId() == ownStudentId)
                 .map(row -> new RosterEntry(row.enrollmentId(), row.studentId(), row.studentNumber(), row.fullName()))
                 .toList();
@@ -223,10 +224,11 @@ public final class AttendanceService {
         SessionRow session = attendanceDao.findSessionsForSessionId(sessionId)
                 .orElseThrow(() -> new ValidationException("Attendance session was not found."));
         authorization.requireTechnicalOfficerForOffering(actor, session.offeringId());
-        Set<Integer> expected = courseDao.findActiveEnrollments(session.offeringId()).stream()
-                .map(EnrollmentRow::id).collect(java.util.stream.Collectors.toSet());
+        Set<Integer> expected = courseDao.findAttendanceViewRoster(session.offeringId()).stream()
+                .map(CourseDao.AttendanceRosterRow::enrollmentId)
+                .collect(java.util.stream.Collectors.toSet());
         if (!attendanceByEnrollment.keySet().equals(expected))
-            throw new ValidationException("Update every active enrolment in the selected session exactly once.");
+            throw new ValidationException("Update every non-withdrawn enrolment in the selected session exactly once.");
         transactions.execute(connection -> {
             for (Map.Entry<Integer, Boolean> entry : attendanceByEnrollment.entrySet()) {
                 int updated = attendanceDao.reviseRecord(connection,

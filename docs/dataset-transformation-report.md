@@ -11,7 +11,7 @@ plaintext passwords.
 - 1 Administrator: `admin`.
 - 20 Undergraduates: `ST001`–`ST020`.
 - 4 Technical Officers: `TE001`–`TE004`.
-- 5 Lecturers: `LE001`–`LE005`.
+- 9 Lecturers: `LE001`–`LE009`, with one lecturer assigned to each course offering per semester.
 - 3 synthetic departments, 1 batch, 9 courses, 12 course components, and one
   semester (`2026/2027`, semester 1).
 - 9 course offerings, lecturer assignments, and 180 course enrollments; every
@@ -49,7 +49,7 @@ represents actual student records.
 
 ## Passwords and generated materials
 
-All 30 accounts use the local demonstration password `1234`. The installer
+All 34 accounts use the local demonstration password `1234`. The installer
 stores a separate PBKDF2 hash per account, generated with the existing
 `PBKDF2WithHmacSHA256` algorithm, 210,000 iterations, a unique 16-byte salt, and
 a 256-bit derived key. The hashes were checked using the application's

@@ -80,7 +80,7 @@ attendance rules, and make them available to calculated SGPA/CGPA, by running
 The installer creates `university_management` with `utf8mb4`, creates all 30
 tables, creates or resets `ams_app@localhost`, grants it only `SELECT`,
 `INSERT`, `UPDATE`, and `DELETE` on this database, and transactionally replaces
-all application rows. It seeds 30 demonstration accounts and academic records
+all application rows. It seeds 34 demonstration accounts and academic records
 and registers 45 learning materials. If an `ams_app@localhost` account already
 exists, its password is reset to the documented local demonstration value and
 its direct privileges are replaced by the four database-scoped grants.
@@ -146,7 +146,7 @@ Every seeded application account uses the password `1234`:
 | Role | Username(s) | Password |
 |---|---|---|
 | Administrator | `admin` | `1234` |
-| Lecturer | `LE001`–`LE005` | `1234` |
+| Lecturer | `LE001`–`LE009` | `1234` |
 | Technical Officer | `TE001`–`TE004` | `1234` |
 | Undergraduate | `ST001`–`ST020` | `1234` |
 

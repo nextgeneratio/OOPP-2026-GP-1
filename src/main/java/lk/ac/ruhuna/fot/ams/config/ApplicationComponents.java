@@ -198,12 +198,12 @@ public final class ApplicationComponents {
         AssessmentService assessmentService = new AssessmentService(
                 assessmentDao, auditLogDao, transactionManager, authorizationService,
                 assessmentCalculator, clock);
-        MarksService marksService = new MarksService(
-                assessmentDao, courseDao, auditLogDao, transactionManager,
-                authorizationService, assessmentCalculator, clock);
         AttendanceService attendanceService = new AttendanceService(
                 attendanceDao, courseDao, timetableDao, medicalDao, auditLogDao, transactionManager,
                 authorizationService, new AttendanceCalculator(), config.attendanceThreshold(), clock);
+        MarksService marksService = new MarksService(
+                assessmentDao, courseDao, auditLogDao, transactionManager,
+                authorizationService, assessmentCalculator, clock, attendanceService);
         MedicalService medicalService = new MedicalService(
                 medicalDao, courseDao, auditLogDao, transactionManager,
                 authorizationService, clock);
