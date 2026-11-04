@@ -42,6 +42,12 @@ public interface UserDao extends UserLookup {
 
     Optional<User> findByUsername(String username);
 
+    boolean usernameExists(String username);
+
+    boolean emailExists(String email);
+
+    boolean studentNumberExists(String studentNumber);
+
     Optional<User> findById(long userId);
 
     Optional<UserProfile> findProfileById(long userId);

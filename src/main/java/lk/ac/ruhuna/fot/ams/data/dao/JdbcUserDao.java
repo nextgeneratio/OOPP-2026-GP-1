@@ -57,6 +57,25 @@ public final class JdbcUserDao implements UserDao {
     }
 
     @Override
+    public boolean usernameExists(String username) {
+        return exists("SELECT 1 FROM users WHERE username = ? LIMIT 1", username);
+    }
+
+    @Override
+    public boolean emailExists(String email) {
+        return exists("SELECT 1 FROM users WHERE email = ? LIMIT 1", email);
+    }
+
+    @Override
+    public boolean studentNumberExists(String studentNumber) {
+        return exists("SELECT 1 FROM undergraduates WHERE student_no = ? LIMIT 1", studentNumber);
+    }
+
+    private boolean exists(String sql, String value) {
+        return !jdbc.query(sql, statement -> statement.setString(1, value), result -> result.getInt(1)).isEmpty();
+    }
+
+    @Override
     public Optional<User> findById(long userId) {
         String sql = userSelect() + "WHERE u.user_id = ?";
         return jdbc.query(sql, statement -> statement.setLong(1, userId), this::map)

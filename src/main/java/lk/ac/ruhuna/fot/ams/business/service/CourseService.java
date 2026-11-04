@@ -311,7 +311,31 @@ public final class CourseService {
             throw new lk.ac.ruhuna.fot.ams.error.exception.AuthorizationException(
                     "You may only register for offerings in your own batch.");
         }
-        return enrollAs(actor, new CourseDao.EnrollmentRow(0, studentId, offeringId, 1, "NORMAL", "ACTIVE"));
+        if (!"OPEN".equals(offering.status())) {
+            throw new BusinessRuleException("Students cannot be enrolled in a closed course offering.");
+        }
+        List<CourseDao.EnrollmentRow> history = courseDao.findEnrollments(offeringId).stream()
+                .filter(row -> row.studentId() == studentId)
+                .toList();
+        if (history.stream().anyMatch(row -> "ACTIVE".equals(row.enrollmentStatus()))) {
+            throw new BusinessRuleException("You are already registered for this course offering.");
+        }
+        CourseDao.EnrollmentRow latest = history.stream()
+                .max(java.util.Comparator.comparingInt(CourseDao.EnrollmentRow::attemptNumber))
+                .orElse(null);
+        if (latest != null && "WITHDRAWN".equals(latest.enrollmentStatus())) {
+            return transactions.execute(connection -> {
+                if (courseDao.updateEnrollmentStatus(connection, latest.id(), "ACTIVE") != 1) {
+                    throw new BusinessRuleException("The previous registration could not be restored. Refresh and try again.");
+                }
+                audit(connection, actor.userId(), "ENROLLMENT_REACTIVATE", "COURSE_ENROLLMENT", latest.id());
+                return (long) latest.id();
+            });
+        }
+        int attempt = latest == null ? 1 : latest.attemptNumber() + 1;
+        String studentStatus = attempt == 1 ? "NORMAL" : "REPEAT";
+        return enrollAs(actor, new CourseDao.EnrollmentRow(
+                0, studentId, offeringId, attempt, studentStatus, "ACTIVE"));
     }
 
     public CourseCatalog catalog(AuthenticatedSession actor) {

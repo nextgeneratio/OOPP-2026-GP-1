@@ -61,6 +61,15 @@ public final class ApplicationErrorHandler {
                     || sqlFailure.getErrorCode() == 1146)) {
                 return "The database schema is missing a table required by this operation. Apply the matching compatibility SQL, then restart the application.";
             }
+            if (sqlFailure != null && sqlFailure.getErrorCode() == 1062) {
+                String detail = sqlFailure.getMessage() == null ? "" : sqlFailure.getMessage().toLowerCase();
+                if (detail.contains("uk_users_username")) return "That username is already in use.";
+                if (detail.contains("uk_users_email")) return "That email address is already in use.";
+                if (detail.contains("uk_undergraduates_student_no")) {
+                    return "That student number is already in use.";
+                }
+                return "A value that must be unique is already in use. Check the username, email address, or student number.";
+            }
             if (sqlFailure != null) {
                 String state = sqlFailure.getSQLState() == null ? "unknown" : sqlFailure.getSQLState();
                 return "The database operation failed (SQL state " + state + ", vendor code "

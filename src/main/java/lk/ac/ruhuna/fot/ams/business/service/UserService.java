@@ -149,6 +149,16 @@ public final class UserService {
                 || request.fullName() == null || request.fullName().isBlank()) {
             throw new ValidationException("User identity, role, email, and full name are required.");
         }
+        if (userDao.usernameExists(request.username().trim())) {
+            throw new ValidationException("That username is already in use.");
+        }
+        if (userDao.emailExists(request.email().trim())) {
+            throw new ValidationException("That email address is already in use.");
+        }
+        if (request.role() == Role.UNDERGRADUATE && request.studentNumber() != null
+                && userDao.studentNumberExists(request.studentNumber().trim())) {
+            throw new ValidationException("That student number is already in use.");
+        }
         validateRoleProfile(request.role(), request.departmentId(), request.batchId(), request.studentNumber());
     }
 
