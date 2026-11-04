@@ -1,9 +1,15 @@
--- Idempotently ensure every undergraduate has an active enrollment in every offering.
+-- Idempotently ensure every undergraduate has an active enrollment in every
+-- offering from their department.
 -- Restore the latest withdrawn attempt when possible; create a new repeat attempt
 -- only when the latest attempt was completed (or no attempt exists).
 START TRANSACTION;
 
 UPDATE course_enrollments enrollment
+JOIN undergraduates undergraduate ON undergraduate.student_id = enrollment.student_id
+JOIN batches student_batch ON student_batch.batch_id = undergraduate.batch_id
+JOIN course_offerings offering ON offering.offering_id = enrollment.offering_id
+JOIN batches offering_batch ON offering_batch.batch_id = offering.batch_id
+                             AND offering_batch.department_id = student_batch.department_id
 JOIN (
     SELECT student_id, offering_id, MAX(attempt_no) AS latest_attempt
     FROM course_enrollments
@@ -34,7 +40,10 @@ FROM (
            offering.offering_id,
            COALESCE(MAX(enrollment.attempt_no), 0) AS latest_attempt
     FROM undergraduates undergraduate
+    JOIN batches student_batch ON student_batch.batch_id = undergraduate.batch_id
     CROSS JOIN course_offerings offering
+    JOIN batches offering_batch ON offering_batch.batch_id = offering.batch_id
+                             AND offering_batch.department_id = student_batch.department_id
     LEFT JOIN course_enrollments enrollment
       ON enrollment.student_id = undergraduate.student_id
      AND enrollment.offering_id = offering.offering_id
@@ -52,7 +61,10 @@ COMMIT;
 
 SELECT COUNT(*) AS missing_active_student_offerings
 FROM undergraduates undergraduate
+JOIN batches student_batch ON student_batch.batch_id = undergraduate.batch_id
 CROSS JOIN course_offerings offering
+JOIN batches offering_batch ON offering_batch.batch_id = offering.batch_id
+                           AND offering_batch.department_id = student_batch.department_id
 WHERE NOT EXISTS (
     SELECT 1
     FROM course_enrollments enrollment

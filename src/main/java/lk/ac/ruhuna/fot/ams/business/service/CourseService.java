@@ -201,7 +201,7 @@ public final class CourseService {
         OfferingRow offering = courseDao.findOffering(offeringId)
                 .orElseThrow(() -> new ValidationException("Course offering was not found."));
         if (actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.TECHNICAL_OFFICER) {
-            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+            authorization.requireTechnicalOfficerManagesOffering(actor, offeringId);
         }
         CourseRow course = courseDao.findCourse(offering.courseId())
                 .orElseThrow(() -> new ValidationException("Course for this offering was not found."));
@@ -221,7 +221,7 @@ public final class CourseService {
         requireCourseManager(actor);
         if (offeringId <= 0) throw new ValidationException("Choose a valid course offering.");
         if (actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.TECHNICAL_OFFICER) {
-            authorization.requireTechnicalOfficerForOffering(actor, offeringId);
+            authorization.requireTechnicalOfficerManagesOffering(actor, offeringId);
         }
         java.util.Set<Integer> assigned = new java.util.HashSet<>(courseDao.findLecturersForOffering(offeringId));
         return courseDao.findLecturerOptions().stream().filter(lecturer -> assigned.contains(lecturer.id())).toList();
@@ -246,31 +246,38 @@ public final class CourseService {
         List<OfferingRow> offerings = offeringsForActor(actor);
         java.util.Map<Integer, CourseDao.SemesterRow> semesters = courseDao.findSemesters().stream()
                 .collect(java.util.stream.Collectors.toMap(CourseDao.SemesterRow::id, semester -> semester));
-        return offerings.stream().map(offering -> {
+        java.util.stream.Stream<OfferingView> views = offerings.stream().map(offering -> {
             CourseDao.SemesterRow semester = semesters.get(offering.semesterId());
             return new OfferingView(offering,
                     courseDao.findCourse(offering.courseId()).orElseThrow(() ->
                             new NotFoundException("Course for an offering was not found.")), true,
                     semester == null ? "" : semester.academicYear(),
                     semester == null ? 0 : semester.semesterNumber());
-        }).toList();
+        });
+        if (actor.role() == lk.ac.ruhuna.fot.ams.domain.enums.Role.UNDERGRADUATE) {
+            int departmentId = departmentIdForStudent(actor);
+            views = views.filter(view -> view.course().departmentId() == departmentId);
+        }
+        return views.toList();
     }
 
     public List<OfferingView> availableOfferingsForCurrentStudent(AuthenticatedSession actor) {
-        int batchId = authorization.studentBatchId(actor);
         int studentId = authorization.studentId(actor);
+        int departmentId = departmentIdForStudent(actor);
         java.util.Map<Integer, CourseDao.SemesterRow> semesters = courseDao.findSemesters().stream()
                 .collect(java.util.stream.Collectors.toMap(CourseDao.SemesterRow::id, semester -> semester));
-        return courseDao.findOfferings(batchId, null).stream()
+        return courseDao.findOfferings(null, null).stream()
                 .filter(offering -> "OPEN".equals(offering.status()))
                 .map(offering -> {
+                    CourseRow course = courseDao.findCourse(offering.courseId()).orElseThrow(() ->
+                            new NotFoundException("Course for an offering was not found."));
                     CourseDao.SemesterRow semester = semesters.get(offering.semesterId());
-                    return new OfferingView(offering, courseDao.findCourse(offering.courseId())
-                        .orElseThrow(() -> new NotFoundException("Course for an offering was not found.")),
+                    return new OfferingView(offering, course,
                         courseDao.hasActiveEnrollment(studentId, offering.id()),
                         semester == null ? "" : semester.academicYear(),
                         semester == null ? 0 : semester.semesterNumber());
                 })
+                .filter(view -> view.course().departmentId() == departmentId)
                 .toList();
     }
 
@@ -307,9 +314,12 @@ public final class CourseService {
         int studentId = authorization.studentId(actor);
         OfferingRow offering = courseDao.findOffering(offeringId)
                 .orElseThrow(() -> new NotFoundException("Course offering was not found."));
-        if (offering.batchId() != authorization.studentBatchId(actor)) {
+        int studentDepartmentId = departmentIdForStudent(actor);
+        CourseRow course = courseDao.findCourse(offering.courseId())
+                .orElseThrow(() -> new NotFoundException("Course for this offering was not found."));
+        if (course.departmentId() != studentDepartmentId) {
             throw new lk.ac.ruhuna.fot.ams.error.exception.AuthorizationException(
-                    "You may only register for offerings in your own batch.");
+                    "You may only register for courses in your department.");
         }
         if (!"OPEN".equals(offering.status())) {
             throw new BusinessRuleException("Students cannot be enrolled in a closed course offering.");
@@ -350,7 +360,7 @@ public final class CourseService {
                             .flatMap(course -> courseDao.findComponents(course.id()).stream()).toList());
         }
         authorization.technicalOfficerId(actor);
-        List<OfferingRow> offerings = courseDao.findOfferingsForTechnicalOfficer(actor.userId());
+        List<OfferingRow> offerings = courseDao.findOfferingsForTechnicalOfficerManagement(actor.userId());
         java.util.Set<Integer> batchIds = offerings.stream().map(OfferingRow::batchId)
                 .collect(java.util.stream.Collectors.toSet());
         java.util.Set<Integer> courseIds = offerings.stream().map(OfferingRow::courseId)
@@ -415,6 +425,13 @@ public final class CourseService {
     private void requireCourseManager(AuthenticatedSession actor) {
         authorization.requireRole(actor, lk.ac.ruhuna.fot.ams.domain.enums.Role.ADMIN,
                 lk.ac.ruhuna.fot.ams.domain.enums.Role.TECHNICAL_OFFICER);
+    }
+
+    private int departmentIdForStudent(AuthenticatedSession actor) {
+        int batchId = authorization.studentBatchId(actor);
+        return courseDao.findBatch(batchId)
+                .orElseThrow(() -> new NotFoundException("Student batch was not found."))
+                .departmentId();
     }
 
     private int createOffering(

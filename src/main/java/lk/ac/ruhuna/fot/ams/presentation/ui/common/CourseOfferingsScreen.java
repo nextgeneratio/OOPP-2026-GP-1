@@ -46,7 +46,8 @@ public final class CourseOfferingsScreen extends JPanel {
             if (!available.successful()) { error(available.error().message()); return; }
             available.data().stream().filter(view -> !view.enrolled()).forEach(view -> addCard(view, false));
         }
-        if (cards.getComponentCount() == 0) cards.add(new JLabel("No open course offerings are available."));
+        if (cards.getComponentCount() == 0) cards.add(new JLabel(
+                "No open course offerings are available. An administrator must create an OPEN offering for the course and academic term."));
         cards.revalidate(); cards.repaint();
     }
 

@@ -208,6 +208,17 @@ public final class JdbcCourseDao implements CourseDao {
     }
 
     @Override
+    public Optional<BatchRow> findBatch(int batchId) {
+        return jdbc.query("SELECT batch_id, department_id, intake_year, programme, batch_code, level_no "
+                        + "FROM batches WHERE batch_id = ?",
+                statement -> statement.setInt(1, batchId),
+                result -> new BatchRow(result.getInt("batch_id"), result.getInt("department_id"),
+                        result.getInt("intake_year"), result.getString("programme"),
+                        result.getString("batch_code"), result.getInt("level_no")))
+                .stream().findFirst();
+    }
+
+    @Override
     public List<SemesterRow> findSemesters() {
         return jdbc.query("SELECT semester_id, academic_year, semester_no, start_date, end_date "
                         + "FROM semesters ORDER BY academic_year DESC, semester_no DESC",
@@ -329,6 +340,16 @@ public final class JdbcCourseDao implements CourseDao {
                         + "JOIN semesters s ON s.semester_id = o.semester_id "
                         + "WHERE t.user_id = ? AND CURRENT_DATE BETWEEN s.start_date AND s.end_date "
                         + "ORDER BY o.semester_id DESC, o.offering_id",
+                statement -> statement.setLong(1, userId), this::mapOffering);
+    }
+
+    @Override
+    public List<OfferingRow> findOfferingsForTechnicalOfficerManagement(long userId) {
+        return jdbc.query("SELECT DISTINCT o.offering_id, o.course_id, o.batch_id, o.semester_id, "
+                        + "o.coordinator_id, o.status FROM technical_officers t "
+                        + "JOIN batches b ON b.department_id = t.department_id "
+                        + "JOIN course_offerings o ON o.batch_id = b.batch_id "
+                        + "WHERE t.user_id = ? ORDER BY o.semester_id DESC, o.offering_id",
                 statement -> statement.setLong(1, userId), this::mapOffering);
     }
 

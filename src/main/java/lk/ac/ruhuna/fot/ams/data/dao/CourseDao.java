@@ -78,6 +78,8 @@ public interface CourseDao {
 
     List<BatchRow> findBatches(int departmentId);
 
+    Optional<BatchRow> findBatch(int batchId);
+
     List<SemesterRow> findSemesters();
 
     Optional<CourseRow> findCourseByCode(String courseCode);
@@ -99,6 +101,8 @@ public interface CourseDao {
     List<OfferingRow> findOfferingsForStudent(int studentId);
 
     List<OfferingRow> findOfferingsForTechnicalOfficer(long userId);
+
+    List<OfferingRow> findOfferingsForTechnicalOfficerManagement(long userId);
 
     List<Integer> findLecturersForOffering(int offeringId);
 

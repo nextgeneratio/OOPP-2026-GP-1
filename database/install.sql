@@ -2023,10 +2023,14 @@ BEGIN
        UNION ALL SELECT 'ENG2112', 'LE009') m
   JOIN courses c ON c.course_code=m.course_code JOIN course_offerings o ON o.course_id=c.course_id
   JOIN users u ON u.username=m.lecturer_username JOIN lecturers l ON l.user_id=u.user_id;
-  -- Register every undergraduate in every demo course offering.
+  -- Register every undergraduate in every offering in their department.
   INSERT INTO `course_enrollments` (student_id,offering_id,attempt_no,student_status,enrollment_status)
-  SELECT ug.student_id,o.offering_id,1,CASE WHEN u.username IN ('ST018','ST019') THEN 'REPEAT' WHEN u.username='ST020' THEN 'BATCH_MISSED' ELSE 'NORMAL' END,'ACTIVE' FROM undergraduates ug JOIN users u ON u.user_id=ug.user_id
-  CROSS JOIN course_offerings o;
+  SELECT ug.student_id,o.offering_id,1,CASE WHEN u.username IN ('ST018','ST019') THEN 'REPEAT' WHEN u.username='ST020' THEN 'BATCH_MISSED' ELSE 'NORMAL' END,'ACTIVE'
+  FROM undergraduates ug JOIN users u ON u.user_id=ug.user_id
+  JOIN batches student_batch ON student_batch.batch_id=ug.batch_id
+  CROSS JOIN course_offerings o
+  JOIN batches offering_batch ON offering_batch.batch_id=o.batch_id
+                              AND offering_batch.department_id=student_batch.department_id;
   -- One aggregate quiz assessment preserves the source quiz weight; individual best-two attempts are omitted because scores cannot be represented losslessly as question counts.
   INSERT INTO `assessments` (offering_id,name,assessment_type,weight_percent,is_ca_component)
   SELECT o.offering_id,v.name,v.assessment_type,v.weight_percent,v.is_ca FROM (SELECT 'ICT2113' AS `course_code`, 'DEMO Quiz Aggregate' AS `name`, 'QUIZ' AS `assessment_type`, 10 AS `weight_percent`, 1 AS `is_ca`
@@ -2414,7 +2418,11 @@ SELECT 'orphan_enrollment' AS check_name,COUNT(*) orphan_rows FROM course_enroll
 SELECT COUNT(*) AS sessions_outside_demo_semester FROM attendance_sessions a JOIN timetable_entries e ON e.timetable_entry_id=a.timetable_entry_id JOIN timetables t ON t.timetable_id=e.timetable_id JOIN semesters s ON s.semester_id=t.semester_id WHERE a.session_date<s.start_date OR a.session_date>s.end_date;
 SELECT COUNT(*) AS invalid_recorder_policy FROM attendance_sessions WHERE recorded_by IS NULL OR recorded_by_lecturer IS NOT NULL;
 SELECT COUNT(*) AS missing_student_course_enrollments
-FROM undergraduates ug CROSS JOIN course_offerings offering
+FROM undergraduates ug
+JOIN batches student_batch ON student_batch.batch_id=ug.batch_id
+CROSS JOIN course_offerings offering
+JOIN batches offering_batch ON offering_batch.batch_id=offering.batch_id
+                           AND offering_batch.department_id=student_batch.department_id
 LEFT JOIN course_enrollments enrollment ON enrollment.student_id=ug.student_id
                                         AND enrollment.offering_id=offering.offering_id
 WHERE enrollment.enrollment_id IS NULL;

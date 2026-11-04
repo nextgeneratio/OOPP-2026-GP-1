@@ -127,6 +127,12 @@ public final class CourseManagementScreen extends JPanel {
 
     private void assignLecturer() {
         CourseCatalog data = catalog(); if (data == null) return;
+        if (data.offerings().stream().noneMatch(offering -> "OPEN".equals(offering.status()))) {
+            JOptionPane.showMessageDialog(this,
+                    "No open course offerings are set up for your department. Ask an administrator to create an open offering for this course and academic term first.",
+                    "Assign lecturer", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
         JComboBox<SelectionOption> offering = offerings(data, null);
         JComboBox<SelectionOption> lecturer = lecturers(data, false, null);
         replaceOptions(lecturer,List.of());

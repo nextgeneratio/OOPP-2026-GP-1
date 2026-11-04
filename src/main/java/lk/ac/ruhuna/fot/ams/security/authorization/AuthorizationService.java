@@ -69,6 +69,13 @@ public final class AuthorizationService {
         }
     }
 
+    public void requireTechnicalOfficerManagesOffering(AuthenticatedSession session, int offeringId) {
+        requireRole(session, Role.TECHNICAL_OFFICER);
+        if (offeringId <= 0 || !lookup().technicalOfficerManagesOffering(session.userId(), offeringId)) {
+            throw new AuthorizationException("You do not have access to this offering in your department.");
+        }
+    }
+
     public void requireTechnicalOfficerForStudent(AuthenticatedSession session, int studentId) {
         requireRole(session, Role.TECHNICAL_OFFICER);
         if (studentId <= 0 || !lookup().technicalOfficerAuthorizedForStudent(session.userId(), studentId)) {

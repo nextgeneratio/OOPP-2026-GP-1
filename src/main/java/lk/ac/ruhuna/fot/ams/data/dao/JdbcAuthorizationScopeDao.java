@@ -53,6 +53,18 @@ public final class JdbcAuthorizationScopeDao implements AuthorizationScopeLookup
     }
 
     @Override
+    public boolean technicalOfficerManagesOffering(long userId, int offeringId) {
+        return exists("SELECT 1 FROM technical_officers t "
+                        + "JOIN batches b ON b.department_id = t.department_id "
+                        + "JOIN course_offerings o ON o.batch_id = b.batch_id "
+                        + "WHERE t.user_id = ? AND o.offering_id = ?",
+                statement -> {
+                    statement.setLong(1, userId);
+                    statement.setInt(2, offeringId);
+                });
+    }
+
+    @Override
     public boolean technicalOfficerAuthorizedForStudent(long userId, int studentId) {
         return exists("SELECT 1 FROM technical_officers t "
                         + "JOIN batches b ON b.department_id = t.department_id "
