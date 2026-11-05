@@ -16,20 +16,23 @@ public final class AppConfig {
 
     public static AppConfig load() throws IOException {
         Properties properties = new Properties();
+        loadClasspathResource(properties, "application.properties.example");
+        loadClasspathResource(properties, "application.properties");
         Path localFile = Path.of("application.properties");
         if (Files.exists(localFile)) {
             try (InputStream input = Files.newInputStream(localFile)) {
                 properties.load(input);
             }
-        } else {
-            try (InputStream input = AppConfig.class.getClassLoader()
-                    .getResourceAsStream("application.properties")) {
-                if (input != null) {
-                    properties.load(input);
-                }
-            }
         }
         return new AppConfig(properties);
+    }
+
+    private static void loadClasspathResource(Properties properties, String resourceName) throws IOException {
+        try (InputStream input = AppConfig.class.getClassLoader().getResourceAsStream(resourceName)) {
+            if (input != null) {
+                properties.load(input);
+            }
+        }
     }
 
     public static AppConfig loadFromClasspath(String resourceName) throws IOException {

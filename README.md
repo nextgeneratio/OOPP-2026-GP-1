@@ -96,10 +96,19 @@ back database/table/user DDL that ran before the transaction.
 
 ## 6. Configure `application.properties`
 
-Copy the safe example to an ignored local file in the project root:
+For the default local demo setup, the application loads the tracked example
+configuration automatically when no project-root `application.properties`
+exists. To customize the database settings, copy the example to an ignored
+local file in the project root and edit it:
 
 ```sh
 cp src/main/resources/application.properties.example application.properties
+```
+
+On Windows Command Prompt, use:
+
+```bat
+copy src\main\resources\application.properties.example application.properties
 ```
 
 The example contains the local database account created by the installer:
@@ -128,6 +137,8 @@ From the repository root, run:
 ```sh
 ./mvnw exec:java
 ```
+
+On Windows Command Prompt, run `mvnw.cmd exec:java` from the repository root.
 
 In IntelliJ IDEA, use JDK 25, import the `pom.xml` Maven project, set the
 working directory to the repository root, and run
@@ -189,8 +200,9 @@ the live/demo database for testing.
   `db.username` and `db.password` from the example. Do not use root in the app.
 - **Unknown database:** check the installer output and confirm
   `db.url` names `university_management`.
-- **Missing `application.properties`:** copy the example from section 6 and
-  run the app from the repository root.
+- **Custom database settings:** copy the example from section 6 to the project
+  root as `application.properties` and edit it. Without that override, the app
+  uses the bundled local demo configuration.
 - **Missing PDF or unreadable material:** restore the file from Git, keep its
   relative path unchanged, and check read permissions on the uploads directory.
 - **Wrong Java version:** check `java -version` and select JDK 25 for Maven and
