@@ -90,7 +90,7 @@ public final class AttendanceService {
         if (request.timetableEntryId() == null
                 || !timetableDao.entryMatchesOfferingAndComponent(
                         request.timetableEntryId(), request.offeringId(), request.componentId(), request.date())) {
-            throw new ValidationException("Attendance session must reference its matching timetable entry.");
+            throw new ValidationException("Select an active timetable slot for this offering's department, level, term, and session weekday.");
         }
         CourseDao.OfferingRow offering = courseDao.findOffering(request.offeringId())
                 .orElseThrow(() -> new ValidationException("Course offering was not found."));

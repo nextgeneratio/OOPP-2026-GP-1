@@ -211,3 +211,15 @@ the application to use the database root account. Give real users individual
 strong passwords, change the demo JDBC password before non-local use, and keep
 `application.properties`, `.env`, `.envrc`, test credentials, and database
 backups out of Git.
+
+## Weekly timetable management
+
+Administrators maintain an entire weekly timetable from the Timetable screen. Create and Update use one editor for department, academic term, level, and all Monday–Sunday slots; Add Time Slot adds an unsaved editor row. Update versions the schedule so existing attendance references retain their original slot IDs. Delete deactivates the timetable and its active slots. View displays the selected schedule as weekday/time rows. Technical Officers can view authorized department timetables; lecturers and undergraduates see only their assigned/enrolled offering slots.
+
+For a new database, `database/install.sql` creates this model. To upgrade an existing installation, review the read-only checks in `database/migrations/20261105_weekly_timetable.sql`, back up the database, then run from the repository root:
+
+```sh
+mariadb -u root -p university_management < database/migrations/20261105_weekly_timetable.sql
+```
+
+The upgrade migration preserves timetable slot IDs and attendance references. Do not run `database/install.sql` as an upgrade; it is the demo-data installer. The application database has not been changed by this code update.

@@ -89,3 +89,12 @@ validated an existing user's populated database.
 
 See [system-test-results.md](./system-test-results.md) for importer counts,
 automated test outcomes, and the GUI acceptance limitation.
+
+## Weekly timetable redesign (2026-11-05)
+
+| Requirement | Implementation |
+|---|---|
+| FR-003 Admin maintains department timetables | Admin screen has Create, Update, Delete, and View actions. Create/Update save the complete weekly editor in one service transaction. Delete soft-deactivates. |
+| FR-008 attendance remains timetable-linked | Attendance setup loads active slots matching the selected offering's department, term, level, and weekday. Generic slots are valid for any authorized course component in scope; legacy entries still require exact offering/component match. |
+| FR-013 role-scoped timetable views | TimetableService permits admin-wide queries, department/term scoped TO queries, and lecturer/undergraduate filtering through assigned/enrolled offerings. Mutations require Admin. |
+| Historical attendance retention | Schedule edits/deletion deactivate rows; timetable entry IDs and attendance foreign keys are retained. |

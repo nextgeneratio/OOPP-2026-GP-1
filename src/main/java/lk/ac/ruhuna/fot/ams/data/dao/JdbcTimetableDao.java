@@ -18,7 +18,7 @@ public final class JdbcTimetableDao implements TimetableDao {
     @Override
     public long insertTimetable(Connection connection, TimetableRow row) {
         return jdbc.insertAndReturnKey(connection,
-                "INSERT INTO timetables (title, department_id, semester_id, level_no, created_by_user_id) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO timetables (title, department_id, semester_id, level_no, created_by_user_id, is_active) VALUES (?, ?, ?, ?, ?, TRUE)",
                 statement -> {
                     statement.setString(1, row.title());
                     statement.setInt(2, row.departmentId());
@@ -36,9 +36,40 @@ public final class JdbcTimetableDao implements TimetableDao {
     public long insertEntry(Connection connection, EntryRow row) {
         return jdbc.insertAndReturnKey(connection,
                 "INSERT INTO timetable_entries "
-                        + "(timetable_id, offering_id, component_id, day_of_week, start_time, end_time, location) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + "(timetable_id, offering_id, component_id, day_of_week, start_time, end_time, location, is_active) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)",
                 statement -> bindEntry(statement, row, false));
+    }
+
+    @Override
+    public List<EntryRow> findEntriesForTimetable(int timetableId) {
+        return jdbc.query("SELECT timetable_entry_id,timetable_id,offering_id,component_id,day_of_week,start_time,end_time,location "
+                        + "FROM timetable_entries WHERE timetable_id=? AND is_active=TRUE ORDER BY FIELD(day_of_week,'MON','TUE','WED','THU','FRI','SAT','SUN'),start_time",
+                statement -> statement.setInt(1, timetableId), this::map);
+    }
+
+    @Override
+    public int deactivateEntriesForTimetable(Connection connection, int timetableId) {
+        return jdbc.update(connection, "UPDATE timetable_entries SET is_active=FALSE WHERE timetable_id=? AND is_active=TRUE",
+                statement -> statement.setInt(1, timetableId));
+    }
+
+    @Override
+    public int deactivateTimetable(Connection connection, int timetableId) {
+        return jdbc.update(connection, "UPDATE timetables SET is_active=FALSE WHERE timetable_id=? AND is_active=TRUE",
+                statement -> statement.setInt(1, timetableId));
+    }
+
+    @Override
+    public boolean isTimetableActive(int timetableId) {
+        return !jdbc.query("SELECT timetable_id FROM timetables WHERE timetable_id=? AND is_active=TRUE",
+                statement -> statement.setInt(1, timetableId), result -> result.getInt(1)).isEmpty();
+    }
+
+    @Override
+    public int countAttendanceReferences(int timetableId) {
+        return jdbc.query("SELECT COUNT(*) FROM attendance_sessions s JOIN timetable_entries e ON e.timetable_entry_id=s.timetable_entry_id WHERE e.timetable_id=?",
+                statement -> statement.setInt(1, timetableId), result -> result.getInt(1)).stream().findFirst().orElse(0);
     }
 
     @Override
@@ -55,6 +86,11 @@ public final class JdbcTimetableDao implements TimetableDao {
                     statement.setString(6, row.location());
                     statement.setInt(7, row.id());
                 });
+    }
+
+    @Override
+    public int deactivateEntry(Connection connection,int entryId){
+        return jdbc.update(connection,"UPDATE timetable_entries SET is_active=FALSE WHERE timetable_entry_id=? AND is_active=TRUE",statement->statement.setInt(1,entryId));
     }
 
     @Override
@@ -87,7 +123,7 @@ public final class JdbcTimetableDao implements TimetableDao {
         return jdbc.query("SELECT t.timetable_id,t.title,t.department_id,t.semester_id,t.level_no,"
                         + "t.created_by_user_id,u.username,u.role FROM timetables t "
                         + "LEFT JOIN users u ON u.user_id=t.created_by_user_id "
-                        + "WHERE t.department_id=? AND t.semester_id=? AND t.level_no=? ORDER BY t.title",
+                        + "WHERE t.department_id=? AND t.semester_id=? AND t.level_no=? AND t.is_active=TRUE ORDER BY t.title",
                 statement -> { statement.setInt(1,departmentId); statement.setInt(2,semesterId); statement.setInt(3,level); },
                 result -> new TimetableRow(result.getInt("timetable_id"),result.getString("title"),
                         result.getInt("department_id"),result.getInt("semester_id"),result.getInt("level_no"),
@@ -108,7 +144,7 @@ public final class JdbcTimetableDao implements TimetableDao {
         String sql = "SELECT e.timetable_entry_id, e.timetable_id, e.offering_id, e.component_id, "
                 + "e.day_of_week, e.start_time, e.end_time, e.location "
                 + "FROM timetable_entries e JOIN timetables t ON t.timetable_id = e.timetable_id "
-                + "WHERE t.department_id = ? AND t.semester_id = ? AND t.level_no = ? "
+                + "WHERE t.department_id = ? AND t.semester_id = ? AND t.level_no = ? AND t.is_active=TRUE AND e.is_active=TRUE "
                 + "AND (? IS NULL OR e.day_of_week = ?) ORDER BY e.day_of_week, e.start_time";
         return jdbc.query(sql, statement -> {
             statement.setInt(1, departmentId);
@@ -125,14 +161,27 @@ public final class JdbcTimetableDao implements TimetableDao {
     }
 
     @Override
+    public List<EntryRow> findEntries(int departmentId,int semesterId){
+        String sql="SELECT e.timetable_entry_id,e.timetable_id,e.offering_id,e.component_id,e.day_of_week,e.start_time,e.end_time,e.location "
+                +"FROM timetable_entries e JOIN timetables t ON t.timetable_id=e.timetable_id "
+                +"WHERE t.department_id=? AND t.semester_id=? AND t.is_active=TRUE AND e.is_active=TRUE ORDER BY e.day_of_week,e.start_time";
+        return jdbc.query(sql,statement->{statement.setInt(1,departmentId);statement.setInt(2,semesterId);},this::map);
+    }
+
+    @Override
     public List<EntryRow> findEntriesForOfferings(List<Integer> offeringIds) {
         if (offeringIds == null || offeringIds.isEmpty()) return List.of();
         String placeholders = String.join(",", java.util.Collections.nCopies(offeringIds.size(), "?"));
-        String sql = "SELECT e.timetable_entry_id, e.timetable_id, e.offering_id, e.component_id, "
+        String sql = "SELECT DISTINCT e.timetable_entry_id, e.timetable_id, e.offering_id, e.component_id, "
                 + "e.day_of_week, e.start_time, e.end_time, e.location FROM timetable_entries e "
-                + "WHERE e.offering_id IN (" + placeholders + ") ORDER BY e.day_of_week, e.start_time";
+                + "JOIN timetables t ON t.timetable_id=e.timetable_id "
+                + "WHERE t.is_active=TRUE AND e.is_active=TRUE AND ((e.offering_id IN (" + placeholders + ")) "
+                + "OR (e.offering_id IS NULL AND EXISTS (SELECT 1 FROM course_offerings so JOIN batches sb ON sb.batch_id=so.batch_id "
+                + "WHERE so.offering_id IN (" + placeholders + ") AND so.semester_id=t.semester_id "
+                + "AND sb.department_id=t.department_id AND sb.level_no=t.level_no))) "
+                + "ORDER BY FIELD(e.day_of_week,'MON','TUE','WED','THU','FRI','SAT','SUN'), e.start_time";
         return jdbc.query(sql, statement -> {
-            for (int i = 0; i < offeringIds.size(); i++) statement.setInt(i + 1, offeringIds.get(i));
+            int at=1; for (int repeat=0; repeat<2; repeat++) for (int id : offeringIds) statement.setInt(at++, id);
         }, this::map);
     }
 
@@ -143,7 +192,7 @@ public final class JdbcTimetableDao implements TimetableDao {
                 + "e.day_of_week, e.start_time, e.end_time, e.location "
                 + "FROM timetable_entries e JOIN timetables t ON t.timetable_id = e.timetable_id "
                 + "JOIN course_offerings o ON o.offering_id = e.offering_id "
-                + "WHERE t.department_id = ? AND t.semester_id = ? AND e.day_of_week = ? "
+                + "WHERE t.department_id = ? AND t.semester_id = ? AND e.day_of_week = ? AND t.is_active=TRUE AND e.is_active=TRUE "
                 + "AND e.timetable_entry_id <> ? AND e.start_time < ? AND e.end_time > ? "
                 + "AND (e.location = ? OR e.offering_id = ? OR o.coordinator_id = ? "
                 + "OR EXISTS (SELECT 1 FROM course_offering_lecturers a "
@@ -166,16 +215,21 @@ public final class JdbcTimetableDao implements TimetableDao {
     @Override
     public boolean entryMatchesOfferingAndComponent(
             int entryId, int offeringId, int componentId, java.time.LocalDate sessionDate) {
-        return !jdbc.query("SELECT timetable_entry_id FROM timetable_entries "
-                        + "WHERE timetable_entry_id = ? AND offering_id = ? AND component_id = ? "
+        return !jdbc.query("SELECT e.timetable_entry_id FROM timetable_entries e "
+                        + "JOIN timetables t ON t.timetable_id=e.timetable_id "
+                        + "JOIN course_offerings o ON o.offering_id=? JOIN batches b ON b.batch_id=o.batch_id "
+                        + "WHERE e.timetable_entry_id = ? AND t.is_active=TRUE AND e.is_active=TRUE "
+                        + "AND ( (e.offering_id = ? AND e.component_id = ?) OR (e.offering_id IS NULL AND e.component_id IS NULL "
+                        + "AND t.department_id=b.department_id AND t.semester_id=o.semester_id AND t.level_no=b.level_no) ) "
                         + "AND day_of_week = CASE DAYOFWEEK(?) "
                         + "WHEN 1 THEN 'SUN' WHEN 2 THEN 'MON' WHEN 3 THEN 'TUE' "
                         + "WHEN 4 THEN 'WED' WHEN 5 THEN 'THU' WHEN 6 THEN 'FRI' ELSE 'SAT' END",
                 statement -> {
-                    statement.setInt(1, entryId);
-                    statement.setInt(2, offeringId);
-                    statement.setInt(3, componentId);
-                    statement.setDate(4, java.sql.Date.valueOf(sessionDate));
+                    statement.setInt(1, offeringId);
+                    statement.setInt(2, entryId);
+                    statement.setInt(3, offeringId);
+                    statement.setInt(4, componentId);
+                    statement.setDate(5, java.sql.Date.valueOf(sessionDate));
                 }, result -> result.getInt(1)).isEmpty();
     }
 
@@ -199,8 +253,8 @@ public final class JdbcTimetableDao implements TimetableDao {
     private void bindEntry(java.sql.PreparedStatement statement, EntryRow row, boolean includeId)
             throws SQLException {
         statement.setInt(1, row.timetableId());
-        statement.setInt(2, row.offeringId());
-        statement.setInt(3, row.componentId());
+        if(row.offeringId()<=0) statement.setNull(2,java.sql.Types.INTEGER); else statement.setInt(2,row.offeringId());
+        if(row.componentId()<=0) statement.setNull(3,java.sql.Types.INTEGER); else statement.setInt(3,row.componentId());
         statement.setString(4, row.dayOfWeek());
         statement.setTime(5, Time.valueOf(row.start()));
         statement.setTime(6, Time.valueOf(row.end()));
@@ -212,9 +266,13 @@ public final class JdbcTimetableDao implements TimetableDao {
 
     private EntryRow map(ResultSet result) throws SQLException {
         return new EntryRow(result.getInt("timetable_entry_id"), result.getInt("timetable_id"),
-                result.getInt("offering_id"), result.getInt("component_id"),
+                nullableInt(result,"offering_id"), nullableInt(result,"component_id"),
                 result.getString("day_of_week"), result.getTime("start_time").toLocalTime(),
                 result.getTime("end_time").toLocalTime(), result.getString("location"));
+    }
+
+    private int nullableInt(ResultSet result,String column) throws SQLException {
+        int value=result.getInt(column); return result.wasNull()?0:value;
     }
 
     private Long nullableLong(ResultSet result, String column) throws SQLException {

@@ -26,3 +26,9 @@ The database stores material references as relative paths under `uploads/`.
 Maven/IDE execution from the repository root resolves those files under
 `src/main/resources/uploads`; packaged-JAR execution is not a supported runtime
 mode.
+
+## Weekly timetable slots
+
+Timetable headers and entries now have `is_active` flags. A generic weekly slot has both `offering_id` and `component_id` NULL; legacy course-specific slots keep both populated. `chk_timetable_entries_optional_course_pair` enforces the paired-null rule. Location is optional. Updating a weekly schedule deactivates its old slot rows and inserts new rows, preserving the stable IDs referenced by attendance sessions. Deletion deactivates both the header and active slots rather than physically deleting history.
+
+Fresh installs receive the final model from `database/install.sql`. Existing installations require the reviewed manual upgrade `database/migrations/20261105_weekly_timetable.sql`. It changes only schema, retains existing rows and foreign keys, and reports row/reference counts before and after. Do not apply it to the populated application database without the operator's backup/review step.

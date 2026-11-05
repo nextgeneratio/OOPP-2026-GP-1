@@ -37,3 +37,7 @@ skipped when no test DB is configured. The isolated connectivity run separately
 passed against the disposable `_test` database. Unit and database checks are
 distinct from interactive GUI acceptance; no screen layout or four-role desktop
 login is claimed without a GUI run.
+
+## Weekly timetable redesign verification status
+
+The redesign adds a mocked unit suite at `src/test/java/lk/ac/ruhuna/fot/ams/unit/WeeklyTimetableServiceTest.java`. Its targeted run passed (4 tests). This is not a database integration test and does not validate SQL against a live database. The migration `database/migrations/20261105_weekly_timetable.sql` was not executed. Full `mvn clean test`, `mvn clean verify`, and `mvn clean package` results for this redesign are recorded after those commands run; no GUI acceptance is claimed here. The populated application database was not connected to or modified.

@@ -24,3 +24,7 @@ populated database as a test; the installer is a destructive data replacement.
 Interactive GUI login/role acceptance requires a graphical desktop and a
 separately prepared database. Component construction tests do not constitute
 visual acceptance.
+
+## Weekly timetable regression coverage
+
+`WeeklyTimetableServiceTest` is a mocked service test, not a MariaDB integration test. It covers one-transaction weekly creation, multiple slots and weekdays, optional course references/location, overlap and invalid weekday rejection, versioned update/deactivation without deleting old slot IDs, Admin-only mutation, and transaction rollback on an insert failure. Attendance compatibility continues to be checked at service boundary through the timetable DAO validation contract; a database integration test against an isolated `_test` database and interactive GUI acceptance remain separate activities. The configured application database must not be used for write tests.

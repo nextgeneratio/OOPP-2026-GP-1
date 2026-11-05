@@ -54,7 +54,7 @@ class DemoInstallerTest {
         assertThat(seeded).containsOnlyKeys(expected.keySet());
         assertThat(seeded).allSatisfy((username, account) ->
                 assertThat(account.role()).isEqualTo(expected.get(username)));
-        assertThat(salts).hasSize(30);
+        assertThat(salts).hasSize(34);
 
         Map<String, User> users = new HashMap<>();
         long id = 1;
@@ -100,7 +100,7 @@ class DemoInstallerTest {
                 "WHERE u.role='UNDERGRADUATE'", "student_no,full_name,profile_picture",
                 "SELECT u.user_id,b.batch_id,u.username");
         String lecturers = between(installer, "INSERT INTO `lecturers`", "INSERT INTO `technical_officers`");
-        for (int i = 1; i <= 5; i++) assertThat(lecturers).contains("'LE%03d'".formatted(i));
+        for (int i = 1; i <= 9; i++) assertThat(lecturers).contains("'LE%03d'".formatted(i));
         assertThat(installer).doesNotContain("DEMO_ADMIN", "DEMO_LEC", "DEMO_TO", "DEMO_STU",
                 "ADM001", "LEC001", "TO001", "STU001");
         assertThat(installer).contains("'ST001'", "'TE001'", "'LE001'");
@@ -134,7 +134,7 @@ class DemoInstallerTest {
     private Map<String, Role> expectedAccounts() {
         Map<String, Role> expected = new HashMap<>();
         expected.put("admin", Role.ADMIN);
-        for (int i = 1; i <= 5; i++) expected.put("LE%03d".formatted(i), Role.LECTURER);
+        for (int i = 1; i <= 9; i++) expected.put("LE%03d".formatted(i), Role.LECTURER);
         for (int i = 1; i <= 4; i++) expected.put("TE%03d".formatted(i), Role.TECHNICAL_OFFICER);
         for (int i = 1; i <= 20; i++) expected.put("ST%03d".formatted(i), Role.UNDERGRADUATE);
         return expected;

@@ -230,13 +230,24 @@ public final class AttendanceScreen extends JPanel {
     private void recordSession() {
         ComponentRow selectedComponent = (ComponentRow) component.getSelectedItem();
         EntryRow entry = selectedEntry();
-        if (setup == null || selectedComponent == null || entry == null) { error("Select a course, component, and timetable entry."); return; }
+        if(setup!=null&&setup.entries().isEmpty()){error("No active timetable slots match this course's department, term, and level. Ask the Admin to configure the weekly timetable first.");return;}
+        if (setup == null || selectedComponent == null || entry == null) { error("Select a course and component, then choose a timetable slot for the session weekday."); return; }
         JPanel form = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JTextField date = new JTextField(LocalDate.now().toString(), 12);
-        JComboBox<EntryRow> timetable = new JComboBox<>(setup.entries().stream()
-                .filter(value -> value.componentId() == selectedComponent.id()).toArray(EntryRow[]::new));
+        JComboBox<EntryRow> timetable = new JComboBox<>();
+        Runnable filterSlots=()->{
+            try {
+                LocalDate selectedDate=LocalDate.parse(date.getText().trim());
+                String weekday=switch(selectedDate.getDayOfWeek()){case MONDAY->"MON";case TUESDAY->"TUE";case WEDNESDAY->"WED";case THURSDAY->"THU";case FRIDAY->"FRI";case SATURDAY->"SAT";case SUNDAY->"SUN";};
+                timetable.setModel(new DefaultComboBoxModel<>(setup.entries().stream()
+                        .filter(value -> (value.componentId()==0||value.componentId()==selectedComponent.id())&&value.dayOfWeek().equals(weekday))
+                        .toArray(EntryRow[]::new)));
+            } catch(RuntimeException invalidDate) { timetable.setModel(new DefaultComboBoxModel<>()); }
+        };
+        date.getDocument().addDocumentListener(new javax.swing.event.DocumentListener(){public void insertUpdate(javax.swing.event.DocumentEvent e){filterSlots.run();}public void removeUpdate(javax.swing.event.DocumentEvent e){filterSlots.run();}public void changedUpdate(javax.swing.event.DocumentEvent e){filterSlots.run();}});
+        filterSlots.run();
         timetable.setRenderer((list, value, index, selected, focus) -> new JLabel(value == null ? "" :
-                value.dayOfWeek() + " " + value.start() + "–" + value.end() + " — " + value.location()));
+                value.dayOfWeek() + " " + value.start() + "–" + value.end() + (value.location()==null||value.location().isBlank()?"":" — "+value.location())));
         form.add(new JLabel("Session date (yyyy-mm-dd)")); form.add(date);
         form.add(new JLabel("Timetable")); form.add(timetable);
         JTable marks = rosterTable(true);
@@ -246,7 +257,7 @@ public final class AttendanceScreen extends JPanel {
                 != JOptionPane.OK_OPTION) return;
         try {
             EntryRow selectedEntry = (EntryRow) timetable.getSelectedItem();
-            if (selectedEntry == null) { error("No matching timetable entries are available."); return; }
+            if (selectedEntry == null) { error("No active timetable slot matches this session date. Ask the Admin to configure a slot for this weekday."); return; }
             Map<Integer, Boolean> present = new HashMap<>();
             for (int row = 0; row < marks.getRowCount(); row++)
                 present.put(setup.roster().get(row).enrollmentId(), (Boolean) marks.getValueAt(row, 2));
@@ -340,7 +351,7 @@ public final class AttendanceScreen extends JPanel {
     }
 
     private EntryRow selectedEntry() { return setup == null ? null : setup.entries().stream()
-            .filter(value -> component.getSelectedItem() != null && value.componentId() == ((ComponentRow) component.getSelectedItem()).id())
+            .filter(value -> component.getSelectedItem() != null && (value.componentId()==0 || value.componentId() == ((ComponentRow) component.getSelectedItem()).id()))
             .findFirst().orElse(null); }
     private int currentOfferingId() { return ((OfferingOption) offering.getSelectedItem()).id(); }
     private void renderLabels() {

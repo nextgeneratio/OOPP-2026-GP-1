@@ -3,6 +3,7 @@ package lk.ac.ruhuna.fot.ams.business.service;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Objects;
 import lk.ac.ruhuna.fot.ams.data.dao.AuditLogDao;
 import lk.ac.ruhuna.fot.ams.data.dao.CourseDao;
@@ -41,8 +42,7 @@ public final class TimetableService {
     }
 
     public long createTimetable(AuthenticatedSession actor, TimetableRow timetable) {
-        authorizeTimetableManager(actor, timetable == null ? 0 : timetable.departmentId(),
-                timetable == null ? 0 : timetable.semesterId());
+        authorization.requireAdmin(actor);
         if (timetable == null || timetable.title() == null || timetable.title().isBlank()
                 || timetable.departmentId() <= 0 || timetable.semesterId() <= 0
                 || timetable.level() < 1 || timetable.level() > 4) {
@@ -55,6 +55,66 @@ public final class TimetableService {
             audit(connection, actor.userId(), "TIMETABLE_CREATE", id);
             return id;
         });
+    }
+
+    public long createWeekly(AuthenticatedSession actor, TimetableRow timetable, List<EntryRow> slots) {
+        authorization.requireAdmin(actor);
+        validateHeader(timetable);
+        validateWeeklySlots(slots);
+        return transactions.execute(connection -> {
+            TimetableRow owned = new TimetableRow(timetable.id(), timetable.title().trim(), timetable.departmentId(),
+                    timetable.semesterId(), timetable.level(), actor.userId(), null, null);
+            long timetableId=timetableDao.insertTimetable(connection, owned);
+            List<EntryRow> materialized=slots.stream().map(s -> new EntryRow(0,(int)timetableId,0,0,s.dayOfWeek(),s.start(),s.end(),blankToNull(s.location()))).toList();
+            checkWeeklyConflicts((int)timetableId, timetable, materialized, 0);
+            for(EntryRow slot:materialized) timetableDao.insertEntry(connection,slot);
+            audit(connection,actor.userId(),"TIMETABLE_CREATE",timetableId);
+            return timetableId;
+        });
+    }
+
+    public void updateWeekly(AuthenticatedSession actor, int timetableId, List<EntryRow> slots) {
+        authorization.requireAdmin(actor);
+        TimetableRow header=timetableDao.findTimetable(timetableId).orElseThrow(()->new NotFoundException("Timetable was not found."));
+        if(!timetableDao.isTimetableActive(timetableId)) throw new ValidationException("This timetable is inactive.");
+        validateWeeklySlots(slots);
+        transactions.execute(connection -> {
+            List<EntryRow> materialized=slots.stream().map(s -> new EntryRow(0,timetableId,0,0,s.dayOfWeek(),s.start(),s.end(),blankToNull(s.location()))).toList();
+            checkWeeklyConflicts(timetableId,header,materialized,timetableId);
+            timetableDao.deactivateEntriesForTimetable(connection,timetableId);
+            for(EntryRow slot:materialized) timetableDao.insertEntry(connection,slot);
+            audit(connection,actor.userId(),"TIMETABLE_UPDATE",timetableId);
+            return null;
+        });
+    }
+
+    private void validateHeader(TimetableRow timetable) {
+        if(timetable==null||timetable.title()==null||timetable.title().isBlank()||timetable.departmentId()<=0||timetable.semesterId()<=0||timetable.level()<1||timetable.level()>4)
+            throw new ValidationException("Choose a department, academic term, and level.");
+    }
+
+    private void validateWeeklySlots(List<EntryRow> slots) {
+        if(slots==null) throw new ValidationException("Weekly slots are required.");
+        for(EntryRow slot:slots) if(slot==null||slot.dayOfWeek()==null||!List.of("MON","TUE","WED","THU","FRI","SAT","SUN").contains(slot.dayOfWeek())||slot.start()==null||slot.end()==null||!slot.start().isBefore(slot.end()))
+            throw new ValidationException("Each slot needs a valid weekday, start time, and later end time.");
+        for(int i=0;i<slots.size();i++) for(int j=i+1;j<slots.size();j++) if(overlaps(slots.get(i),slots.get(j)))
+            throw new ValidationException("Weekly timetable slots overlap on "+slots.get(i).dayOfWeek()+".");
+    }
+
+    private boolean overlaps(EntryRow a,EntryRow b){return a.dayOfWeek().equals(b.dayOfWeek())&&a.start().isBefore(b.end())&&b.start().isBefore(a.end());}
+    private String blankToNull(String value){return value==null||value.isBlank()?null:value.trim();}
+
+    private void checkWeeklyConflicts(int timetableId,TimetableRow scope,List<EntryRow> proposed,int excludedTimetableId){
+        List<EntryRow> existing=timetableDao.findEntries(scope.departmentId(),scope.semesterId()).stream()
+                .filter(e->e.timetableId()!=excludedTimetableId).toList();
+        for(EntryRow candidate:proposed) for(EntryRow old:existing) {
+            boolean timeOverlap=overlaps(candidate,old);
+            boolean sameRoom=candidate.location()!=null&&!candidate.location().isBlank()&&candidate.location().equalsIgnoreCase(old.location()==null?"":old.location());
+            TimetableRow oldScope=timetableDao.findTimetable(old.timetableId()).orElse(null);
+            boolean sameCohort=oldScope!=null&&oldScope.level()==scope.level();
+            if(timeOverlap&&sameCohort||timeOverlap&&sameRoom)
+                throw new ValidationException("The proposed timetable conflicts with another active timetable for this department, term, and level.");
+        }
     }
 
     public long addEntry(AuthenticatedSession actor, EntryRow entry) {
@@ -78,8 +138,9 @@ public final class TimetableService {
                 throw new ValidationException("A timetable entry cannot be moved to another timetable.");
             }
             checkConflicts(entry);
-            timetableDao.updateEntry(connection, entry);
-            audit(connection, actor.userId(), "TIMETABLE_ENTRY_UPDATE", entry.id());
+            timetableDao.deactivateEntry(connection,entry.id());
+            timetableDao.insertEntry(connection,new EntryRow(0,entry.timetableId(),entry.offeringId(),entry.componentId(),entry.dayOfWeek(),entry.start(),entry.end(),blankToNull(entry.location())));
+            audit(connection, actor.userId(), "TIMETABLE_ENTRY_VERSION", entry.id());
             return null;
         });
     }
@@ -94,21 +155,26 @@ public final class TimetableService {
         }
         List<EntryRow> entries = timetableDao.findEntries(departmentId, semesterId, level, day);
         if (actor.role() == Role.ADMIN) {
+            authorization.requireAdmin(actor);
             return entries;
         }
         if (actor.role() == Role.TECHNICAL_OFFICER) {
-            entries.forEach(entry -> authorization.requireTechnicalOfficerForOffering(actor, entry.offeringId()));
+            authorization.requireTechnicalOfficerForTimetable(actor,departmentId,semesterId);
             return entries;
         }
         if (actor.role() == Role.LECTURER) {
             int lecturerId = authorization.lecturerId(actor);
             List<Integer> offeringIds = courseDao.findOfferingsForLecturer(lecturerId, semesterId).stream()
                     .map(CourseDao.OfferingRow::id).toList();
-            return entries.stream().filter(entry -> offeringIds.contains(entry.offeringId())).toList();
+            List<EntryRow> scoped=timetableDao.findEntriesForOfferings(offeringIds);
+            var ids=scoped.stream().map(EntryRow::id).collect(java.util.stream.Collectors.toSet());
+            return entries.stream().filter(entry -> ids.contains(entry.id())).toList();
         }
         if (actor.role() == Role.UNDERGRADUATE) {
             int studentId = authorization.studentId(actor);
-            return entries.stream().filter(entry -> courseDao.findActiveEnrollments(entry.offeringId()).stream()
+            List<EntryRow> scoped=timetableDao.findEntriesForOfferings(courseDao.findOfferingsForStudent(studentId).stream().map(CourseDao.OfferingRow::id).toList());
+            var ids=scoped.stream().map(EntryRow::id).collect(java.util.stream.Collectors.toSet());
+            return entries.stream().filter(entry -> ids.contains(entry.id()) || entry.offeringId()>0 && courseDao.findActiveEnrollments(entry.offeringId()).stream()
                     .anyMatch(enrollment -> enrollment.studentId() == studentId)).toList();
         }
         throw new AuthorizationException("You do not have permission to view this timetable.");
@@ -146,7 +212,8 @@ public final class TimetableService {
         if (departmentId <= 0 || semesterId <= 0 || level < 1 || level > 4) {
             throw new ValidationException("Choose a valid department, semester, and level.");
         }
-        authorizeTimetableManager(actor, departmentId, semesterId);
+        if(actor.role()==Role.ADMIN) authorization.requireAdmin(actor);
+        else authorization.requireTechnicalOfficerForTimetable(actor,departmentId,semesterId);
         return timetableDao.findTimetables(departmentId, semesterId, level);
     }
 
@@ -156,14 +223,26 @@ public final class TimetableService {
             throw new ValidationException("Timetable was not found.");
         }
         transactions.execute(connection -> {
-            timetableDao.deleteEntriesForTimetable(connection, timetableId);
-            int deleted = timetableDao.deleteTimetable(connection, timetableId);
+            timetableDao.deactivateEntriesForTimetable(connection,timetableId);
+            int deleted = timetableDao.deactivateTimetable(connection, timetableId);
             if (deleted != 1) {
                 throw new ValidationException("Timetable was not found.");
             }
-            audit(connection, actor.userId(), "TIMETABLE_DELETE", timetableId);
+            audit(connection, actor.userId(), "TIMETABLE_DEACTIVATE", timetableId);
             return null;
         });
+    }
+
+    public List<EntryRow> entriesForTimetable(AuthenticatedSession actor,int timetableId){
+        TimetableRow row=timetableDetails(actor,timetableId);
+        if(actor.role()==Role.ADMIN) authorization.requireAdmin(actor);
+        return timetableDao.findEntriesForTimetable(timetableId);
+    }
+
+    public int attendanceReferences(AuthenticatedSession actor,int timetableId){
+        authorization.requireAdmin(actor);
+        timetableDao.findTimetable(timetableId).orElseThrow(()->new NotFoundException("Timetable was not found."));
+        return timetableDao.countAttendanceReferences(timetableId);
     }
 
     private void checkConflicts(EntryRow entry) {
@@ -198,22 +277,10 @@ public final class TimetableService {
         }
     }
 
-    private void authorizeTimetableManager(AuthenticatedSession actor, int departmentId, int semesterId) {
-        if (actor != null && actor.role() == Role.ADMIN) {
-            authorization.requireAdmin(actor);
-            return;
-        }
-        authorization.requireTechnicalOfficerForTimetable(actor, departmentId, semesterId);
-    }
-
     private void authorizeTimetableEntryManager(AuthenticatedSession actor, int timetableId) {
+        authorization.requireAdmin(actor);
         TimetableRow timetable = timetableDao.findTimetable(timetableId)
                 .orElseThrow(() -> new NotFoundException("Timetable was not found."));
-        authorizeTimetableManager(actor, timetable.departmentId(), timetable.semesterId());
-        if (actor.role() == Role.TECHNICAL_OFFICER
-                && !Long.valueOf(actor.userId()).equals(timetable.createdByUserId())) {
-            throw new AuthorizationException("You may only change timetables that you created.");
-        }
     }
 
     private void audit(java.sql.Connection connection, long userId, String action, long entityId)

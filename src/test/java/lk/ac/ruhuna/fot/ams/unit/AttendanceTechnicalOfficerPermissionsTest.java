@@ -58,6 +58,8 @@ class AttendanceTechnicalOfficerPermissionsTest {
                 new CourseDao.ComponentRow(3, 10, ComponentType.THEORY, 2, 12)));
         when(courseDao.findActiveEnrollments(7)).thenReturn(List.of(
                 new CourseDao.EnrollmentRow(9, 44, 7, 1, "NORMAL", "ACTIVE")));
+        when(courseDao.findAttendanceViewRoster(7)).thenReturn(List.of(
+                new CourseDao.AttendanceRosterRow(9, 44, "ST044", "Student 44")));
         when(attendanceDao.insertSession(eq(connection), any())).thenReturn(15L);
         when(attendanceDao.findSessions(7)).thenReturn(List.of(
                 new AttendanceDao.SessionRow(15, 7, 3, LocalDate.of(2026, 10, 18), 5, 22, null)));

@@ -582,6 +582,7 @@ CREATE TABLE IF NOT EXISTS `timetables` (
     semester_id INT NOT NULL,
     level_no TINYINT NOT NULL DEFAULT 1,
     created_by_user_id BIGINT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
 
     PRIMARY KEY (timetable_id),
     CONSTRAINT chk_timetables_level_no CHECK (level_no BETWEEN 1 AND 4),
@@ -602,14 +603,15 @@ CREATE TABLE IF NOT EXISTS `timetables` (
 CREATE TABLE IF NOT EXISTS `timetable_entries` (
     timetable_entry_id INT NOT NULL AUTO_INCREMENT,
     timetable_id INT NOT NULL,
-    offering_id INT NOT NULL,
-    component_id INT NOT NULL,
+    offering_id INT NULL,
+    component_id INT NULL,
     day_of_week ENUM(
         'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'
     ) NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
-    location VARCHAR(80) NOT NULL,
+    location VARCHAR(80) NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
 
     PRIMARY KEY (timetable_entry_id),
     INDEX idx_timetable_entries_timetable_id (timetable_id),
@@ -617,6 +619,9 @@ CREATE TABLE IF NOT EXISTS `timetable_entries` (
 
     CONSTRAINT chk_timetable_entries_time_range
         CHECK (start_time < end_time),
+
+    CONSTRAINT chk_timetable_entries_optional_course_pair
+        CHECK ((offering_id IS NULL AND component_id IS NULL) OR (offering_id IS NOT NULL AND component_id IS NOT NULL)),
 
     CONSTRAINT fk_timetable_entries_timetable
         FOREIGN KEY (timetable_id)
@@ -735,7 +740,7 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Schema preflight failed: all 30 application tables must exist as InnoDB with utf8mb4_unicode_ci.';
   END IF;
   IF (SELECT COUNT(*) FROM information_schema.columns
-      WHERE table_schema=DATABASE() AND table_name IN ('users', 'admins', 'departments', 'batches', 'undergraduates', 'lecturers', 'technical_officers', 'courses', 'course_components', 'semesters', 'course_offerings', 'course_offering_lecturers', 'course_enrollments', 'assessments', 'marks', 'attendance_sessions', 'attendance_records', 'medical_records', 'course_materials', 'course_quizzes', 'quiz_questions', 'quiz_attempts', 'course_assignments', 'assignment_submissions', 'notices', 'timetables', 'timetable_entries', 'grades', 'course_results', 'audit_logs')) <> 193
+      WHERE table_schema=DATABASE() AND table_name IN ('users', 'admins', 'departments', 'batches', 'undergraduates', 'lecturers', 'technical_officers', 'courses', 'course_components', 'semesters', 'course_offerings', 'course_offering_lecturers', 'course_enrollments', 'assessments', 'marks', 'attendance_sessions', 'attendance_records', 'medical_records', 'course_materials', 'course_quizzes', 'quiz_questions', 'quiz_attempts', 'course_assignments', 'assignment_submissions', 'notices', 'timetables', 'timetable_entries', 'grades', 'course_results', 'audit_logs')) <> 195
      OR EXISTS (
        SELECT 1 FROM (
       SELECT 'users' AS table_name, 'user_id' AS column_name
@@ -1062,6 +1067,8 @@ BEGIN
       UNION ALL
       SELECT 'timetables' AS table_name, 'created_by_user_id' AS column_name
       UNION ALL
+      SELECT 'timetables' AS table_name, 'is_active' AS column_name
+      UNION ALL
       SELECT 'timetable_entries' AS table_name, 'timetable_entry_id' AS column_name
       UNION ALL
       SELECT 'timetable_entries' AS table_name, 'timetable_id' AS column_name
@@ -1077,6 +1084,8 @@ BEGIN
       SELECT 'timetable_entries' AS table_name, 'end_time' AS column_name
       UNION ALL
       SELECT 'timetable_entries' AS table_name, 'location' AS column_name
+      UNION ALL
+      SELECT 'timetable_entries' AS table_name, 'is_active' AS column_name
       UNION ALL
       SELECT 'grades' AS table_name, 'grade_id' AS column_name
       UNION ALL
@@ -1458,13 +1467,15 @@ BEGIN
       UNION ALL
       SELECT 'timetables' AS table_name, 'created_by_user_id' AS column_name, 'bigint' AS data_type, 'YES' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
+      SELECT 'timetables' AS table_name, 'is_active' AS column_name, 'tinyint' AS data_type, 'NO' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
+      UNION ALL
       SELECT 'timetable_entries' AS table_name, 'timetable_entry_id' AS column_name, 'int' AS data_type, 'NO' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
       SELECT 'timetable_entries' AS table_name, 'timetable_id' AS column_name, 'int' AS data_type, 'NO' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
-      SELECT 'timetable_entries' AS table_name, 'offering_id' AS column_name, 'int' AS data_type, 'NO' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
+      SELECT 'timetable_entries' AS table_name, 'offering_id' AS column_name, 'int' AS data_type, 'YES' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
-      SELECT 'timetable_entries' AS table_name, 'component_id' AS column_name, 'int' AS data_type, 'NO' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
+      SELECT 'timetable_entries' AS table_name, 'component_id' AS column_name, 'int' AS data_type, 'YES' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
       SELECT 'timetable_entries' AS table_name, 'day_of_week' AS column_name, 'enum' AS data_type, 'NO' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
@@ -1472,7 +1483,9 @@ BEGIN
       UNION ALL
       SELECT 'timetable_entries' AS table_name, 'end_time' AS column_name, 'time' AS data_type, 'NO' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
-      SELECT 'timetable_entries' AS table_name, 'location' AS column_name, 'varchar' AS data_type, 'NO' AS is_nullable, 80 AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
+      SELECT 'timetable_entries' AS table_name, 'location' AS column_name, 'varchar' AS data_type, 'YES' AS is_nullable, 80 AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
+      UNION ALL
+      SELECT 'timetable_entries' AS table_name, 'is_active' AS column_name, 'tinyint' AS data_type, 'NO' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
       SELECT 'grades' AS table_name, 'grade_id' AS column_name, 'int' AS data_type, 'NO' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
@@ -1707,7 +1720,7 @@ BEGIN
   END IF;
   IF (SELECT COUNT(*) FROM information_schema.table_constraints
       WHERE constraint_schema=DATABASE() AND table_name IN ('users', 'admins', 'departments', 'batches', 'undergraduates', 'lecturers', 'technical_officers', 'courses', 'course_components', 'semesters', 'course_offerings', 'course_offering_lecturers', 'course_enrollments', 'assessments', 'marks', 'attendance_sessions', 'attendance_records', 'medical_records', 'course_materials', 'course_quizzes', 'quiz_questions', 'quiz_attempts', 'course_assignments', 'assignment_submissions', 'notices', 'timetables', 'timetable_entries', 'grades', 'course_results', 'audit_logs')
-        AND constraint_type IN ('PRIMARY KEY','UNIQUE','FOREIGN KEY','CHECK')) <> 132
+        AND constraint_type IN ('PRIMARY KEY','UNIQUE','FOREIGN KEY','CHECK')) <> 133
      OR EXISTS (
        SELECT 1 FROM (
       SELECT 'admins' AS table_name, 'fk_admins_user' AS constraint_name
@@ -1846,6 +1859,8 @@ BEGIN
       UNION ALL
       SELECT 'timetable_entries' AS table_name, 'chk_timetable_entries_time_range' AS constraint_name
       UNION ALL
+      SELECT 'timetable_entries' AS table_name, 'chk_timetable_entries_optional_course_pair' AS constraint_name
+      UNION ALL
       SELECT 'timetable_entries' AS table_name, 'fk_timetable_entries_component' AS constraint_name
       UNION ALL
       SELECT 'timetable_entries' AS table_name, 'fk_timetable_entries_offering' AS constraint_name
@@ -1922,10 +1937,10 @@ BEGIN
     ('LE003', 'PBKDF2$210000$NfldvpmrinfQoHmAimJNiw==$3NNtIeCM/8vpsWSjJ1Or54I38Woii8B038iyn2F3bS8=', 'LECTURER', 'demo_lec003@example.invalid', TRUE, NOW()),
     ('LE004', 'PBKDF2$210000$fKLvdQgTNjBZdyC+RPoXFw==$/dPLKwStdSHMmpU8m3E90rTNgkfGBP7r9on1uVYat2M=', 'LECTURER', 'demo_lec004@example.invalid', TRUE, NOW()),
     ('LE005', 'PBKDF2$210000$/HWJQ30/yPDWwPz/rJl2lw==$a77CFC7RlWEV0XU7NaHuP0G1/l02utSoaI0ZZPwnsJ8=', 'LECTURER', 'demo_lec005@example.invalid', TRUE, NOW()),
-    ('LE006', 'PBKDF2$210000$VgF0h+jeg1L8Z4WVVEnjLA==$hk83ZsFYzpFuG/OJQ7NsFqyES7nRQagkQCt3ss8OWPI=', 'LECTURER', 'LE006_Demo_Lecturer_006@fot.ac.lk', TRUE, NOW()),
-    ('LE007', 'PBKDF2$210000$VgF0h+jeg1L8Z4WVVEnjLA==$hk83ZsFYzpFuG/OJQ7NsFqyES7nRQagkQCt3ss8OWPI=', 'LECTURER', 'LE007_Demo_Lecturer_007@fot.ac.lk', TRUE, NOW()),
-    ('LE008', 'PBKDF2$210000$VgF0h+jeg1L8Z4WVVEnjLA==$hk83ZsFYzpFuG/OJQ7NsFqyES7nRQagkQCt3ss8OWPI=', 'LECTURER', 'LE008_Demo_Lecturer_008@fot.ac.lk', TRUE, NOW()),
-    ('LE009', 'PBKDF2$210000$VgF0h+jeg1L8Z4WVVEnjLA==$hk83ZsFYzpFuG/OJQ7NsFqyES7nRQagkQCt3ss8OWPI=', 'LECTURER', 'LE009_Demo_Lecturer_009@fot.ac.lk', TRUE, NOW()),
+    ('LE006', 'PBKDF2$210000$jRrKSSdHLi9G8Orp8pc4NA==$4uYFjMNggwvxnZ3AeQ4IePBJ9kZNCdIyXzQo7z2WrQE=', 'LECTURER', 'LE006_Demo_Lecturer_006@fot.ac.lk', TRUE, NOW()),
+    ('LE007', 'PBKDF2$210000$Pjh5+keTx8+t3QWzNNCKcA==$yixBE5y5fkRYuOJLk/ZaLBpYjyhrpOs1VjtJOnbKsG4=', 'LECTURER', 'LE007_Demo_Lecturer_007@fot.ac.lk', TRUE, NOW()),
+    ('LE008', 'PBKDF2$210000$BI1ACyZHGAzPx2BqjNpVyg==$oxn2H+jkA+lzVyKoyfcaW21kcGiKA9+EJSNugCzDg0A=', 'LECTURER', 'LE008_Demo_Lecturer_008@fot.ac.lk', TRUE, NOW()),
+    ('LE009', 'PBKDF2$210000$3mP6W0J/zQbC09dc2iF+kA==$q+nfm8FvtCJnOEZ5ws9HEwQrAdUiRHYAY3fy7xmIZwc=', 'LECTURER', 'LE009_Demo_Lecturer_009@fot.ac.lk', TRUE, NOW()),
     ('TE001', 'PBKDF2$210000$nJ+BIYkPLIsBDiAXRUaVoA==$n1Ydezb/l3cJhEyRpMfn++8H4q/fqUoOF24L4fibFp0=', 'TECHNICAL_OFFICER', 'demo_to001@example.invalid', TRUE, NOW()),
     ('TE002', 'PBKDF2$210000$Y3pF8t+aaVPM9TMU07Y5OA==$/uQt0p9p58U59m+AZF2ie6V8qNpd3Tf4BV5QbMc9M/U=', 'TECHNICAL_OFFICER', 'demo_to002@example.invalid', TRUE, NOW()),
     ('TE003', 'PBKDF2$210000$r9L4c6Vpq7lrw7h6OUpsSQ==$/7mg2674iyhxol7vIEV1dZ6GFgRBVdBNzd+fnFJ/r6s=', 'TECHNICAL_OFFICER', 'demo_to003@example.invalid', TRUE, NOW()),

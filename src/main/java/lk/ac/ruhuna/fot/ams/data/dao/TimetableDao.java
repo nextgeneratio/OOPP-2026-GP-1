@@ -32,7 +32,18 @@ public interface TimetableDao {
 
     long insertEntry(Connection connection, EntryRow row);
 
+    List<EntryRow> findEntriesForTimetable(int timetableId);
+
+    int deactivateEntriesForTimetable(Connection connection, int timetableId);
+
+    int deactivateTimetable(Connection connection, int timetableId);
+
+    boolean isTimetableActive(int timetableId);
+
+    int countAttendanceReferences(int timetableId);
+
     int updateEntry(Connection connection, EntryRow row);
+    int deactivateEntry(Connection connection, int entryId);
     int deleteEntriesForTimetable(Connection connection, int timetableId);
     int deleteTimetable(Connection connection, int timetableId);
 
@@ -43,6 +54,8 @@ public interface TimetableDao {
     Optional<EntryRow> findEntry(int entryId);
 
     List<EntryRow> findEntries(int departmentId, int semesterId, int level, String dayOfWeek);
+
+    List<EntryRow> findEntries(int departmentId,int semesterId);
 
     List<EntryRow> findEntriesForOfferings(List<Integer> offeringIds);
 

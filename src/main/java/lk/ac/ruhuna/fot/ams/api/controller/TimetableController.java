@@ -8,11 +8,14 @@ import lk.ac.ruhuna.fot.ams.data.dao.TimetableDao.TimetableRow;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
 public final class TimetableController {
+    public record WeeklyRequest(TimetableRow timetable, List<EntryRow> slots) { }
+    public record WeeklyUpdateRequest(int timetableId, List<EntryRow> slots) { }
     public record EntryRequest(EntryRow entry) {
     }
 
     public record TimetableIdResponse(long id) {
     }
+    public record TimetableDeletionSummary(int activeSlots,int attendanceReferences) { }
 
     private final TimetableService service;
     private final ApiControllerSupport support;
@@ -25,6 +28,22 @@ public final class TimetableController {
     public ApiResponse<TimetableIdResponse> create(
             AuthenticatedSession actor, TimetableRow request) {
         return support.execute(request, () -> new TimetableIdResponse(service.createTimetable(actor, request)));
+    }
+
+    public ApiResponse<TimetableIdResponse> createWeekly(AuthenticatedSession actor,WeeklyRequest request){
+        return support.execute(request,()->new TimetableIdResponse(service.createWeekly(actor,request.timetable(),request.slots())));
+    }
+
+    public ApiResponse<Void> updateWeekly(AuthenticatedSession actor,WeeklyUpdateRequest request){
+        return support.execute(request,()->{service.updateWeekly(actor,request.timetableId(),request.slots());return null;});
+    }
+
+    public ApiResponse<List<EntryRow>> entriesForTimetable(AuthenticatedSession actor,int timetableId){
+        return support.execute(()->service.entriesForTimetable(actor,timetableId));
+    }
+
+    public ApiResponse<TimetableDeletionSummary> deletionSummary(AuthenticatedSession actor,int timetableId){
+        return support.execute(()->{var entries=service.entriesForTimetable(actor,timetableId);return new TimetableDeletionSummary(entries.size(),service.attendanceReferences(actor,timetableId));});
     }
 
     public ApiResponse<TimetableIdResponse> addEntry(
