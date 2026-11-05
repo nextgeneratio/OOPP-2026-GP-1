@@ -83,38 +83,59 @@ public final class TimetableScreen extends JPanel {
     private void entryForm(boolean update){
         CourseCatalog data=catalog();if(data==null)return;JComboBox<SelectionOption> dept=departments(data),term=semesters(data);JComboBox<Integer> level=levels();
         JComboBox<SelectionOption> timetableBox=new JComboBox<>(), offeringBox=new JComboBox<>(), componentBox=new JComboBox<>(), entryBox=new JComboBox<>();
+        JLabel guidance=new JLabel("Select a course offering and its class component.");
         offeringBox.addActionListener(e->{Integer selected=selectionId(offeringBox);OfferingRow o=scopedOfferings.stream().filter(x->x.id()==selected).findFirst().orElse(null);
-            if(o==null){fill(componentBox,List.of());return;}fill(componentBox,data.components().stream().filter(c->c.courseId()==o.courseId())
-                    .map(c->new SelectionOption(c.id(),c.type()+" — "+c.credits()+" credits")).toList());});
-        Runnable refresh=()->refreshChoices(data,dept,term,level,timetableBox,offeringBox,componentBox,entryBox,update);
+            if(o==null){fill(componentBox,List.of());guidance.setText("Choose an offering to load its available class components.");return;}
+            List<SelectionOption> components=data.components().stream().filter(c->c.courseId()==o.courseId())
+                    .map(c->new SelectionOption(c.id(),c.type()+" — "+c.credits()+" credits")).toList();
+            fill(componentBox,components);
+            guidance.setText(components.isEmpty()
+                    ? "This course has no class components. Add a theory or practical component to the course in Course Management first."
+                    : "Choose the class component (for example, THEORY or PRACTICAL) for this timetable entry.");});
+        Runnable refresh=()->refreshChoices(data,dept,term,level,timetableBox,offeringBox,componentBox,entryBox,update,guidance);
         dept.addActionListener(e->refresh.run());term.addActionListener(e->refresh.run());level.addActionListener(e->refresh.run());refresh.run();
+        if(selectionId(timetableBox)==null){
+            info("Create a timetable for this department, academic term, and level before adding entries.");return;
+        }
+        if(scopedOfferings.isEmpty()){
+            info("No course offerings match this department, academic term, and level. In Course Management, create a course offering for the correct department, batch, and term first.");return;
+        }
         JComboBox<String> day=new JComboBox<>(new String[]{"MON","TUE","WED","THU","FRI","SAT","SUN"});
         JTextField start=new JTextField("08:00",10),end=new JTextField("10:00",10),location=new JTextField(20);
         if(update)entryBox.addActionListener(e->{EntryRow row=entryValue(entryBox);if(row!=null){selectId(timetableBox,row.timetableId());selectId(offeringBox,row.offeringId());selectId(componentBox,row.componentId());day.setSelectedItem(row.dayOfWeek());start.setText(row.start().toString());end.setText(row.end().toString());}});
-        String[] labels=update?new String[]{"Department","Academic term","Level","Entry","Timetable","Offering","Component","Day","Start HH:mm","End HH:mm","Location"}
-                :new String[]{"Department","Academic term","Level","Timetable","Offering","Component","Day","Start HH:mm","End HH:mm","Location"};
-        java.awt.Component[] fields=update?new java.awt.Component[]{dept,term,level,entryBox,timetableBox,offeringBox,componentBox,day,start,end,location}
-                :new java.awt.Component[]{dept,term,level,timetableBox,offeringBox,componentBox,day,start,end,location};
+        String offeringLabel="Course offering (course, batch, and term)";
+        String componentLabel="Class component (theory/practical)";
+        String[] labels=update?new String[]{"Department","Academic term","Level","Entry","Timetable",offeringLabel,componentLabel,"Day","Start HH:mm","End HH:mm","Location","Selection help"}
+                :new String[]{"Department","Academic term","Level","Timetable",offeringLabel,componentLabel,"Day","Start HH:mm","End HH:mm","Location","Selection help"};
+        java.awt.Component[] fields=update?new java.awt.Component[]{dept,term,level,entryBox,timetableBox,offeringBox,componentBox,day,start,end,location,guidance}
+                :new java.awt.Component[]{dept,term,level,timetableBox,offeringBox,componentBox,day,start,end,location,guidance};
         if(!form(update?"Update timetable entry":"Add timetable entry",labels,fields))return;
         EntryRow existing=update?entryValue(entryBox):null;if(update&&existing==null){error("Select an existing timetable entry.");return;}
+        if(selectionId(offeringBox)==null){error("Select a course offering. If none match, create an offering for this department, batch, and term in Course Management.");return;}
+        if(selectionId(componentBox)==null){error("Select a class component. Add a theory or practical component to the course in Course Management if none are listed.");return;}
         EntryRow row=new EntryRow(update?existing.id():0,id(timetableBox),id(offeringBox),id(componentBox),(String)day.getSelectedItem(),
                 LocalTime.parse(start.getText().trim()),LocalTime.parse(end.getText().trim()),location.getText().trim());
         show(update?timetables.updateEntry(actor,new TimetableController.EntryRequest(row)):timetables.addEntry(actor,new TimetableController.EntryRequest(row)));
     }
     private void refreshChoices(CourseCatalog data,JComboBox<SelectionOption> dept,JComboBox<SelectionOption> term,JComboBox<Integer> level,
             JComboBox<SelectionOption> timetableBox,JComboBox<SelectionOption> offeringBox,JComboBox<SelectionOption> componentBox,
-            JComboBox<SelectionOption> entryBox,boolean update){
+            JComboBox<SelectionOption> entryBox,boolean update,JLabel guidance){
         Integer d=selectionId(dept),s=selectionId(term);Integer l=(Integer)level.getSelectedItem();
         fill(timetableBox,List.of());fill(offeringBox,List.of());fill(componentBox,List.of());if(update)fill(entryBox,List.of());
         loadedEntries=List.of();scopedOfferings=List.of();
-        if(d==null||s==null||l==null)return;
+        if(d==null||s==null||l==null){guidance.setText("Choose a department, academic term, and level.");return;}
         ApiResponse<List<TimetableRow>> found=timetables.timetables(actor,d,s,l);
-        if(!found.successful()){return;}
+        if(!found.successful()){guidance.setText(found.error().message());return;}
         fill(timetableBox,found.data().stream().map(t->new SelectionOption(t.id(),t.title()+" — Level "+t.level())).toList());
         List<OfferingRow> offerings=data.offerings().stream().filter(o->o.semesterId()==s&&data.batches().stream()
                 .anyMatch(b->b.id()==o.batchId()&&b.departmentId()==d&&b.level()==l)).toList();
         scopedOfferings=offerings;
         fill(offeringBox,offerings.stream().map(o->new SelectionOption(o.id(),offeringLabel(data,o))).toList());
+        guidance.setText(found.data().isEmpty()
+                ? "Create a timetable for this department, academic term, and level first."
+                : offerings.isEmpty()
+                    ? "No course offerings match these selections. Create the offering in Course Management first."
+                    : "An offering is a course scheduled for a batch and academic term. Select it, then choose THEORY/PRACTICAL if available.");
         if(update){var entries=timetables.listEntries(actor,d,s,l,null);if(entries.successful()){loadedEntries=entries.data();fill(entryBox,loadedEntries.stream()
                 .map(e->new SelectionOption(e.id(),entryLabel(data,e))).toList());}}
     }
@@ -156,4 +177,5 @@ public final class TimetableScreen extends JPanel {
     private void button(JPanel p,String text,Runnable action){javax.swing.JButton b=new javax.swing.JButton(text);b.addActionListener(e->{try{action.run();}catch(RuntimeException x){error("Check the selected records and time values: "+x.getMessage());}});p.add(b);}
     private void show(ApiResponse<?>r){if(r.successful())JOptionPane.showMessageDialog(this,"Action completed successfully.","Timetable",JOptionPane.INFORMATION_MESSAGE);else error(r.error().message());}
     private void error(String message){JOptionPane.showMessageDialog(this,message,"Timetable",JOptionPane.ERROR_MESSAGE);}
+    private void info(String message){JOptionPane.showMessageDialog(this,message,"Timetable",JOptionPane.INFORMATION_MESSAGE);}
 }
