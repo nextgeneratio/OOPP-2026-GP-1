@@ -1,6 +1,6 @@
 app.environment=development
 
-db.url=jdbc:mariadb://localhost:3306/university_management
+db.url=jdbc:mariadb://localhost:3306/university_management?allowPublicKeyRetrieval=true
 db.username=ams_app
 db.password=AmsLocalOnly-ChangeMe-2026!
 db.pool-size=5

@@ -115,7 +115,7 @@ The example contains the local database account created by the installer:
 
 ```properties
 app.environment=development
-db.url=jdbc:mariadb://localhost:3306/university_management
+db.url=jdbc:mariadb://localhost:3306/university_management?allowPublicKeyRetrieval=true
 db.username=ams_app
 db.password=AmsLocalOnly-ChangeMe-2026!
 db.pool-size=5
@@ -129,6 +129,11 @@ below. The installer’s JDBC password is a public local demo value, not a
 production secret; change it before deploying outside a local demonstration.
 `application.properties` is ignored by Git. Do not commit a real local
 database password.
+
+`allowPublicKeyRetrieval=true` is included for the local MySQL demo connection,
+which may use MySQL's default `caching_sha2_password` authentication without
+TLS. For a remote database, use certificate-validated TLS or pin the server's
+RSA public key instead of enabling unauthenticated key retrieval.
 
 ## 7. Run the application
 
@@ -198,6 +203,9 @@ the live/demo database for testing.
 - **Access denied for `ams_app`:** rerun the installer with a database
   administrator if its local password/grants need resetting, then use the exact
   `db.username` and `db.password` from the example. Do not use root in the app.
+- **SQLState `S1009` with MySQL:** update the local `db.url` to include
+  `?allowPublicKeyRetrieval=true` for a local-only demo connection, or configure
+  TLS/server-key pinning for a remote database.
 - **Unknown database:** check the installer output and confirm
   `db.url` names `university_management`.
 - **Custom database settings:** copy the example from section 6 to the project
