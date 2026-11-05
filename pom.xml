@@ -80,6 +80,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.2</version>
                 <configuration>
+                    <useManifestOnlyJar>false</useManifestOnlyJar>
+                    <argLine>-javaagent:"${settings.localRepository}/net/bytebuddy/byte-buddy-agent/1.15.0/byte-buddy-agent-1.15.0.jar" -XX:+EnableDynamicAgentLoading</argLine>
                     <systemPropertyVariables>
                         <net.bytebuddy.experimental>true</net.bytebuddy.experimental>
                     </systemPropertyVariables>

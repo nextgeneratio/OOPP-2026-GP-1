@@ -42,7 +42,11 @@ public final class JdbcMedicalDao implements MedicalDao {
                     statement.setString(7, row.evidenceReference());
                     statement.setString(8, row.status().name());
                     statement.setBoolean(9, row.affectsEligibility());
-                    statement.setNull(10, java.sql.Types.VARCHAR);
+                    if (row.rejectionReason() == null) {
+                        statement.setNull(10, java.sql.Types.VARCHAR);
+                    } else {
+                        statement.setString(10, row.rejectionReason());
+                    }
                 });
     }
 

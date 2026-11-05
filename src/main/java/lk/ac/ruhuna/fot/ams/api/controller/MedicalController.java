@@ -4,6 +4,7 @@ import java.util.List;
 import java.nio.file.Path;
 import java.util.Objects;
 import lk.ac.ruhuna.fot.ams.business.service.MedicalService;
+import lk.ac.ruhuna.fot.ams.business.service.MedicalService.SubmissionResult;
 import lk.ac.ruhuna.fot.ams.data.dao.MedicalDao.MedicalRow;
 import lk.ac.ruhuna.fot.ams.domain.enums.ApprovalStatus;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
@@ -16,6 +17,9 @@ public final class MedicalController {
     }
 
     public record MedicalIdResponse(long medicalId) {
+    }
+
+    public record MedicalSubmissionResponse(int submittedCount, ApprovalStatus status, String rejectionReason) {
     }
 
     private final MedicalService service;
@@ -35,10 +39,13 @@ public final class MedicalController {
         return support.execute(request, () -> new MedicalIdResponse(service.submitWithPdf(actor, request, sourcePdf)));
     }
 
-    public ApiResponse<Integer> submitPdfForOfferings(
+    public ApiResponse<MedicalSubmissionResponse> submitPdfForOfferings(
             AuthenticatedSession actor, MedicalRow request, List<Integer> offeringIds, Path sourcePdf) {
-        return support.execute(request,
-                () -> service.submitWithPdfForOfferings(actor, request, offeringIds, sourcePdf));
+        return support.execute(request, () -> {
+            SubmissionResult result = service.submitWithPdfForOfferings(actor, request, offeringIds, sourcePdf);
+            return new MedicalSubmissionResponse(
+                    result.submittedCount(), result.status(), result.rejectionReason());
+        });
     }
 
     public ApiResponse<Void> decide(AuthenticatedSession actor, DecideMedicalRequest request) {

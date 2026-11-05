@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.io.IOException;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -26,7 +27,14 @@ import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
 public final class MedicalService {
     private static final long MAX_EVIDENCE_BYTES = 10L * 1024 * 1024;
+    private static final long MAX_ABSENCE_DURATION_DAYS = 14;
+    private static final String ABSENCE_DURATION_REJECTION_REASON =
+            "The absence period cannot exceed 14 days.";
     private static final String EVIDENCE_DIRECTORY = "medical-evidence";
+
+    public record SubmissionResult(int submittedCount, ApprovalStatus status, String rejectionReason) {
+    }
+
     private final MedicalDao medicalDao;
     private final CourseDao courseDao;
     private final AuditLogDao auditLogDao;
@@ -55,7 +63,7 @@ public final class MedicalService {
     }
 
     /** Creates one medical record per selected course in a single database transaction. */
-    public int submitWithPdfForOfferings(
+    public SubmissionResult submitWithPdfForOfferings(
             AuthenticatedSession actor, MedicalRow request, List<Integer> offeringIds, Path sourcePdf) {
         if (request == null) throw new ValidationException("Medical record details are required.");
         authorization.requireRole(actor, Role.UNDERGRADUATE);
@@ -82,20 +90,26 @@ public final class MedicalService {
 
         try {
             String evidenceReference = EVIDENCE_DIRECTORY + "/" + stored.getFileName();
-            List<MedicalRow> pendingRows = selectedOfferings.stream()
+            List<MedicalRow> submissionRows = selectedOfferings.stream()
                     .map(offeringId -> new MedicalRow(0, authorization.studentId(actor), offeringId,
                             request.medicalDate(), request.startDate(), request.endDate(), request.reason(),
                             evidenceReference, ApprovalStatus.PENDING, false, null))
                     .map(row -> validateSubmission(actor, row))
                     .toList();
             return transactions.execute(connection -> {
-                for (MedicalRow pending : pendingRows) {
-                    long medicalId = medicalDao.insert(connection, pending);
+                for (MedicalRow submission : submissionRows) {
+                    long medicalId = medicalDao.insert(connection, submission);
                     auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
                             0, actor.userId(), "MEDICAL_CREATE", "MEDICAL_RECORD",
                             medicalId, LocalDateTime.now(clock)));
+                    if (submission.status() == ApprovalStatus.REJECTED) {
+                        auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
+                                0, actor.userId(), "MEDICAL_REJECT", "MEDICAL_RECORD",
+                                medicalId, LocalDateTime.now(clock)));
+                    }
                 }
-                return pendingRows.size();
+                MedicalRow first = submissionRows.getFirst();
+                return new SubmissionResult(submissionRows.size(), first.status(), first.rejectionReason());
             });
         } catch (RuntimeException exception) {
             try {
@@ -125,9 +139,12 @@ public final class MedicalService {
         if (overlaps.stream().anyMatch(record -> record.status() != ApprovalStatus.REJECTED)) {
             throw new BusinessRuleException("An overlapping pending or approved medical record already exists.");
         }
+        boolean exceedsMaximumDuration = ChronoUnit.DAYS.between(request.startDate(), request.endDate())
+                > MAX_ABSENCE_DURATION_DAYS;
         return new MedicalRow(0, request.studentId(), request.offeringId(), request.medicalDate(),
                 request.startDate(), request.endDate(), request.reason(), request.evidenceReference(),
-                ApprovalStatus.PENDING, false, null);
+                exceedsMaximumDuration ? ApprovalStatus.REJECTED : ApprovalStatus.PENDING,
+                false, exceedsMaximumDuration ? ABSENCE_DURATION_REJECTION_REASON : null);
     }
 
     private long persistPending(AuthenticatedSession actor, MedicalRow pending) {
@@ -136,6 +153,11 @@ public final class MedicalService {
             auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
                     0, actor.userId(), "MEDICAL_CREATE", "MEDICAL_RECORD",
                     medicalId, LocalDateTime.now(clock)));
+            if (pending.status() == ApprovalStatus.REJECTED) {
+                auditLogDao.insert(connection, new AuditLogDao.AuditEvent(
+                        0, actor.userId(), "MEDICAL_REJECT", "MEDICAL_RECORD",
+                        medicalId, LocalDateTime.now(clock)));
+            }
             return medicalId;
         });
     }

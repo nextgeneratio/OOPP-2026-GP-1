@@ -116,12 +116,21 @@ public final class MedicalScreen extends JPanel {
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Select a doctor's PDF certificate (maximum 10 MB)");
         if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
-        ApiResponse<Integer> response = medical.submitPdfForOfferings(actor, new MedicalRow(0, 0, null,
+        ApiResponse<MedicalController.MedicalSubmissionResponse> response =
+                medical.submitPdfForOfferings(actor, new MedicalRow(0, 0, null,
                 medicalDate.value(), start.value(), end.value(), reason.getText().trim(), "pending",
                 ApprovalStatus.PENDING, false, null), selectedOfferingIds, chooser.getSelectedFile().toPath());
         if (response.successful()) {
-            JOptionPane.showMessageDialog(this, "Medical request submitted for " + response.data()
-                    + " course offering(s) as pending approval.", "Medical records", JOptionPane.INFORMATION_MESSAGE);
+            MedicalController.MedicalSubmissionResponse result = response.data();
+            if (result.status() == ApprovalStatus.REJECTED) {
+                JOptionPane.showMessageDialog(this, result.submittedCount()
+                        + " medical request(s) rejected. " + result.rejectionReason(),
+                        "Medical request rejected", JOptionPane.WARNING_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, "Medical request submitted for " + result.submittedCount()
+                        + " course offering(s) as pending approval.",
+                        "Medical records", JOptionPane.INFORMATION_MESSAGE);
+            }
         } else error(response.error().message());
     }
 
