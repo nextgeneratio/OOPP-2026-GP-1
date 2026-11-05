@@ -143,7 +143,7 @@ public final class JdbcUserDao implements UserDao {
                 + "COALESCE(a.full_name, l.full_name, t.full_name, s.full_name) AS full_name, "
                 + "COALESCE(l.phone, t.phone, a.phone, s.phone) AS phone, "
                 + "COALESCE(l.department_id, t.department_id) AS department_id, "
-                + "s.batch_id, s.student_no, s.profile_picture, d.name AS department_name, "
+                + "s.batch_id, s.student_no, COALESCE(u.profile_picture, s.profile_picture) AS profile_picture, d.name AS department_name, "
                 + "b.batch_code, b.level_no, (SELECT MAX(sem.semester_no) FROM course_enrollments e "
                 + "JOIN course_offerings o ON o.offering_id = e.offering_id "
                 + "JOIN semesters sem ON sem.semester_id = o.semester_id "
@@ -205,6 +205,15 @@ public final class JdbcUserDao implements UserDao {
         };
         jdbc.update(connection, sql, statement -> bindProfileUpdate(statement, profile));
         return 1;
+    }
+
+    @Override
+    public int updateProfilePicture(Connection connection, long userId, String storedReference) {
+        return jdbc.update(connection, "UPDATE users SET profile_picture = ? WHERE user_id = ? AND is_active = TRUE",
+                statement -> {
+                    statement.setString(1, storedReference);
+                    statement.setLong(2, userId);
+                });
     }
 
     @Override

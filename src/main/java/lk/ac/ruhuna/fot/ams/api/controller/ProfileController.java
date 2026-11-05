@@ -15,6 +15,9 @@ public final class ProfileController {
     public record ChangePasswordRequest(char[] currentPassword, char[] newPassword, char[] confirmation) {
     }
 
+    public record ProfilePictureRequest(String fileName, byte[] contents) {
+    }
+
     private final ProfileService service;
     private final ApiControllerSupport support;
 
@@ -49,6 +52,14 @@ public final class ProfileController {
         return support.execute(request, () -> {
             service.changePassword(actor, request.currentPassword(),
                     request.newPassword(), request.confirmation());
+            return null;
+        });
+    }
+
+    public ApiResponse<Void> updateProfilePicture(
+            AuthenticatedSession actor, ProfilePictureRequest request) {
+        return support.execute(request, () -> {
+            service.updateProfilePicture(actor, request.fileName(), request.contents());
             return null;
         });
     }

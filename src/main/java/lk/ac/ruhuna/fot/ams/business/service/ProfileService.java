@@ -41,6 +41,7 @@ public final class ProfileService {
     private final TransactionManager transactions;
     private final AuthorizationService authorization;
     private final PasswordHasher passwordHasher;
+    private final ProfilePictureStore pictureStore;
     private final Clock clock;
 
     public ProfileService(
@@ -49,13 +50,47 @@ public final class ProfileService {
             TransactionManager transactions,
             AuthorizationService authorization,
             PasswordHasher passwordHasher,
-            Clock clock) {
+            Clock clock,
+            ProfilePictureStore pictureStore) {
         this.userDao = Objects.requireNonNull(userDao);
         this.auditLogDao = Objects.requireNonNull(auditLogDao);
         this.transactions = Objects.requireNonNull(transactions);
         this.authorization = Objects.requireNonNull(authorization);
         this.passwordHasher = Objects.requireNonNull(passwordHasher);
         this.clock = Objects.requireNonNull(clock);
+        this.pictureStore = Objects.requireNonNull(pictureStore);
+    }
+
+    public ProfileService(
+            UserDao userDao, AuditLogDao auditLogDao, TransactionManager transactions,
+            AuthorizationService authorization, PasswordHasher passwordHasher, Clock clock) {
+        this(userDao, auditLogDao, transactions, authorization, passwordHasher, clock,
+                new ProfilePictureStore(java.nio.file.Path.of("src", "main", "resources", "uploads")));
+    }
+
+    public void updateProfilePicture(
+            AuthenticatedSession actor, String fileName, byte[] contents) {
+        if (actor == null || actor.userId() <= 0) {
+            throw new AuthorizationException("A signed-in user is required to update this profile.");
+        }
+        String storedReference = pictureStore.save(actor.userId(), fileName, contents);
+        try {
+            transactions.execute(connection -> {
+                if (userDao.updateProfilePicture(connection, actor.userId(), storedReference) != 1) {
+                    throw new NotFoundException("User profile was not found.");
+                }
+                audit(connection, actor, "PROFILE_PICTURE_UPDATE");
+                return null;
+            });
+        } catch (RuntimeException failure) {
+            try {
+                java.nio.file.Files.deleteIfExists(
+                        java.nio.file.Path.of("src", "main", "resources", storedReference));
+            } catch (java.io.IOException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
+            throw failure;
+        }
     }
 
     public ProfileView ownProfile(AuthenticatedSession actor) {

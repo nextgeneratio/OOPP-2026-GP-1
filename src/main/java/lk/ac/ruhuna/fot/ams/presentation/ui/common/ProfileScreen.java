@@ -2,8 +2,13 @@ package lk.ac.ruhuna.fot.ams.presentation.ui.common;
 
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.ExecutionException;
 import javax.swing.BorderFactory;
+import javax.swing.ImageIcon;
+import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPasswordField;
 import javax.swing.JPanel;
@@ -13,6 +18,7 @@ import javax.swing.SwingWorker;
 import lk.ac.ruhuna.fot.ams.api.controller.ApiResponse;
 import lk.ac.ruhuna.fot.ams.api.controller.ProfileController;
 import lk.ac.ruhuna.fot.ams.business.service.ProfileService.ProfileView;
+import lk.ac.ruhuna.fot.ams.business.service.ProfilePictureStore;
 import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
@@ -34,6 +40,10 @@ public final class ProfileScreen extends JPanel {
     private final JPasswordField passwordConfirmation = new JPasswordField(28);
     private final AppButton save = new AppButton("Save profile");
     private final AppButton changePassword = new AppButton("Change password");
+    private final AppButton choosePicture = new AppButton("Choose picture", true);
+    private final JLabel picture = new JLabel("No picture");
+    private final ProfilePictureStore pictureStore = new ProfilePictureStore(
+            Path.of("src", "main", "resources", "uploads"));
     private ProfileView loadedProfile;
 
     public ProfileScreen(
@@ -48,7 +58,19 @@ public final class ProfileScreen extends JPanel {
 
         JLabel heading = new JLabel("My Profile");
         heading.setFont(UiTheme.pageTitle());
-        add(heading, BorderLayout.NORTH);
+        JPanel header = new JPanel(new BorderLayout(UiTheme.SPACE_LG, 0));
+        header.setOpaque(false);
+        header.add(heading, BorderLayout.WEST);
+        JPanel picturePanel = new JPanel(new BorderLayout(0, UiTheme.SPACE_SM));
+        picturePanel.setOpaque(false);
+        picture.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        picture.setPreferredSize(new java.awt.Dimension(96, 96));
+        picture.setBorder(BorderFactory.createLineBorder(UiTheme.BORDER));
+        choosePicture.addActionListener(event -> choosePicture());
+        picturePanel.add(picture, BorderLayout.CENTER);
+        picturePanel.add(choosePicture, BorderLayout.SOUTH);
+        header.add(picturePanel, BorderLayout.EAST);
+        add(header, BorderLayout.NORTH);
 
         configureValue(username);
         configureValue(role);
@@ -161,6 +183,7 @@ public final class ProfileScreen extends JPanel {
                                 + "  |  Semester: " + value(loadedProfile.semesterNumber())
                                 + "  |  Student number: " + value(loadedProfile.studentNumber());
                     });
+                    setPicture(loadedProfile.profilePicture());
                     boolean editableContact = loadedProfile.role() != Role.ADMIN;
                     fullName.setEditable(editableContact);
                     phone.setEditable(editableContact);
@@ -176,8 +199,58 @@ public final class ProfileScreen extends JPanel {
                     errors.log(failure.getCause());
                     showError(errors.userMessage(failure.getCause()));
                 }
+
             }
         }.execute();
+    }
+
+    private void choosePicture() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Choose a PNG or JPEG profile picture");
+        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        Path selected = chooser.getSelectedFile().toPath();
+        try {
+            byte[] contents = Files.readAllBytes(selected);
+            choosePicture.setEnabled(false);
+            status.setText("Uploading profile picture...");
+            new SwingWorker<ApiResponse<Void>, Void>() {
+                @Override protected ApiResponse<Void> doInBackground() {
+                    return profiles.updateProfilePicture(actor,
+                            new ProfileController.ProfilePictureRequest(
+                                    selected.getFileName().toString(), contents));
+                }
+
+                @Override protected void done() {
+                    try {
+                        ApiResponse<Void> response = get();
+                        if (!response.successful()) {
+                            showError(response.error().message());
+                        } else {
+                            status.setText("Profile picture saved.");
+                            reload();
+                        }
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        showError("Uploading the profile picture was interrupted.");
+                    } catch (ExecutionException failure) {
+                        errors.log(failure.getCause());
+                        showError(errors.userMessage(failure.getCause()));
+                    } finally {
+                        choosePicture.setEnabled(loadedProfile != null && loadedProfile.active());
+                    }
+                }
+            }.execute();
+        } catch (IOException failure) {
+            showError("Unable to read the selected image.");
+        }
+    }
+
+    private void setPicture(String storedReference) {
+        ImageIcon icon = pictureStore.icon(storedReference, 96, 96);
+        picture.setIcon(icon);
+        picture.setText(icon == null ? "No picture" : "");
     }
 
     private void saveProfile() {

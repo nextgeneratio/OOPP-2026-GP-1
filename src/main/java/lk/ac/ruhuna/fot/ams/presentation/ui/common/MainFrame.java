@@ -168,10 +168,10 @@ public final class MainFrame extends JFrame {
             throw new IllegalStateException("No Swing screen is registered for " + module);
         }
         return switch (session.role()) {
-            case ADMIN -> new AdminDashboard(session, dashboards, errors, this::navigateTo);
-            case LECTURER -> new LecturerDashboard(session, dashboards, errors, this::navigateTo);
-            case TECHNICAL_OFFICER -> new TechnicalOfficerDashboard(session, dashboards, errors, this::navigateTo);
-            case UNDERGRADUATE -> new UndergraduateDashboard(session, dashboards, errors, this::navigateTo);
+            case ADMIN -> new AdminDashboard(session, dashboards, profiles, errors, this::navigateTo);
+            case LECTURER -> new LecturerDashboard(session, dashboards, profiles, errors, this::navigateTo);
+            case TECHNICAL_OFFICER -> new TechnicalOfficerDashboard(session, dashboards, profiles, errors, this::navigateTo);
+            case UNDERGRADUATE -> new UndergraduateDashboard(session, dashboards, profiles, errors, this::navigateTo);
         };
     }
 

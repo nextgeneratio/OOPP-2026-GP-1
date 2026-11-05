@@ -13,8 +13,13 @@ import javax.swing.BoxLayout;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingWorker;
+import javax.swing.ImageIcon;
+import lk.ac.ruhuna.fot.ams.api.controller.ApiResponse;
 import lk.ac.ruhuna.fot.ams.api.controller.DashboardController;
+import lk.ac.ruhuna.fot.ams.api.controller.ProfileController;
 import lk.ac.ruhuna.fot.ams.api.response.DashboardSummary;
+import lk.ac.ruhuna.fot.ams.business.service.ProfilePictureStore;
+import lk.ac.ruhuna.fot.ams.business.service.ProfileService.ProfileView;
 import lk.ac.ruhuna.fot.ams.error.handler.ApplicationErrorHandler;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
@@ -25,7 +30,8 @@ public abstract class RoleDashboard extends JPanel {
 
     protected RoleDashboard(String title, String subtitle, List<String> metricLabels, List<NavigationModule> shortcuts,
                             AuthenticatedSession session, DashboardController controller,
-                            ApplicationErrorHandler errors, Consumer<NavigationModule> navigate) {
+                            ProfileController profiles, ApplicationErrorHandler errors,
+                            Consumer<NavigationModule> navigate) {
         super(new BorderLayout(0, UiTheme.SPACE_LG));
         setBorder(BorderFactory.createEmptyBorder(UiTheme.SPACE_LG, UiTheme.SPACE_LG, UiTheme.SPACE_LG, UiTheme.SPACE_LG));
 
@@ -42,7 +48,16 @@ public abstract class RoleDashboard extends JPanel {
         header.add(heading);
         header.add(sub);
         header.add(stateLabel);
-        add(header, BorderLayout.NORTH);
+        JLabel profilePicture = new JLabel();
+        profilePicture.setPreferredSize(new java.awt.Dimension(116, 116));
+        profilePicture.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        profilePicture.setBorder(BorderFactory.createLineBorder(UiTheme.BORDER));
+        JPanel headerRow = new JPanel(new BorderLayout(UiTheme.SPACE_LG, 0));
+        headerRow.setOpaque(false);
+        headerRow.add(header, BorderLayout.CENTER);
+        headerRow.add(profilePicture, BorderLayout.EAST);
+        add(headerRow, BorderLayout.NORTH);
+        loadPicture(session, profiles, profilePicture, errors);
 
         JPanel body = new JPanel();
         body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
@@ -63,10 +78,37 @@ public abstract class RoleDashboard extends JPanel {
             button.addActionListener(event -> navigate.accept(module));
             actions.add(button);
         }
+
         body.add(actions);
         add(body, BorderLayout.CENTER);
 
         load(session, controller, errors);
+    }
+
+    private void loadPicture(AuthenticatedSession session, ProfileController profiles,
+                             JLabel target, ApplicationErrorHandler errors) {
+        new SwingWorker<ApiResponse<ProfileView>, Void>() {
+            @Override protected ApiResponse<ProfileView> doInBackground() {
+                return profiles.ownProfile(session);
+            }
+
+            @Override protected void done() {
+                try {
+                    ApiResponse<ProfileView> response = get();
+                    if (response.successful()) {
+                        ImageIcon icon = new ProfilePictureStore(
+                                java.nio.file.Path.of("src", "main", "resources", "uploads"))
+                                .icon(response.data().profilePicture(), 116, 116);
+                        target.setIcon(icon);
+                        if (icon == null) target.setText("No picture");
+                    }
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                } catch (ExecutionException failure) {
+                    errors.log(failure.getCause());
+                }
+            }
+        }.execute();
     }
 
     private JLabel sectionTitle(String text) {

@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     ) NOT NULL,
     email VARCHAR(120) NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    profile_picture VARCHAR(255) NULL,
     created_at DATETIME NOT NULL,
 
     PRIMARY KEY (user_id),

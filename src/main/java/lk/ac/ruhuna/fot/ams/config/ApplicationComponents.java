@@ -227,7 +227,9 @@ public final class ApplicationComponents {
                 userDao, auditLogDao, transactionManager, authorizationService,
                 passwordHasher, clock);
         ProfileService profileService = new ProfileService(
-                userDao, auditLogDao, transactionManager, authorizationService, passwordHasher, clock);
+                userDao, auditLogDao, transactionManager, authorizationService, passwordHasher, clock,
+                new lk.ac.ruhuna.fot.ams.business.service.ProfilePictureStore(
+                        java.nio.file.Path.of("src", "main", "resources", "uploads")));
         ReportService reportService = new ReportService(
                 courseDao, attendanceDao, assessmentDao, authorizationService);
         AcademicResultService academicResultService = new AcademicResultService(
