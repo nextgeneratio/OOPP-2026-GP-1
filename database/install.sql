@@ -2179,8 +2179,14 @@ BEGIN
   INSERT INTO `attendance_records` (session_id,enrollment_id,is_present)
   SELECT randomized.session_id,randomized.enrollment_id,randomized.attendance_rank<=randomized.attendance_target
   FROM (
+    -- CRC32 produces a stable pseudo-random numeric order; RAND() is not a valid
+    -- deterministic ordering expression for MySQL 9.6 window evaluation.
     SELECT sessions.session_id,enrollments.enrollment_id,
-           ROW_NUMBER() OVER (PARTITION BY sessions.offering_id,enrollments.enrollment_id ORDER BY RAND()) AS attendance_rank,
+           ROW_NUMBER() OVER (
+             PARTITION BY sessions.offering_id,enrollments.enrollment_id
+             ORDER BY CAST(CRC32(CONCAT(sessions.session_id,':',enrollments.enrollment_id,':demo-attendance')) AS UNSIGNED)
+                      * 4294967296 + CAST(sessions.session_id AS UNSIGNED)
+           ) AS attendance_rank,
            targets.attendance_target
     FROM attendance_sessions sessions
     JOIN course_enrollments enrollments ON enrollments.offering_id=sessions.offering_id
@@ -2191,7 +2197,7 @@ BEGIN
         SELECT enrollment.enrollment_id,enrollment.offering_id,enrollment.student_id,
                ROW_NUMBER() OVER (PARTITION BY enrollment.student_id
                  ORDER BY CASE WHEN MOD(CAST(RIGHT(app_user.username,3) AS UNSIGNED)+enrollment.offering_id,5)=4
-                               THEN 1 ELSE 0 END,enrollment.offering_id) AS course_rank
+                               THEN 1 ELSE 0 END * 4294967296 + enrollment.offering_id) AS course_rank
         FROM course_enrollments enrollment
         JOIN undergraduates undergraduate ON undergraduate.student_id=enrollment.student_id
         JOIN users app_user ON app_user.user_id=undergraduate.user_id

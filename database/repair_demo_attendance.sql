@@ -84,10 +84,13 @@ SELECT randomized.session_id,
        randomized.enrollment_id,
        randomized.attendance_rank <= randomized.attendance_target
 FROM (
+    -- Use a stable pseudo-random numeric key so the row-number windows work on MySQL 9.6.
     SELECT s.session_id,
            e.enrollment_id,
            ROW_NUMBER() OVER (
-               PARTITION BY s.offering_id, e.enrollment_id ORDER BY RAND()
+               PARTITION BY s.offering_id, e.enrollment_id
+               ORDER BY CAST(CRC32(CONCAT(s.session_id, ':', e.enrollment_id, ':demo-attendance')) AS UNSIGNED)
+                        * 4294967296 + CAST(s.session_id AS UNSIGNED)
            ) AS attendance_rank,
            targets.attendance_target
     FROM attendance_sessions s
@@ -101,7 +104,11 @@ FROM (
             SELECT e.enrollment_id,
                    e.offering_id,
                    e.student_id,
-                   ROW_NUMBER() OVER (PARTITION BY e.student_id ORDER BY RAND()) AS course_rank
+                   ROW_NUMBER() OVER (
+                       PARTITION BY e.student_id
+                       ORDER BY CAST(CRC32(CONCAT(e.enrollment_id, ':', e.offering_id, ':demo-course')) AS UNSIGNED)
+                                * 4294967296 + e.enrollment_id
+                   ) AS course_rank
             FROM course_enrollments e
             JOIN course_offerings o ON o.offering_id = e.offering_id
             JOIN batches b ON b.batch_id = o.batch_id AND b.batch_code = 'DEMO-ICT-2026'
