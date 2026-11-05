@@ -1,6 +1,6 @@
 -- Schema upgrade 1/2: generic weekly timetable slots and safe activity flags.
 -- Run only after reviewing preflight_20261105_weekly_timetable.sql.
--- MariaDB 10.6+; schema DDL only. Existing row identifiers, foreign keys and attendance references remain.
+-- MariaDB 10.6+ and MySQL 8.0.16+; schema DDL only. Existing row identifiers, foreign keys and attendance references remain.
 -- Do not run on a fresh install created from the current database/install.sql.
 
 ALTER TABLE timetables

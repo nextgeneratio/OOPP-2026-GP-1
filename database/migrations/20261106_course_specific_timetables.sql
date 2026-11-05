@@ -1,13 +1,13 @@
 -- Schema upgrade 2/2: associate timetable headers with one Course Offering.
 -- Review preflight_20261106_course_specific_timetables.sql first.
 -- Prerequisite: 20261105_weekly_timetable.sql has been applied.
--- MariaDB 10.6+. Existing timetable/header/entry IDs and attendance references are retained.
+-- MariaDB 10.6+ and MySQL 8.0.16+. Existing IDs and attendance references are retained.
 -- Ambiguous/generic/mixed-course legacy timetables remain course_offering_id=NULL.
 
 ALTER TABLE timetables
     ADD COLUMN course_offering_id INT NULL,
     ADD COLUMN active_course_offering_id INT
-      AS (CASE WHEN is_active=TRUE THEN course_offering_id ELSE NULL END) PERSISTENT,
+      GENERATED ALWAYS AS (CASE WHEN is_active=TRUE THEN course_offering_id ELSE NULL END) STORED,
     ADD CONSTRAINT fk_timetables_course_offering
       FOREIGN KEY (course_offering_id) REFERENCES course_offerings(offering_id),
     ADD UNIQUE KEY uk_timetables_active_offering (active_course_offering_id);

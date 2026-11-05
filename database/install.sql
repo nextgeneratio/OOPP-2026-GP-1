@@ -584,7 +584,7 @@ CREATE TABLE IF NOT EXISTS `timetables` (
     created_by_user_id BIGINT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     course_offering_id INT NULL,
-    active_course_offering_id INT AS (CASE WHEN is_active=TRUE THEN course_offering_id ELSE NULL END) PERSISTENT,
+    active_course_offering_id INT GENERATED ALWAYS AS (CASE WHEN is_active=TRUE THEN course_offering_id ELSE NULL END) STORED,
 
     PRIMARY KEY (timetable_id),
     UNIQUE KEY uk_timetables_active_offering (active_course_offering_id),
