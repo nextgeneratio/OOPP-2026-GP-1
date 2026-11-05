@@ -86,16 +86,36 @@ public final class CourseManagementScreen extends JPanel {
     private void createCourse() {
         CourseCatalog data = catalog(); if (data == null) return;
         JComboBox<SelectionOption> department = departments(data, null);
+        JComboBox<SelectionOption> batch = batches(data, null, null);
+        replaceOptions(batch,List.of());
+        department.addActionListener(event -> {
+            int departmentId=safeId(department);
+            List<SelectionOption> matching=departmentId<=0?List.of():data.batches().stream()
+                    .filter(row->row.departmentId()==departmentId)
+                    .map(row->new SelectionOption(row.id(),batchLabel(data,row))).toList();
+            replaceOptions(batch,matching);
+        });
+        JComboBox<SelectionOption> semester = semesters(data, null);
         JTextField code = field("Course code"); JTextField title = field("Title"); JTextField credits = field("Total credits");
         JComboBox<ComponentType> component = new JComboBox<>(ComponentType.values());
         JTextField componentCredits = field("Component credits"); JTextField sessions = field("Planned sessions");
-        if (!form("Create course", new String[]{"Department", "Code", "Title", "Total credits", "Component type", "Component credits", "Planned sessions"},
-                department, code, title, credits, component, componentCredits, sessions)) return;
+        if (!form("Create course", new String[]{"Department", "Batch", "Academic term", "Code", "Title", "Total credits", "Component type", "Component credits", "Planned sessions"},
+                department, batch, semester, code, title, credits, component, componentCredits, sessions)) return;
         ComponentType selectedType = (ComponentType) component.getSelectedItem();
         List<CourseDao.ComponentRow> components = List.of(new CourseDao.ComponentRow(0, 0, selectedType,
                 decimal(componentCredits), integer(sessions)));
         CourseRow course = new CourseRow(0, id(department), code.getText(), title.getText(), decimal(credits), true);
-        show(courses.createCourse(actor, new CourseController.CreateCourseRequest(course, components, null)));
+        ApiResponse<?> response = courses.createCourse(actor,
+                new CourseController.CreateCourseRequest(course, components,
+                        new OfferingSetup(id(batch), id(semester), null, "OPEN", List.of())));
+        if (response.successful()) {
+            JOptionPane.showMessageDialog(this,
+                    "Course " + code.getText().trim() + " and its OPEN offering were created. "
+                            + "It is now available for lecturer assignment and timetable setup.",
+                    "Course management", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            show(response);
+        }
     }
 
     private void createOffering() {
@@ -127,19 +147,55 @@ public final class CourseManagementScreen extends JPanel {
 
     private void assignLecturer() {
         CourseCatalog data = catalog(); if (data == null) return;
-        if (data.offerings().stream().noneMatch(offering -> "OPEN".equals(offering.status()))) {
+        JComboBox<SelectionOption> department = departments(data, null);
+        JComboBox<SelectionOption> course = options(List.of(), null);
+        JComboBox<SelectionOption> batch = options(List.of(), null);
+        JComboBox<SelectionOption> semester = semesters(data, null);
+        JComboBox<SelectionOption> lecturer = lecturers(data, false, null);
+        replaceOptions(course,List.of());
+        replaceOptions(batch,List.of());
+        replaceOptions(lecturer,List.of());
+        department.addActionListener(event -> {
+            int departmentId=safeId(department);
+            List<SelectionOption> coursesInDepartment=data.courses().stream()
+                    .filter(CourseRow::active).filter(row->row.departmentId()==departmentId)
+                    .map(row->new SelectionOption(row.id(),courseLabel(row))).toList();
+            List<SelectionOption> batchesInDepartment=data.batches().stream()
+                    .filter(row->row.departmentId()==departmentId)
+                    .map(row->new SelectionOption(row.id(),batchLabel(data,row))).toList();
+            replaceOptions(course,coursesInDepartment);
+            replaceOptions(batch,batchesInDepartment);
+            replaceOptions(lecturer,List.of());
+        });
+        department.addActionListener(event -> refreshLecturersForDepartment(data,department,lecturer));
+        if (!form("Assign lecturer", new String[]{"Department", "Course", "Batch", "Academic term", "Lecturer"},
+                department, course, batch, semester, lecturer)) return;
+
+        if(selected(lecturer)==null) {
             JOptionPane.showMessageDialog(this,
-                    "No open course offerings are set up for your department. Ask an administrator to create an open offering for this course and academic term first.",
+                    "No active lecturer profile is registered to the selected department. In User Management, check that the account role is LECTURER, its status is Active, and its assigned department is this same department. Then reopen Assign lecturer.",
                     "Assign lecturer", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
-        JComboBox<SelectionOption> offering = offerings(data, null);
-        JComboBox<SelectionOption> lecturer = lecturers(data, false, null);
-        replaceOptions(lecturer,List.of());
-        offering.addActionListener(event -> refreshAssignableLecturers(data,offering,lecturer));
-        refreshAssignableLecturers(data,offering,lecturer);
-        if (!form("Assign lecturer", new String[]{"Course offering", "Lecturer"}, offering, lecturer)) return;
-        show(courses.assignLecturer(actor, new CourseController.LecturerAssignmentRequest(id(offering), id(lecturer))));
+        int courseId=id(course), batchId=id(batch), semesterId=id(semester), lecturerId=id(lecturer);
+        OfferingRow existing=data.offerings().stream().filter(row->row.courseId()==courseId
+                &&row.batchId()==batchId&&row.semesterId()==semesterId).findFirst().orElse(null);
+        if(existing!=null&&!"OPEN".equals(existing.status())) {
+            JOptionPane.showMessageDialog(this,
+                    "This course already has a CLOSED offering for the selected batch and academic term. Reopen that offering before assigning a lecturer.",
+                    "Assign lecturer", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        if(existing!=null) {
+            show(courses.assignLecturer(actor,new CourseController.LecturerAssignmentRequest(existing.id(),lecturerId)));
+        } else if(actor.role()==lk.ac.ruhuna.fot.ams.domain.enums.Role.ADMIN) {
+            OfferingSetup setup=new OfferingSetup(batchId,semesterId,null,"OPEN",List.of(lecturerId));
+            show(courses.createOffering(actor,new CourseController.CreateOfferingRequest(courseId,setup)));
+        } else {
+            JOptionPane.showMessageDialog(this,
+                    "No offering exists for this course, batch, and term. Ask an administrator to create the OPEN offering, then assign the lecturer.",
+                    "Assign lecturer", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
 
     private void editCourse() {
@@ -224,12 +280,25 @@ public final class CourseManagementScreen extends JPanel {
     }
     private int safeId(JComboBox<SelectionOption> box){SelectionOption option=selected(box);return option==null?0:option.id();}
     private void replaceOptions(JComboBox<SelectionOption> box,List<SelectionOption> values){box.removeAllItems();if(values.isEmpty())box.addItem(new SelectionOption(0,"No matching records"));else{box.addItem(new SelectionOption(0,"Select an option…"));values.forEach(box::addItem);}}
+    private void replaceOptions(JComboBox<SelectionOption> box,List<SelectionOption> values,String emptyMessage){box.removeAllItems();if(values.isEmpty())box.addItem(new SelectionOption(0,emptyMessage));else{box.addItem(new SelectionOption(0,"Select an option…"));values.forEach(box::addItem);}}
     private void refreshAssignableLecturers(CourseCatalog data,JComboBox<SelectionOption> offering,JComboBox<SelectionOption> lecturer){
         int offeringId=safeId(offering);if(offeringId==0){replaceOptions(lecturer,List.of());return;}
         var assigned=courses.assignedLecturers(actor,offeringId);
         if(!assigned.successful()){replaceOptions(lecturer,List.of());return;}
         java.util.Set<Integer> used=assigned.data().stream().map(LecturerOption::id).collect(java.util.stream.Collectors.toSet());
         replaceOptions(lecturer,lecturerOptions(data).stream().filter(option->!used.contains(option.id())).toList());
+    }
+    private void refreshLecturersForDepartment(CourseCatalog data,JComboBox<SelectionOption> department,JComboBox<SelectionOption> lecturer){
+        int departmentId=safeId(department);
+        List<SelectionOption> matching=lecturerOptions(data).stream().filter(option->data.lecturers().stream()
+                .anyMatch(row->row.id()==option.id()&&row.departmentId()==departmentId)).toList();
+        if(matching.isEmpty()) {
+            String label=data.departments().stream().filter(row->row.id()==departmentId)
+                    .map(row->row.code()+" — "+row.name()).findFirst().orElse("selected department");
+            replaceOptions(lecturer,matching,"No active lecturer profiles for "+label);
+        } else {
+            replaceOptions(lecturer,matching);
+        }
     }
     private SelectionOption selected(JComboBox<SelectionOption> box) {
         Object value=box.getSelectedItem(); return value instanceof SelectionOption option && option.id()>0 ? option : null;

@@ -214,25 +214,87 @@ backups out of Git.
 
 ## Weekly timetable management
 
-Administrators maintain one weekly timetable per Course Offering. Create and Update use one editor for department, academic term, level, course offering, and all Monday–Sunday slots; each slot selects one of the course's actual components. Existing course allocations are displayed while creating. Parallel courses are allowed when they use different rooms, batches and lecturers. Update versions the schedule so existing attendance references retain their original slot IDs. Delete deactivates the timetable and its active slots. Technical Officers can view authorized department schedules; lecturers and undergraduates see only their assigned/enrolled offering schedules.
+Administrators maintain one weekly timetable per Course Offering. Create and Update use one editor for department, academic term, level, course offering, and all Monday–Sunday slots; each slot selects a component belonging to that course. Update versions slots, while Delete deactivates the schedule. Historical timetable-entry identifiers remain available to attendance records.
 
-For a new database, `database/install.sql` creates this model. Back up an existing database before migration:
+### Upgrade a copy of an existing database for timetable testing (Fedora)
 
-```sh
-mariadb-dump -u root -p --single-transaction university_management > university_management_before_timetable_migration.sql
-```
+The commands below back up `university_management`, then restore that dump into the separate `university_management_timetable_test` database. Run the migration checks and migrations only against this test copy. Fedora provides the `mariadb` and `mariadb-dump` clients in the `mariadb` package.
 
-If `20261105_weekly_timetable.sql` has not been applied, run these in order:
+**1. Back up the existing database.** Run from the repository root; the dump file is created in the current directory:
 
 ```sh
-mariadb -u root -p university_management < database/migrations/20261105_weekly_timetable.sql
-mariadb -u root -p university_management < database/migrations/20261106_course_specific_timetables.sql
+mariadb-dump -u root -p --single-transaction --routines --events --triggers university_management > university_management_before_timetable_migration.sql
 ```
 
-If `20261105_weekly_timetable.sql` is already applied, run only:
+**2. Create and restore into the isolated test database.** The `sed` changes only the dump's top-level `USE` directive, if present. It leaves the source database untouched:
 
 ```sh
-mariadb -u root -p university_management < database/migrations/20261106_course_specific_timetables.sql
+mariadb -u root -p -e "CREATE DATABASE university_management_timetable_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+sed 's/^USE `university_management`;/USE `university_management_timetable_test`;/' university_management_before_timetable_migration.sql | mariadb -u root -p university_management_timetable_test
 ```
 
-Review each migration's read-only preflight output first. Stop and resolve duplicate active offering assignments or invalid mappings before continuing. The course-specific migration only backfills a legacy header if all its slots have exactly one populated offering/component pair and the offering matches its department, term and level. Ambiguous and generic legacy schedules remain unassigned. Both migrations preserve timetable slot IDs and attendance references. Do not run `database/install.sql` as an upgrade; it is the demo-data installer. No migration was executed against the configured application database.
+If the test database already exists, stop and inspect it first; do not drop or recreate it blindly. The restore is intended for a newly created empty test database.
+
+**3. Check migration state on the test copy.**
+
+```sh
+mariadb -u root -p university_management_timetable_test -e "SELECT table_name,column_name,is_nullable,extra FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name IN ('timetables','timetable_entries') AND column_name IN ('is_active','offering_id','component_id','location','course_offering_id','active_course_offering_id') ORDER BY table_name,ordinal_position; SELECT table_name,constraint_name,constraint_type FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() AND table_name IN ('timetables','timetable_entries') AND constraint_name IN ('chk_timetable_entries_optional_course_pair','fk_timetables_course_offering','uk_timetables_active_offering') ORDER BY table_name,constraint_name; SELECT table_name,index_name,non_unique FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='timetables' AND index_name='uk_timetables_active_offering';"
+```
+
+Interpretation:
+
+- If this copy was created from the **current `database/install.sql`**, it already has the final schema. Run no migrations. Schema inspection cannot distinguish a fresh latest install from an upgraded database with the same schema; use the known database origin as well as the query.
+- If neither migration is present, run the 20261105 preflight, then migration 20261105, then the 20261106 preflight, then migration 20261106.
+- If 20261105 is present but `course_offering_id`, its foreign key, or the active-offering unique index is absent, run only the 20261106 preflight and migration.
+- If 20261106 is present (column, FK, and unique index), do not run it again.
+- If the results show a partial/mixed state, stop. Do not guess or rerun a non-idempotent migration; restore the test copy from the backup and review the schema discrepancy.
+
+**4. Run only the preflight that matches the detected schema.** Both preflight files contain SELECT statements only. Run one command, inspect its output, and decide whether the next command applies. Do not paste or replay a whole sequence blindly: migrations are not safe to rerun.
+
+For an old database with neither migration applied, first run:
+
+```sh
+mariadb -u root -p university_management_timetable_test < database/migrations/preflight_20261105_weekly_timetable.sql
+```
+
+Only if that output matches the old schema, reports zero invalid null pairs and zero orphan attendance references, run:
+
+```sh
+mariadb -u root -p university_management_timetable_test < database/migrations/20261105_weekly_timetable.sql
+```
+
+Then check the 20261106 state:
+
+```sh
+mariadb -u root -p university_management_timetable_test < database/migrations/preflight_20261106_course_specific_timetables.sql
+```
+
+Continue only if its first status row says `READY FOR 20261106 PREFLIGHT REVIEW`, the duplicate candidate query returns no rows, and attendance references have no orphans. If it says `ALREADY APPLIED` or `STOP`, do not run the migration. If all checks pass, run:
+
+```sh
+mariadb -u root -p university_management_timetable_test < database/migrations/20261106_course_specific_timetables.sql
+```
+
+If 20261105 is already applied and 20261106 is not, run only the 20261106 preflight above and, if it reports the ready state and the remaining checks pass, run the 20261106 migration once. If 20261106 is already applied, do not run it again. These instructions apply only to the restored test copy.
+
+**5. Verify schema, uniqueness, and attendance references.** The migration files also print these post-checks. Run this combined check after applying the needed migration:
+
+```sh
+mariadb -u root -p university_management_timetable_test -e "SELECT table_name,column_name,column_type,is_nullable,extra FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name IN ('timetables','timetable_entries') AND column_name IN ('is_active','offering_id','component_id','location','course_offering_id','active_course_offering_id') ORDER BY table_name,ordinal_position; SELECT table_name,constraint_name,constraint_type FROM information_schema.table_constraints WHERE constraint_schema=DATABASE() AND table_name IN ('timetables','timetable_entries') AND constraint_name IN ('chk_timetable_entries_optional_course_pair','fk_timetables_course_offering','fk_timetable_entries_offering','fk_timetable_entries_component','fk_timetable_entries_timetable') ORDER BY table_name,constraint_name; SELECT course_offering_id,COUNT(*) AS active_count FROM timetables WHERE is_active=TRUE AND course_offering_id IS NOT NULL GROUP BY course_offering_id HAVING COUNT(*)>1; SELECT COUNT(*) AS timetable_entry_rows FROM timetable_entries; SELECT COUNT(*) AS attendance_references FROM attendance_sessions WHERE timetable_entry_id IS NOT NULL; SELECT COUNT(*) AS orphan_attendance_references FROM attendance_sessions s LEFT JOIN timetable_entries e ON e.timetable_entry_id=s.timetable_entry_id WHERE s.timetable_entry_id IS NOT NULL AND e.timetable_entry_id IS NULL; SELECT COUNT(*) AS active_unassigned_legacy_headers FROM timetables WHERE is_active=TRUE AND course_offering_id IS NULL;"
+```
+
+No duplicate active counts and no orphan attendance references are expected. Active unassigned headers may remain: those are ambiguous/generic legacy schedules intentionally not guessed into a course. Compare entry/reference counts with the preflight output.
+
+**6. Grant the existing application account access to the test database only.** This does not change permissions on `university_management`:
+
+```sh
+mariadb -u root -p -e "GRANT SELECT, INSERT, UPDATE, DELETE ON university_management_timetable_test.* TO 'ams_app'@'localhost';"
+```
+
+**7. Run the application against the test copy without changing `application.properties`.** From the repository root, inline environment variables override the file for this process only. Set `DB_PASSWORD` to the password already configured for `ams_app`:
+
+```sh
+DB_URL='jdbc:mariadb://localhost:3306/university_management_timetable_test' DB_USERNAME='ams_app' DB_PASSWORD='AmsLocalOnly-ChangeMe-2026!' ./mvnw exec:java
+```
+
+Do not run `database/install.sql` against the restored test copy: it replaces application rows with demo data. Do not point migration commands at `university_management`. No database was contacted and no migration was executed while preparing these instructions.

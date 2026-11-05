@@ -1737,7 +1737,7 @@ BEGIN
   END IF;
   IF (SELECT COUNT(*) FROM information_schema.table_constraints
       WHERE constraint_schema=DATABASE() AND table_name IN ('users', 'admins', 'departments', 'batches', 'undergraduates', 'lecturers', 'technical_officers', 'courses', 'course_components', 'semesters', 'course_offerings', 'course_offering_lecturers', 'course_enrollments', 'assessments', 'marks', 'attendance_sessions', 'attendance_records', 'medical_records', 'course_materials', 'course_quizzes', 'quiz_questions', 'quiz_attempts', 'course_assignments', 'assignment_submissions', 'notices', 'timetables', 'timetable_entries', 'grades', 'course_results', 'audit_logs')
-        AND constraint_type IN ('PRIMARY KEY','UNIQUE','FOREIGN KEY','CHECK')) <> 134
+        AND constraint_type IN ('PRIMARY KEY','UNIQUE','FOREIGN KEY','CHECK')) <> 135
      OR EXISTS (
        SELECT 1 FROM (
       SELECT 'admins' AS table_name, 'fk_admins_user' AS constraint_name
@@ -2111,10 +2111,13 @@ BEGIN
   FROM assessments a JOIN course_offerings o ON o.offering_id=a.offering_id JOIN course_enrollments e ON e.offering_id=o.offering_id
   JOIN undergraduates ug ON ug.student_id=e.student_id JOIN users u ON u.user_id=ug.user_id
   WHERE a.is_ca_component=TRUE;
-  -- Exactly one synthetic timetable per department. Entries are synthetic demo schedules.
-  INSERT INTO `timetables` (title,department_id,semester_id,level_no,created_by_user_id)
-  SELECT CONCAT('DEMO ',d.code,' 2026/2027 Semester 1'),d.department_id,s.semester_id,2,u.user_id FROM departments d
-  JOIN semesters s ON s.academic_year='2026/2027' AND s.semester_no=1 CROSS JOIN users u WHERE u.username='admin';
+  -- One synthetic course-specific timetable per offering used in the demo schedule.
+  INSERT INTO `timetables` (title,department_id,semester_id,level_no,created_by_user_id,course_offering_id)
+  SELECT CONCAT(c.course_code,' — ',b.batch_code,' — 2026/2027 Semester 1'),b.department_id,o.semester_id,b.level_no,u.user_id,o.offering_id
+  FROM course_offerings o JOIN courses c ON c.course_id=o.course_id JOIN batches b ON b.batch_id=o.batch_id
+  JOIN semesters s ON s.semester_id=o.semester_id AND s.academic_year='2026/2027' AND s.semester_no=1
+  CROSS JOIN users u WHERE u.username='admin'
+    AND c.course_code IN ('ICT2113','ICT2122','ICT2132','ICT2142','ICT2152','ICT2162','TCS2112','TCS2121','ENG2112');
   INSERT INTO `timetable_entries` (timetable_id,offering_id,component_id,day_of_week,start_time,end_time,location)
   SELECT t.timetable_id,o.offering_id,cc.component_id,v.day_of_week,v.start_time,v.end_time,v.location FROM (SELECT 'ICT2113' AS `course_code`, 'THEORY' AS `component_type`, 'ICT' AS `dept`, 'MON' AS `day_of_week`, '08:00:00' AS `start_time`, '10:00:00' AS `end_time`, 'DEMO ICT teaching room' AS `location`, '2026-10-19' AS `session_date`
        UNION ALL SELECT 'ICT2113', 'PRACTICAL', 'ICT', 'TUE', '08:00:00', '10:00:00', 'DEMO ICT teaching room', '2026-10-20'
@@ -2128,10 +2131,12 @@ BEGIN
        UNION ALL SELECT 'TCS2112', 'THEORY', 'BST', 'MON', '08:00:00', '10:00:00', 'DEMO BST teaching room', '2026-10-19'
        UNION ALL SELECT 'TCS2121', 'THEORY', 'BST', 'TUE', '08:00:00', '10:00:00', 'DEMO BST teaching room', '2026-10-20'
        UNION ALL SELECT 'ENG2112', 'THEORY', 'ET', 'MON', '08:00:00', '10:00:00', 'DEMO ET teaching room', '2026-10-19') v
-  JOIN departments d ON d.code=v.dept JOIN timetables t ON t.department_id=d.department_id
-  JOIN semesters s ON s.semester_id=t.semester_id AND s.academic_year='2026/2027' AND s.semester_no=1
+  JOIN departments d ON d.code=v.dept
+  JOIN semesters s ON s.academic_year='2026/2027' AND s.semester_no=1
   JOIN courses c ON c.course_code=v.course_code JOIN course_components cc ON cc.course_id=c.course_id AND cc.component_type=v.component_type
-  JOIN course_offerings o ON o.course_id=c.course_id AND o.batch_id=(SELECT b.batch_id FROM batches b WHERE b.batch_code='DEMO-ICT-2026');
+  JOIN course_offerings o ON o.course_id=c.course_id AND o.semester_id=s.semester_id
+  JOIN batches b ON b.batch_id=o.batch_id AND b.department_id=d.department_id
+  JOIN timetables t ON t.course_offering_id=o.offering_id;
   -- Fifteen weekly lecture slots per offering, distributed across its timetable
   -- components and spread across the semester. Attendance is randomized per student/course
   -- with each student attending between 9 and 15 sessions.

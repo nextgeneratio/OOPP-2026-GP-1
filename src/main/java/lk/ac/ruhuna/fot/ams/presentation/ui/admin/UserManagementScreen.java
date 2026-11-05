@@ -107,6 +107,9 @@ public final class UserManagementScreen extends JPanel {
             AppButton deactivate = new AppButton("Deactivate selected");
             deactivate.addActionListener(event -> deactivateUser());
             actions.add(deactivate);
+            AppButton activate = new AppButton("Activate selected");
+            activate.addActionListener(event -> activateUser());
+            actions.add(activate);
         }
         footer.add(actions, BorderLayout.WEST);
         status.setFont(UiTheme.helper());
@@ -331,6 +334,24 @@ public final class UserManagementScreen extends JPanel {
             return;
         }
         runMutation(() -> users.deactivate(actor, selected.id()), "Account deactivated.");
+    }
+
+    private void activateUser() {
+        UserView selected = selectedUser();
+        if (selected == null) return;
+        if (selected.active()) {
+            showError("This account is already active.");
+            return;
+        }
+        if (JOptionPane.showConfirmDialog(this,
+                "Activate " + selected.username() + "? This allows the account to sign in again.",
+                "Confirm activation", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) {
+            return;
+        }
+        UpdateUser request = new UpdateUser(selected.id(), selected.role(), selected.email(), true,
+                selected.fullName(), selected.phone(), selected.departmentId(), selected.batchId(),
+                selected.studentNumber());
+        runMutation(() -> users.update(actor, request), "Account activated.");
     }
 
     private UserView selectedUser() {
