@@ -18,7 +18,7 @@ public final class JdbcTimetableDao implements TimetableDao {
     @Override
     public long insertTimetable(Connection connection, TimetableRow row) {
         return jdbc.insertAndReturnKey(connection,
-                "INSERT INTO timetables (title, department_id, semester_id, level_no, created_by_user_id, is_active) VALUES (?, ?, ?, ?, ?, TRUE)",
+                "INSERT INTO timetables (title, department_id, semester_id, level_no, created_by_user_id, is_active, course_offering_id) VALUES (?, ?, ?, ?, ?, TRUE, ?)",
                 statement -> {
                     statement.setString(1, row.title());
                     statement.setInt(2, row.departmentId());
@@ -29,6 +29,7 @@ public final class JdbcTimetableDao implements TimetableDao {
                     } else {
                         statement.setLong(5, row.createdByUserId());
                     }
+                    if(row.offeringId()<=0) statement.setNull(6,java.sql.Types.INTEGER); else statement.setInt(6,row.offeringId());
                 });
     }
 
@@ -107,20 +108,20 @@ public final class JdbcTimetableDao implements TimetableDao {
 
     @Override
     public Optional<TimetableRow> findTimetable(int timetableId) {
-        return jdbc.query("SELECT t.timetable_id, t.title, t.department_id, t.semester_id, t.level_no, "
+        return jdbc.query("SELECT t.timetable_id, t.title, t.department_id, t.semester_id, t.level_no, t.course_offering_id, "
                         + "t.created_by_user_id, u.username, u.role FROM timetables t "
                         + "LEFT JOIN users u ON u.user_id = t.created_by_user_id WHERE t.timetable_id = ?",
                 statement -> statement.setInt(1, timetableId),
                 result -> new TimetableRow(result.getInt("timetable_id"), result.getString("title"),
                         result.getInt("department_id"), result.getInt("semester_id"),
                         result.getInt("level_no"), nullableLong(result, "created_by_user_id"),
-                        result.getString("username"), role(result.getString("role"))))
+                        result.getString("username"), role(result.getString("role")),nullableInt(result,"course_offering_id")))
                 .stream().findFirst();
     }
 
     @Override
     public List<TimetableRow> findTimetables(int departmentId, int semesterId, int level) {
-        return jdbc.query("SELECT t.timetable_id,t.title,t.department_id,t.semester_id,t.level_no,"
+        return jdbc.query("SELECT t.timetable_id,t.title,t.department_id,t.semester_id,t.level_no,t.course_offering_id,"
                         + "t.created_by_user_id,u.username,u.role FROM timetables t "
                         + "LEFT JOIN users u ON u.user_id=t.created_by_user_id "
                         + "WHERE t.department_id=? AND t.semester_id=? AND t.level_no=? AND t.is_active=TRUE ORDER BY t.title",
@@ -128,7 +129,20 @@ public final class JdbcTimetableDao implements TimetableDao {
                 result -> new TimetableRow(result.getInt("timetable_id"),result.getString("title"),
                         result.getInt("department_id"),result.getInt("semester_id"),result.getInt("level_no"),
                         result.getObject("created_by_user_id",Long.class),result.getString("username"),
-                        result.getString("role")==null?null:lk.ac.ruhuna.fot.ams.domain.enums.Role.valueOf(result.getString("role"))));
+                        result.getString("role")==null?null:lk.ac.ruhuna.fot.ams.domain.enums.Role.valueOf(result.getString("role")),nullableInt(result,"course_offering_id")));
+    }
+
+    @Override
+    public Optional<TimetableRow> findActiveTimetableForOffering(int offeringId){
+        return jdbc.query("SELECT t.timetable_id,t.title,t.department_id,t.semester_id,t.level_no,t.course_offering_id,t.created_by_user_id,u.username,u.role FROM timetables t LEFT JOIN users u ON u.user_id=t.created_by_user_id WHERE t.course_offering_id=? AND t.is_active=TRUE",
+                statement->statement.setInt(1,offeringId),result->new TimetableRow(result.getInt("timetable_id"),result.getString("title"),result.getInt("department_id"),result.getInt("semester_id"),result.getInt("level_no"),nullableLong(result,"created_by_user_id"),result.getString("username"),role(result.getString("role")),nullableInt(result,"course_offering_id"))).stream().findFirst();
+    }
+
+    @Override
+    public List<TimetableRow> findTimetablesForOfferings(List<Integer> offeringIds){
+        if(offeringIds==null||offeringIds.isEmpty())return List.of();String p=String.join(",",java.util.Collections.nCopies(offeringIds.size(),"?"));
+        return jdbc.query("SELECT t.timetable_id,t.title,t.department_id,t.semester_id,t.level_no,t.course_offering_id,t.created_by_user_id,u.username,u.role FROM timetables t LEFT JOIN users u ON u.user_id=t.created_by_user_id WHERE t.is_active=TRUE AND t.course_offering_id IN ("+p+") ORDER BY t.title",
+                statement->{for(int i=0;i<offeringIds.size();i++)statement.setInt(i+1,offeringIds.get(i));},result->new TimetableRow(result.getInt("timetable_id"),result.getString("title"),result.getInt("department_id"),result.getInt("semester_id"),result.getInt("level_no"),nullableLong(result,"created_by_user_id"),result.getString("username"),role(result.getString("role")),nullableInt(result,"course_offering_id")));
     }
 
     @Override
@@ -240,7 +254,7 @@ public final class JdbcTimetableDao implements TimetableDao {
                         + "JOIN batches b ON b.batch_id = o.batch_id "
                         + "JOIN course_components cc ON cc.course_id = c.course_id "
                         + "JOIN timetables t ON t.timetable_id = ? "
-                        + "WHERE o.offering_id = ? AND cc.component_id = ? "
+                        + "WHERE o.offering_id = ? AND cc.component_id = ? AND t.course_offering_id=o.offering_id "
                         + "AND t.department_id = b.department_id AND t.semester_id = o.semester_id "
                         + "AND t.level_no = b.level_no",
                 statement -> {

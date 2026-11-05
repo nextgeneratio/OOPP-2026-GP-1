@@ -61,12 +61,16 @@ public final class TimetableService {
         authorization.requireAdmin(actor);
         validateHeader(timetable);
         validateWeeklySlots(slots);
+        int offeringId=timetable.offeringId();
+        if(offeringId<=0) throw new ValidationException("Choose a course offering for this timetable.");
+        validateOfferingScope(timetable,offeringId,slots);
+        if(timetableDao.findActiveTimetableForOffering(offeringId).isPresent()) throw new ValidationException("This course offering already has an active timetable. Use Update Timetable instead.");
         return transactions.execute(connection -> {
             TimetableRow owned = new TimetableRow(timetable.id(), timetable.title().trim(), timetable.departmentId(),
-                    timetable.semesterId(), timetable.level(), actor.userId(), null, null);
+                    timetable.semesterId(), timetable.level(), actor.userId(), null, null,offeringId);
             long timetableId=timetableDao.insertTimetable(connection, owned);
-            List<EntryRow> materialized=slots.stream().map(s -> new EntryRow(0,(int)timetableId,0,0,s.dayOfWeek(),s.start(),s.end(),blankToNull(s.location()))).toList();
-            checkWeeklyConflicts((int)timetableId, timetable, materialized, 0);
+            List<EntryRow> materialized=slots.stream().map(s -> new EntryRow(0,(int)timetableId,offeringId,s.componentId(),s.dayOfWeek(),s.start(),s.end(),blankToNull(s.location()))).toList();
+            checkCourseConflicts(timetable,materialized,0);
             for(EntryRow slot:materialized) timetableDao.insertEntry(connection,slot);
             audit(connection,actor.userId(),"TIMETABLE_CREATE",timetableId);
             return timetableId;
@@ -78,14 +82,46 @@ public final class TimetableService {
         TimetableRow header=timetableDao.findTimetable(timetableId).orElseThrow(()->new NotFoundException("Timetable was not found."));
         if(!timetableDao.isTimetableActive(timetableId)) throw new ValidationException("This timetable is inactive.");
         validateWeeklySlots(slots);
+        if(header.offeringId()<=0) throw new ValidationException("This legacy timetable is unassigned. Create a course timetable to manage this offering.");
+        validateOfferingScope(header,header.offeringId(),slots);
         transactions.execute(connection -> {
-            List<EntryRow> materialized=slots.stream().map(s -> new EntryRow(0,timetableId,0,0,s.dayOfWeek(),s.start(),s.end(),blankToNull(s.location()))).toList();
-            checkWeeklyConflicts(timetableId,header,materialized,timetableId);
+            List<EntryRow> materialized=slots.stream().map(s -> new EntryRow(0,timetableId,header.offeringId(),s.componentId(),s.dayOfWeek(),s.start(),s.end(),blankToNull(s.location()))).toList();
+            checkCourseConflicts(header,materialized,timetableId);
             timetableDao.deactivateEntriesForTimetable(connection,timetableId);
             for(EntryRow slot:materialized) timetableDao.insertEntry(connection,slot);
             audit(connection,actor.userId(),"TIMETABLE_UPDATE",timetableId);
             return null;
         });
+    }
+
+    private void validateOfferingScope(TimetableRow timetable,int offeringId,List<EntryRow> slots){
+        CourseDao.OfferingRow offering=courseDao.findOffering(offeringId).orElseThrow(()->new ValidationException("Course offering was not found."));
+        CourseDao.BatchRow batch=courseDao.findBatch(offering.batchId()).orElseThrow(()->new ValidationException("Offering batch was not found."));
+        CourseDao.CourseRow course=courseDao.findCourse(offering.courseId()).orElseThrow(()->new ValidationException("Offering course was not found."));
+        if(batch.departmentId()!=timetable.departmentId()||offering.semesterId()!=timetable.semesterId()||batch.level()!=timetable.level()||course.departmentId()!=batch.departmentId())
+            throw new ValidationException("Course offering does not match the selected department, academic term, and level.");
+        List<Integer> componentIds=courseDao.findComponents(course.id()).stream().map(CourseDao.ComponentRow::id).toList();
+        if(slots.stream().anyMatch(slot->slot.componentId()<=0||!componentIds.contains(slot.componentId())))
+            throw new ValidationException("Every timetable slot must select a component belonging to the selected course.");
+    }
+
+    private void checkCourseConflicts(TimetableRow scope,List<EntryRow> proposed,int excludeTimetableId){
+        List<EntryRow> existing=timetableDao.findEntries(scope.departmentId(),scope.semesterId()).stream().filter(e->e.timetableId()!=excludeTimetableId).toList();
+        int selectedBatch=courseDao.findOffering(scope.offeringId()).map(CourseDao.OfferingRow::batchId).orElse(-1);
+        List<Integer> lecturers=courseDao.findLecturersForOffering(scope.offeringId());
+        for(EntryRow candidate:proposed)for(EntryRow old:existing){
+            TimetableRow oldHeader=timetableDao.findTimetable(old.timetableId()).orElse(null);if(oldHeader==null)continue;
+            int oldOffering=oldHeader.offeringId()>0?oldHeader.offeringId():old.offeringId();if(oldOffering<=0)continue;
+            CourseDao.OfferingRow other=courseDao.findOffering(oldOffering).orElse(null);if(other==null)continue;
+            boolean overlaps=overlaps(candidate,old);if(!overlaps)continue;
+            boolean sameRoom=candidate.location()!=null&&!candidate.location().isBlank()&&candidate.location().equalsIgnoreCase(old.location()==null?"":old.location());
+            boolean sameOffering=scope.offeringId()==oldOffering;
+            boolean sameBatch=other.batchId()==selectedBatch;
+            List<Integer> otherLecturers=courseDao.findLecturersForOffering(oldOffering);
+            boolean lecturerOverlap=lecturers.stream().anyMatch(otherLecturers::contains);
+            if(sameRoom||sameOffering||sameBatch||lecturerOverlap)
+                throw new ValidationException(sameRoom?"The selected room is already allocated at this time.":lecturerOverlap?"An assigned lecturer is already teaching at this time.":"This course offering or batch already has a timetable slot at this time.");
+        }
     }
 
     private void validateHeader(TimetableRow timetable) {
@@ -156,7 +192,7 @@ public final class TimetableService {
         List<EntryRow> entries = timetableDao.findEntries(departmentId, semesterId, level, day);
         if (actor.role() == Role.ADMIN) {
             authorization.requireAdmin(actor);
-            return entries;
+            return entries.stream().filter(e->e.offeringId()>0).toList();
         }
         if (actor.role() == Role.TECHNICAL_OFFICER) {
             authorization.requireTechnicalOfficerForTimetable(actor,departmentId,semesterId);

@@ -214,12 +214,25 @@ backups out of Git.
 
 ## Weekly timetable management
 
-Administrators maintain an entire weekly timetable from the Timetable screen. Create and Update use one editor for department, academic term, level, and all Monday–Sunday slots; Add Time Slot adds an unsaved editor row. Update versions the schedule so existing attendance references retain their original slot IDs. Delete deactivates the timetable and its active slots. View displays the selected schedule as weekday/time rows. Technical Officers can view authorized department timetables; lecturers and undergraduates see only their assigned/enrolled offering slots.
+Administrators maintain one weekly timetable per Course Offering. Create and Update use one editor for department, academic term, level, course offering, and all Monday–Sunday slots; each slot selects one of the course's actual components. Existing course allocations are displayed while creating. Parallel courses are allowed when they use different rooms, batches and lecturers. Update versions the schedule so existing attendance references retain their original slot IDs. Delete deactivates the timetable and its active slots. Technical Officers can view authorized department schedules; lecturers and undergraduates see only their assigned/enrolled offering schedules.
 
-For a new database, `database/install.sql` creates this model. To upgrade an existing installation, review the read-only checks in `database/migrations/20261105_weekly_timetable.sql`, back up the database, then run from the repository root:
+For a new database, `database/install.sql` creates this model. Back up an existing database before migration:
+
+```sh
+mariadb-dump -u root -p --single-transaction university_management > university_management_before_timetable_migration.sql
+```
+
+If `20261105_weekly_timetable.sql` has not been applied, run these in order:
 
 ```sh
 mariadb -u root -p university_management < database/migrations/20261105_weekly_timetable.sql
+mariadb -u root -p university_management < database/migrations/20261106_course_specific_timetables.sql
 ```
 
-The upgrade migration preserves timetable slot IDs and attendance references. Do not run `database/install.sql` as an upgrade; it is the demo-data installer. The application database has not been changed by this code update.
+If `20261105_weekly_timetable.sql` is already applied, run only:
+
+```sh
+mariadb -u root -p university_management < database/migrations/20261106_course_specific_timetables.sql
+```
+
+Review each migration's read-only preflight output first. Stop and resolve duplicate active offering assignments or invalid mappings before continuing. The course-specific migration only backfills a legacy header if all its slots have exactly one populated offering/component pair and the offering matches its department, term and level. Ambiguous and generic legacy schedules remain unassigned. Both migrations preserve timetable slot IDs and attendance references. Do not run `database/install.sql` as an upgrade; it is the demo-data installer. No migration was executed against the configured application database.

@@ -8,12 +8,16 @@ import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 
 public interface TimetableDao {
     record TimetableRow(int id, String title, int departmentId, int semesterId, int level,
-                        Long createdByUserId, String createdByUsername, Role createdByRole) {
+                        Long createdByUserId, String createdByUsername, Role createdByRole, int offeringId) {
+        public TimetableRow(int id,String title,int departmentId,int semesterId,int level,
+                Long createdByUserId,String createdByUsername,Role createdByRole){
+            this(id,title,departmentId,semesterId,level,createdByUserId,createdByUsername,createdByRole,0);
+        }
         public TimetableRow(int id, String title, int departmentId, int semesterId, int level) {
-            this(id, title, departmentId, semesterId, level, null, null, null);
+            this(id, title, departmentId, semesterId, level, null, null, null,0);
         }
         public TimetableRow(int id, String title, int departmentId, int semesterId) {
-            this(id, title, departmentId, semesterId, 1, null, null, null);
+            this(id, title, departmentId, semesterId, 1, null, null, null,0);
         }
     }
 
@@ -50,6 +54,10 @@ public interface TimetableDao {
     Optional<TimetableRow> findTimetable(int timetableId);
 
     List<TimetableRow> findTimetables(int departmentId, int semesterId, int level);
+
+    Optional<TimetableRow> findActiveTimetableForOffering(int offeringId);
+
+    List<TimetableRow> findTimetablesForOfferings(List<Integer> offeringIds);
 
     Optional<EntryRow> findEntry(int entryId);
 

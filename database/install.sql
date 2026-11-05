@@ -583,8 +583,11 @@ CREATE TABLE IF NOT EXISTS `timetables` (
     level_no TINYINT NOT NULL DEFAULT 1,
     created_by_user_id BIGINT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    course_offering_id INT NULL,
+    active_course_offering_id INT AS (CASE WHEN is_active=TRUE THEN course_offering_id ELSE NULL END) PERSISTENT,
 
     PRIMARY KEY (timetable_id),
+    UNIQUE KEY uk_timetables_active_offering (active_course_offering_id),
     CONSTRAINT chk_timetables_level_no CHECK (level_no BETWEEN 1 AND 4),
 
     CONSTRAINT fk_timetables_department
@@ -594,6 +597,10 @@ CREATE TABLE IF NOT EXISTS `timetables` (
     CONSTRAINT fk_timetables_semester
         FOREIGN KEY (semester_id)
         REFERENCES `semesters` (semester_id),
+
+    CONSTRAINT fk_timetables_course_offering
+        FOREIGN KEY (course_offering_id)
+        REFERENCES `course_offerings` (offering_id),
 
     CONSTRAINT fk_timetables_created_by_user
         FOREIGN KEY (created_by_user_id)
@@ -740,7 +747,7 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Schema preflight failed: all 30 application tables must exist as InnoDB with utf8mb4_unicode_ci.';
   END IF;
   IF (SELECT COUNT(*) FROM information_schema.columns
-      WHERE table_schema=DATABASE() AND table_name IN ('users', 'admins', 'departments', 'batches', 'undergraduates', 'lecturers', 'technical_officers', 'courses', 'course_components', 'semesters', 'course_offerings', 'course_offering_lecturers', 'course_enrollments', 'assessments', 'marks', 'attendance_sessions', 'attendance_records', 'medical_records', 'course_materials', 'course_quizzes', 'quiz_questions', 'quiz_attempts', 'course_assignments', 'assignment_submissions', 'notices', 'timetables', 'timetable_entries', 'grades', 'course_results', 'audit_logs')) <> 195
+      WHERE table_schema=DATABASE() AND table_name IN ('users', 'admins', 'departments', 'batches', 'undergraduates', 'lecturers', 'technical_officers', 'courses', 'course_components', 'semesters', 'course_offerings', 'course_offering_lecturers', 'course_enrollments', 'assessments', 'marks', 'attendance_sessions', 'attendance_records', 'medical_records', 'course_materials', 'course_quizzes', 'quiz_questions', 'quiz_attempts', 'course_assignments', 'assignment_submissions', 'notices', 'timetables', 'timetable_entries', 'grades', 'course_results', 'audit_logs')) <> 197
      OR EXISTS (
        SELECT 1 FROM (
       SELECT 'users' AS table_name, 'user_id' AS column_name
@@ -1068,6 +1075,10 @@ BEGIN
       SELECT 'timetables' AS table_name, 'created_by_user_id' AS column_name
       UNION ALL
       SELECT 'timetables' AS table_name, 'is_active' AS column_name
+      UNION ALL
+      SELECT 'timetables' AS table_name, 'course_offering_id' AS column_name
+      UNION ALL
+      SELECT 'timetables' AS table_name, 'active_course_offering_id' AS column_name
       UNION ALL
       SELECT 'timetable_entries' AS table_name, 'timetable_entry_id' AS column_name
       UNION ALL
@@ -1469,6 +1480,10 @@ BEGIN
       UNION ALL
       SELECT 'timetables' AS table_name, 'is_active' AS column_name, 'tinyint' AS data_type, 'NO' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
+      SELECT 'timetables' AS table_name, 'course_offering_id' AS column_name, 'int' AS data_type, 'YES' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
+      UNION ALL
+      SELECT 'timetables' AS table_name, 'active_course_offering_id' AS column_name, 'int' AS data_type, 'YES' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
+      UNION ALL
       SELECT 'timetable_entries' AS table_name, 'timetable_entry_id' AS column_name, 'int' AS data_type, 'NO' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
       UNION ALL
       SELECT 'timetable_entries' AS table_name, 'timetable_id' AS column_name, 'int' AS data_type, 'NO' AS is_nullable, NULL AS char_length, NULL AS numeric_precision, NULL AS numeric_scale
@@ -1694,6 +1709,8 @@ BEGIN
       UNION ALL
       SELECT 'timetables' AS table_name, 'PRIMARY' AS index_name
       UNION ALL
+      SELECT 'timetables' AS table_name, 'uk_timetables_active_offering' AS index_name
+      UNION ALL
       SELECT 'undergraduates' AS table_name, 'PRIMARY' AS index_name
       UNION ALL
       SELECT 'undergraduates' AS table_name, 'idx_undergraduates_batch_id' AS index_name
@@ -1720,7 +1737,7 @@ BEGIN
   END IF;
   IF (SELECT COUNT(*) FROM information_schema.table_constraints
       WHERE constraint_schema=DATABASE() AND table_name IN ('users', 'admins', 'departments', 'batches', 'undergraduates', 'lecturers', 'technical_officers', 'courses', 'course_components', 'semesters', 'course_offerings', 'course_offering_lecturers', 'course_enrollments', 'assessments', 'marks', 'attendance_sessions', 'attendance_records', 'medical_records', 'course_materials', 'course_quizzes', 'quiz_questions', 'quiz_attempts', 'course_assignments', 'assignment_submissions', 'notices', 'timetables', 'timetable_entries', 'grades', 'course_results', 'audit_logs')
-        AND constraint_type IN ('PRIMARY KEY','UNIQUE','FOREIGN KEY','CHECK')) <> 133
+        AND constraint_type IN ('PRIMARY KEY','UNIQUE','FOREIGN KEY','CHECK')) <> 134
      OR EXISTS (
        SELECT 1 FROM (
       SELECT 'admins' AS table_name, 'fk_admins_user' AS constraint_name
@@ -1868,6 +1885,8 @@ BEGIN
       SELECT 'timetable_entries' AS table_name, 'fk_timetable_entries_timetable' AS constraint_name
       UNION ALL
       SELECT 'timetables' AS table_name, 'chk_timetables_level_no' AS constraint_name
+      UNION ALL
+      SELECT 'timetables' AS table_name, 'fk_timetables_course_offering' AS constraint_name
       UNION ALL
       SELECT 'timetables' AS table_name, 'fk_timetables_created_by_user' AS constraint_name
       UNION ALL

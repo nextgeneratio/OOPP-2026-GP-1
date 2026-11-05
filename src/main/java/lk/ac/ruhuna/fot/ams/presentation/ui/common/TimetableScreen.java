@@ -1,148 +1,77 @@
 package lk.ac.ruhuna.fot.ams.presentation.ui.common;
 
-import java.awt.BorderLayout;
-import java.awt.FlowLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
+import java.awt.*;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.*;
 import java.util.List;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.JTextArea;
+import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
-import lk.ac.ruhuna.fot.ams.api.controller.ApiResponse;
 import lk.ac.ruhuna.fot.ams.api.controller.CourseController;
 import lk.ac.ruhuna.fot.ams.api.controller.TimetableController;
 import lk.ac.ruhuna.fot.ams.business.service.CourseService.CourseCatalog;
-import lk.ac.ruhuna.fot.ams.data.dao.CourseDao.DepartmentRow;
-import lk.ac.ruhuna.fot.ams.data.dao.CourseDao.SemesterRow;
+import lk.ac.ruhuna.fot.ams.data.dao.CourseDao.*;
 import lk.ac.ruhuna.fot.ams.data.dao.TimetableDao.EntryRow;
 import lk.ac.ruhuna.fot.ams.data.dao.TimetableDao.TimetableRow;
 import lk.ac.ruhuna.fot.ams.domain.enums.Role;
 import lk.ac.ruhuna.fot.ams.security.session.AuthenticatedSession;
 
-/** Weekly timetable workflows. Only administrators can maintain schedules. */
+/** Course-specific timetable management, with legacy viewing retained for scoped roles. */
 public final class TimetableScreen extends JPanel {
     private static final String[] DAYS={"MON","TUE","WED","THU","FRI","SAT","SUN"};
-    private final AuthenticatedSession actor;
-    private final TimetableController timetables;
-    private final CourseController courses;
-
+    private final AuthenticatedSession actor; private final TimetableController timetables; private final CourseController courses;
     public TimetableScreen(AuthenticatedSession actor,TimetableController timetables,CourseController courses){
-        super(new BorderLayout(12,12)); this.actor=actor;this.timetables=timetables;this.courses=courses;
-        setBorder(javax.swing.BorderFactory.createEmptyBorder(20,20,20,20));
-        boolean admin=actor.role()==Role.ADMIN;
-        add(new JLabel(admin?"<html><h2>Weekly timetable management</h2>Create and maintain the complete weekly schedule for a department, term, and level.</html>":"<html><h2>Timetable</h2>View timetable entries available to your role.</html>"),BorderLayout.NORTH);
-        JPanel actions=new JPanel(new java.awt.GridLayout(0,2,12,12));
-        if(admin){button(actions,"Create Timetable",this::create);button(actions,"Update Timetable",this::update);button(actions,"Delete Timetable",this::delete);button(actions,"View Timetable",this::viewAdmin);}
-        else button(actions,actor.role()==Role.TECHNICAL_OFFICER?"View Department Timetable":"View My Timetable",actor.role()==Role.TECHNICAL_OFFICER?this::viewOfficer:this::viewMine);
-        add(actions,BorderLayout.CENTER);
+        super(new BorderLayout(12,12));this.actor=actor;this.timetables=timetables;this.courses=courses;setBorder(BorderFactory.createEmptyBorder(20,20,20,20));
+        boolean admin=actor.role()==Role.ADMIN;add(new JLabel(admin?"<html><h2>Course Timetable Management</h2>Maintain one weekly schedule per course offering.</html>":"<html><h2>Timetable</h2>View course timetable entries available to your role.</html>"),BorderLayout.NORTH);
+        JPanel actions=new JPanel(new GridLayout(0,2,12,12));if(admin){button(actions,"Create Timetable",this::create);button(actions,"Update Timetable",this::update);button(actions,"Delete Timetable",this::delete);button(actions,"View Timetable",this::viewAdmin);}else button(actions,actor.role()==Role.TECHNICAL_OFFICER?"View Department Timetable":"View My Timetable",actor.role()==Role.TECHNICAL_OFFICER?this::viewOfficer:this::viewMine);add(actions,BorderLayout.CENTER);
+    }
+    private record Scope(SelectionOption department,SelectionOption term,int level){}
+    private record CourseChoice(int offeringId,String label,int courseId) { public String toString(){return label;} }
+    private record EditorResult(Scope scope,CourseChoice offering,List<EntryRow> slots){}
+
+    private void create(){CourseCatalog c=catalog();if(c==null)return;EditorResult r=edit("Create Course Timetable",c,List.of(),null);if(r==null)return;String title=r.offering.label()+" — "+semesterLabel(c,r.scope.term.id());show(timetables.createWeekly(actor,new TimetableController.WeeklyRequest(new TimetableRow(0,title,r.scope.department.id(),r.scope.term.id(),r.scope.level,null,null,null,r.offering.offeringId),r.slots)));}
+    private void update(){CourseCatalog c=catalog();if(c==null)return;TimetableRow selected=selectCourseTimetable(c,"Update Timetable");if(selected==null)return;var old=timetables.entriesForTimetable(actor,selected.id());if(!old.successful()){error(old.error().message());return;}CourseChoice choice=courseChoice(c,selected.offeringId());if(choice==null){error("This legacy timetable is not assigned to a single course offering and cannot be edited as a course timetable.");return;}Scope scope=new Scope(new SelectionOption(selected.departmentId(),departmentLabel(c,selected.departmentId())),new SelectionOption(selected.semesterId(),semesterLabel(c,selected.semesterId())),selected.level());EditorResult result=edit("Update — "+choice.label,c,old.data(),new EditorResult(scope,choice,List.of()));if(result!=null)show(timetables.updateWeekly(actor,new TimetableController.WeeklyUpdateRequest(selected.id(),result.slots)));}
+    private void delete(){CourseCatalog c=catalog();if(c==null)return;TimetableRow selected=selectCourseTimetable(c,"Delete Timetable");if(selected==null)return;var sum=timetables.deletionSummary(actor,selected.id());if(!sum.successful()){error(sum.error().message());return;}CourseChoice choice=courseChoice(c,selected.offeringId());String label=choice==null?selected.title():choice.label();int confirm=JOptionPane.showConfirmDialog(this,"Deactivate this course timetable?\n\n"+label+"\nActive slots: "+sum.data().activeSlots()+"\nAttendance sessions using slots: "+sum.data().attendanceReferences(),"Confirm deactivation",JOptionPane.YES_NO_OPTION,JOptionPane.WARNING_MESSAGE);if(confirm==JOptionPane.YES_OPTION)show(timetables.delete(actor,selected.id()));}
+    private void viewAdmin(){CourseCatalog c=catalog();if(c==null)return;Scope scope=chooseScope(c,"View Timetable");if(scope==null)return;List<TimetableRow> matches=scopeTimetables(scope);if(matches.isEmpty()){info("No course timetables exist for this department, term and level.");return;}TimetableRow t=chooseTimetable(c,matches,"Select Course Offering");if(t!=null)showWeek(t,c);}
+    private void viewMine(){var response=timetables.myEntries(actor);if(!response.successful()){error(response.error().message());return;}showWeek("My Course Timetables",response.data(),catalog());}
+    private void viewOfficer(){CourseCatalog c=catalog();if(c==null)return;Scope scope=chooseScope(c,"View Department Timetable");if(scope==null)return;List<TimetableRow> list=scopeTimetables(scope);if(list.isEmpty()){info("No active timetables match this scope.");return;}TimetableRow t=chooseTimetable(c,list,"Select Course Offering");if(t!=null)showWeek(t,c);}
+
+    private EditorResult edit(String title,CourseCatalog c,List<EntryRow> initial,EditorResult fixed){
+        Scope scope=fixed==null?null:fixed.scope; JComboBox<SelectionOption> dept=options(c.departments().stream().map(d->new SelectionOption(d.id(),d.code()+" — "+d.name())).toList());JComboBox<SelectionOption> term=options(c.semesters().stream().map(s->new SelectionOption(s.id(),semesterLabel(s))).toList());JComboBox<Integer> level=new JComboBox<>(new Integer[]{1,2,3,4});
+        JComboBox<CourseChoice> course=new JComboBox<>();if(fixed==null){Runnable reload=()->fillCourses(course,c,selectedId(dept),selectedId(term),(Integer)level.getSelectedItem());dept.addActionListener(e->reload.run());term.addActionListener(e->reload.run());level.addActionListener(e->reload.run());reload.run();}else{dept.setSelectedItem(scope.department);term.setSelectedItem(scope.term);level.setSelectedItem(scope.level);dept.setEnabled(false);term.setEnabled(false);level.setEnabled(false);course.addItem(fixed.offering);course.setEnabled(false);}
+        DefaultTableModel model=new DefaultTableModel(new Object[]{"Day","Component","Start (24h)","End (24h)","Room / location"},0){@Override public boolean isCellEditable(int r,int col){return true;}};
+        JTable table=new JTable(model);table.setRowHeight(25);table.getColumnModel().getColumn(0).setCellEditor(new DefaultCellEditor(new JComboBox<>(DAYS)));
+        JTextArea existing=new JTextArea(7,45);existing.setEditable(false);existing.setBorder(BorderFactory.createTitledBorder("Existing Course Timetables"));
+        Runnable components=()->{CourseChoice o=(CourseChoice)course.getSelectedItem();List<SelectionOption> opts=o==null?List.of():c.components().stream().filter(x->x.courseId()==o.courseId).map(x->new SelectionOption(x.id(),x.type().toString())).toList();JComboBox<SelectionOption> selector=options(opts);table.getColumnModel().getColumn(1).setCellEditor(new DefaultCellEditor(selector));refreshExisting(c,scopeFor(dept,term,level),o,existing);};course.addActionListener(e->components.run());
+        for(EntryRow e:initial){Object comp=c.components().stream().filter(x->x.id()==e.componentId()).findFirst().map(x->new SelectionOption(x.id(),x.type().toString())).orElse(null);model.addRow(new Object[]{e.dayOfWeek(),comp,e.start().toString(),e.end().toString(),e.location()==null?"":e.location()});}
+        JScrollPane current=new JScrollPane(existing);
+        JPanel fields=new JPanel(new GridBagLayout());field(fields,0,"Department",dept);field(fields,1,"Academic term",term);field(fields,2,"Level",level);field(fields,3,"Course offering",course);
+        JPanel body=new JPanel(new BorderLayout(8,8));body.add(fields,BorderLayout.NORTH);body.add(current,BorderLayout.WEST);body.add(new JScrollPane(table),BorderLayout.CENTER);
+        JButton add=new JButton("Add Time Slot"),remove=new JButton("Remove Selected Slot");JPanel controls=new JPanel(new FlowLayout(FlowLayout.LEFT));controls.add(add);controls.add(remove);body.add(controls,BorderLayout.SOUTH);add.addActionListener(e->{CourseChoice o=(CourseChoice)course.getSelectedItem();SelectionOption comp=o==null?null:c.components().stream().filter(x->x.courseId()==o.courseId).findFirst().map(x->new SelectionOption(x.id(),x.type().toString())).orElse(null);model.addRow(new Object[]{"MON",comp,"08:00","10:00",""});});remove.addActionListener(e->{int row=table.getSelectedRow();if(row>=0)model.removeRow(table.convertRowIndexToModel(row));});
+        if(fixed==null){Runnable updateExisting=()->{scopeFor(dept,term,level);components.run();};dept.addActionListener(e->updateExisting.run());term.addActionListener(e->updateExisting.run());level.addActionListener(e->updateExisting.run());}
+        body.setPreferredSize(new Dimension(960,520));if(JOptionPane.showConfirmDialog(this,new JScrollPane(body),title,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE)!=JOptionPane.OK_OPTION)return null;if(table.isEditing())table.getCellEditor().stopCellEditing();
+        Scope selectedScope=scopeFor(dept,term,level);CourseChoice selected=(CourseChoice)course.getSelectedItem();if(selectedScope==null||selected==null){error("Select a matching course offering.");return null;}List<EntryRow> slots=new ArrayList<>();try{for(int i=0;i<model.getRowCount();i++){Object comp=model.getValueAt(i,1);if(!(comp instanceof SelectionOption co))throw new IllegalArgumentException("Choose a component for every slot.");slots.add(new EntryRow(0,0,selected.offeringId,co.id(),String.valueOf(model.getValueAt(i,0)),LocalTime.parse(String.valueOf(model.getValueAt(i,2)).trim()),LocalTime.parse(String.valueOf(model.getValueAt(i,3)).trim()),String.valueOf(model.getValueAt(i,4)).trim()));}}catch(RuntimeException e){error("Choose a valid component and enter 24-hour times such as 08:00–10:00. "+e.getMessage());return null;}
+        return new EditorResult(selectedScope,selected,slots);
     }
 
-    private void create(){CourseCatalog catalog=catalog();if(catalog==null)return;EditorResult edit=editSlots("Create Weekly Timetable",catalog,List.of(),null);if(edit==null)return;Context context=edit.context;
-        String title=context.department.label().split(" — ")[0]+" — Level "+context.level+" — "+context.semester.label();
-        show(timetables.createWeekly(actor,new TimetableController.WeeklyRequest(new TimetableRow(0,title,context.department.id(),context.semester.id(),context.level),edit.slots)));
-    }
-
-    private void update(){TimetableRow selected=selectTimetable("Update Timetable");if(selected==null)return;
-        var loaded=timetables.entriesForTimetable(actor,selected.id());if(!loaded.successful()){error(loaded.error().message());return;}
-        CourseCatalog catalog=catalog();if(catalog==null)return;Context fixed=new Context(new SelectionOption(selected.departmentId(),departmentLabel(catalog,selected.departmentId())),new SelectionOption(selected.semesterId(),semesterLabel(catalog,selected.semesterId())),selected.level());
-        EditorResult edit=editSlots("Update Weekly Timetable — "+selected.title(),catalog,loaded.data(),fixed);if(edit==null)return;
-        show(timetables.updateWeekly(actor,new TimetableController.WeeklyUpdateRequest(selected.id(),edit.slots)));
-    }
-
-    private void delete(){TimetableRow selected=selectTimetable("Delete Timetable");if(selected==null)return;
-        var slots=timetables.entriesForTimetable(actor,selected.id());if(!slots.successful()){error(slots.error().message());return;}
-        var counts=timetables.deletionSummary(actor,selected.id());if(!counts.successful()){error(counts.error().message());return;}
-        String summary=selected.title()+"\nWeekly slots: "+counts.data().activeSlots()+"\nAttendance sessions referencing slots: "+counts.data().attendanceReferences();
-        int confirm=JOptionPane.showConfirmDialog(this,"Deactivate this timetable?\n\n"+summary,"Confirm timetable deactivation",JOptionPane.YES_NO_OPTION,JOptionPane.WARNING_MESSAGE);
-        if(confirm==JOptionPane.YES_OPTION)show(timetables.delete(actor,selected.id()));
-    }
-
-    private void viewAdmin(){CourseCatalog catalog=catalog();if(catalog==null)return;Context context=context(catalog,"View Timetable",null);if(context==null)return;
-        var found=timetables.timetables(actor,context.department.id(),context.semester.id(),context.level);
-        if(!found.successful()){error(found.error().message());return;}if(found.data().isEmpty()){info("No active timetable exists for this department, term, and level.");return;}
-        TimetableRow selected=choose(found.data(),"Select Timetable");if(selected!=null)showWeek(selected);
-    }
-
-    private void viewMine(){var response=timetables.myEntries(actor);if(!response.successful()){error(response.error().message());return;}showWeek("My Timetable",response.data());}
-    private void viewOfficer(){CourseCatalog c=catalog();if(c==null)return;Context x=context(c,"View Department Timetable",null);if(x==null)return;var response=timetables.timetables(actor,x.department.id(),x.semester.id(),x.level);if(!response.successful()){error(response.error().message());return;}if(response.data().isEmpty()){info("No active timetable matches this authorized department scope.");return;}TimetableRow selected=choose(response.data(),"Select Timetable");if(selected!=null)showWeek(selected);}
-    private void showWeek(TimetableRow timetable){var response=timetables.entriesForTimetable(actor,timetable.id());if(!response.successful()){error(response.error().message());return;}showWeek(timetable.title(),response.data());}
-    private void showWeek(String title,List<EntryRow> slots){
-        String[] headers={"Time", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
-        DefaultTableModel model=new DefaultTableModel(headers,0){@Override public boolean isCellEditable(int r,int c){return false;}};
-        record Range(LocalTime start,LocalTime end){}
-        List<Range> ranges=slots.stream().map(e->new Range(e.start(),e.end())).distinct().sorted(Comparator.comparing(Range::start).thenComparing(Range::end)).toList();
-        for(Range range:ranges){Object[] row=new Object[8];row[0]=range.start+"–"+range.end;for(int i=1;i<row.length;i++)row[i]="—";
-            for(EntryRow e:slots)if(e.start().equals(range.start)&&e.end().equals(range.end)){int col=java.util.Arrays.asList(DAYS).indexOf(e.dayOfWeek())+1;if(col>0)row[col]=e.location()==null||e.location().isBlank()?"Allocated":e.location();}
-            model.addRow(row);
-        }
-        if(slots.isEmpty())model.addRow(new Object[]{"No allocated slots","—","—","—","—","—","—","—"});
-        JTable table=new JTable(model);table.setRowHeight(26);JOptionPane.showMessageDialog(this,new JScrollPane(table),title,JOptionPane.PLAIN_MESSAGE);
-    }
-
-    private record EditorResult(Context context,List<EntryRow> slots){}
-    private EditorResult editSlots(String title,CourseCatalog catalog,List<EntryRow> initial,Context fixed){
-        DefaultTableModel model=new DefaultTableModel(new Object[]{"Day","Start (24h)","End (24h)","Room / location (optional)"},0){
-            @Override public boolean isCellEditable(int row,int col){return true;}
-            @Override public Class<?> getColumnClass(int col){return String.class;}
-        };
-        for(EntryRow e:initial)model.addRow(new Object[]{e.dayOfWeek(),e.start().toString(),e.end().toString(),e.location()==null?"":e.location()});
-        JTable table=new JTable(model);table.setRowHeight(25);table.getColumnModel().getColumn(0).setCellEditor(new javax.swing.DefaultCellEditor(new JComboBox<>(DAYS)));
-        JPanel panel=new JPanel(new BorderLayout(8,8));JPanel header=new JPanel(new GridBagLayout());
-        JComboBox<SelectionOption> department=options(catalog.departments().stream().map(d->new SelectionOption(d.id(),d.code()+" — "+d.name())).toList());
-        JComboBox<SelectionOption> semester=options(catalog.semesters().stream().map(s->new SelectionOption(s.id(),s.academicYear()+" — Semester "+s.semesterNumber())).toList());
-        JComboBox<Integer> level=new JComboBox<>(new Integer[]{1,2,3,4});
-        if(fixed!=null){department.setSelectedItem(fixed.department);semester.setSelectedItem(fixed.semester);level.setSelectedItem(fixed.level);department.setEnabled(false);semester.setEnabled(false);level.setEnabled(false);}
-        addField(header,0,"Department",department);addField(header,1,"Academic term",semester);addField(header,2,"Level",level);
-        addField(header,3,"Weekly schedule",new JLabel("Add one row per time slot; days without rows remain unallocated."));panel.add(header,BorderLayout.NORTH);
-        panel.add(new JScrollPane(table),BorderLayout.CENTER);
-        JButton add=new JButton("Add Time Slot"),remove=new JButton("Remove Selected Slot");JPanel controls=new JPanel(new FlowLayout(FlowLayout.LEFT));controls.add(add);controls.add(remove);panel.add(controls,BorderLayout.SOUTH);
-        add.addActionListener(e->model.addRow(new Object[]{"MON","08:00","10:00",""}));remove.addActionListener(e->{int row=table.getSelectedRow();if(row>=0)model.removeRow(table.convertRowIndexToModel(row));});
-        panel.setPreferredSize(new java.awt.Dimension(720,390));
-        int choice=JOptionPane.showConfirmDialog(this,new JScrollPane(panel),title,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE);if(choice!=JOptionPane.OK_OPTION)return null;
-        if(table.isEditing())table.getCellEditor().stopCellEditing();List<EntryRow> result=new ArrayList<>();
-        try{for(int r=0;r<model.getRowCount();r++){String day=String.valueOf(model.getValueAt(r,0)).trim();String start=String.valueOf(model.getValueAt(r,1)).trim();String end=String.valueOf(model.getValueAt(r,2)).trim();String location=String.valueOf(model.getValueAt(r,3)).trim();
-                result.add(new EntryRow(0,0,0,0,day,LocalTime.parse(start),LocalTime.parse(end),location.isBlank()?null:location));}}
-        catch(RuntimeException invalid){error("Use a weekday and 24-hour times such as 08:00 and 10:00. End time must be later than start time.");return null;}
-        Object d=department.getSelectedItem(),s=semester.getSelectedItem();if(!(d instanceof SelectionOption dep)||!(s instanceof SelectionOption sem)||level.getSelectedItem()==null){error("Choose a department, academic term, and level.");return null;}
-        return new EditorResult(new Context(dep,sem,(Integer)level.getSelectedItem()),result);
-    }
-
-    private void addField(JPanel panel,int row,String label,java.awt.Component field){GridBagConstraints l=new GridBagConstraints();l.gridx=0;l.gridy=row;l.anchor=GridBagConstraints.LINE_START;l.insets=new Insets(4,5,4,12);panel.add(new JLabel(label),l);GridBagConstraints f=new GridBagConstraints();f.gridx=1;f.gridy=row;f.weightx=1;f.fill=GridBagConstraints.HORIZONTAL;f.insets=new Insets(4,0,4,5);panel.add(field,f);}
-
-    private record Context(SelectionOption department,SelectionOption semester,int level){}
-    private Context context(CourseCatalog catalog,String title,Context preset){
-        JComboBox<SelectionOption> department=options(catalog.departments().stream().map(d->new SelectionOption(d.id(),d.code()+" — "+d.name())).toList());
-        JComboBox<SelectionOption> semester=options(catalog.semesters().stream().map(s->new SelectionOption(s.id(),s.academicYear()+" — Semester "+s.semesterNumber())).toList());
-        JComboBox<Integer> level=new JComboBox<>(new Integer[]{1,2,3,4});
-        if(!form(title,new String[]{"Department","Academic term","Level"},department,semester,level))return null;
-        SelectionOption d=(SelectionOption)department.getSelectedItem(),s=(SelectionOption)semester.getSelectedItem();if(d==null||s==null)return null;return new Context(d,s,(Integer)level.getSelectedItem());
-    }
-    private TimetableRow selectTimetable(String title){CourseCatalog c=catalog();if(c==null)return null;Context x=context(c,title,null);if(x==null)return null;
-        var response=timetables.timetables(actor,x.department.id(),x.semester.id(),x.level);if(!response.successful()){error(response.error().message());return null;}
-        if(response.data().isEmpty()){info("No active timetable matches the selected department, term, and level.");return null;}return choose(response.data(),title);
-    }
-    private TimetableRow choose(List<TimetableRow> choices,String title){CourseCatalog c=catalog();if(c==null)return null;List<SelectionOption> labels=choices.stream().map(t->new SelectionOption(t.id(),departmentLabel(c,t.departmentId())+" — "+semesterLabel(c,t.semesterId())+" — Level "+t.level()+" — "+t.title())).toList();
-        JComboBox<SelectionOption> picker=options(labels);if(!form(title,new String[]{"Timetable"},picker))return null;int id=((SelectionOption)picker.getSelectedItem()).id();return choices.stream().filter(t->t.id()==id).findFirst().orElse(null);}
-    private CourseCatalog catalog(){ApiResponse<CourseCatalog> response=courses.catalog(actor);if(!response.successful()){error(response.error().message());return null;}return response.data();}
-    private String departmentLabel(CourseCatalog c,int id){return c.departments().stream().filter(d->d.id()==id).findFirst().map(d->d.code()+" — "+d.name()).orElse("Department");}
-    private String semesterLabel(CourseCatalog c,int id){return c.semesters().stream().filter(s->s.id()==id).findFirst().map(s->s.academicYear()+" — Semester "+s.semesterNumber()).orElse("Academic term");}
-    private JComboBox<SelectionOption> options(List<SelectionOption> list){JComboBox<SelectionOption> box=new JComboBox<>(list.toArray(SelectionOption[]::new));SelectionOption.enableSearch(box);return box;}
-    private boolean form(String title,String[] labels,java.awt.Component...fields){JPanel panel=new JPanel(new GridBagLayout());for(int i=0;i<labels.length;i++){
-        GridBagConstraints l=new GridBagConstraints();l.gridx=0;l.gridy=i;l.anchor=GridBagConstraints.LINE_START;l.insets=new Insets(7,6,7,12);panel.add(new JLabel(labels[i]),l);
-        GridBagConstraints f=new GridBagConstraints();f.gridx=1;f.gridy=i;f.weightx=1;f.fill=GridBagConstraints.HORIZONTAL;f.insets=new Insets(7,0,7,6);panel.add(fields[i],f);}
-        return JOptionPane.showConfirmDialog(this,panel,title,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE)==JOptionPane.OK_OPTION;}
-    private String dayLabel(String day){return switch(day){case "MON"->"Monday";case "TUE"->"Tuesday";case "WED"->"Wednesday";case "THU"->"Thursday";case "FRI"->"Friday";case "SAT"->"Saturday";case "SUN"->"Sunday";default->day;};}
-    private void button(JPanel panel,String label,Runnable action){JButton button=new JButton(label);button.setPreferredSize(new java.awt.Dimension(240,90));button.addActionListener(e->{try{action.run();}catch(RuntimeException failure){error(failure.getMessage());}});panel.add(button);}
-    private void show(ApiResponse<?> response){if(response.successful())info("Timetable action completed successfully.");else error(response.error().message());}
-    private void error(String message){JOptionPane.showMessageDialog(this,message,"Timetable",JOptionPane.ERROR_MESSAGE);}private void info(String message){JOptionPane.showMessageDialog(this,message,"Timetable",JOptionPane.INFORMATION_MESSAGE);}
+    private void fillCourses(JComboBox<CourseChoice> box,CourseCatalog c,Integer dept,Integer sem,Integer level){box.removeAllItems();if(dept==null||sem==null||level==null)return;for(OfferingRow o:c.offerings()){BatchRow b=c.batches().stream().filter(x->x.id()==o.batchId()).findFirst().orElse(null);CourseRow course=c.courses().stream().filter(x->x.id()==o.courseId()).findFirst().orElse(null);if(b==null||course==null||b.departmentId()!=dept||b.level()!=level||o.semesterId()!=sem)continue;box.addItem(new CourseChoice(o.id(),course.code()+" — "+course.title()+" | "+b.code(),course.id()));}}
+    private void refreshExisting(CourseCatalog c,Scope scope,CourseChoice selected,JTextArea target){if(scope==null){target.setText("Choose department, term and level to review existing schedules.");return;}var response=timetables.timetables(actor,scope.department.id(),scope.term.id(),scope.level);if(!response.successful()){target.setText(response.error().message());return;}StringBuilder text=new StringBuilder();for(TimetableRow t:response.data()){if(t.offeringId()<=0)continue;CourseChoice course=courseChoice(c,t.offeringId());var entries=timetables.entriesForTimetable(actor,t.id());if(!entries.successful())continue;for(EntryRow e:entries.data()){String comp=c.components().stream().filter(x->x.id()==e.componentId()).findFirst().map(x->x.type().toString()).orElse("Component");text.append(course==null?t.title():course.label).append(" | ").append(comp).append(" | ").append(e.dayOfWeek()).append(" ").append(e.start()).append("–").append(e.end());if(e.location()!=null&&!e.location().isBlank())text.append(" | ").append(e.location());text.append('\n');}}target.setText(text.length()==0?"No active course timetables in this scope.":text.toString());}
+    private Scope scopeFor(JComboBox<SelectionOption>d,JComboBox<SelectionOption>s,JComboBox<Integer> l){SelectionOption a=(SelectionOption)d.getSelectedItem(),b=(SelectionOption)s.getSelectedItem();return a==null||b==null||l.getSelectedItem()==null?null:new Scope(a,b,(Integer)l.getSelectedItem());}
+    private Scope chooseScope(CourseCatalog c,String title){JComboBox<SelectionOption>d=options(c.departments().stream().map(x->new SelectionOption(x.id(),x.code()+" — "+x.name())).toList());JComboBox<SelectionOption>s=options(c.semesters().stream().map(x->new SelectionOption(x.id(),semesterLabel(x))).toList());JComboBox<Integer> l=new JComboBox<>(new Integer[]{1,2,3,4});if(!form(title,new String[]{"Department","Academic term","Level"},d,s,l))return null;return scopeFor(d,s,l);}
+    private List<TimetableRow> scopeTimetables(Scope s){var r=timetables.timetables(actor,s.department.id(),s.term.id(),s.level);if(!r.successful()){error(r.error().message());return List.of();}return r.data().stream().filter(t->t.offeringId()>0).toList();}
+    private TimetableRow selectCourseTimetable(CourseCatalog c,String title){Scope s=chooseScope(c,title);if(s==null)return null;List<TimetableRow> list=scopeTimetables(s);if(list.isEmpty()){info("No active course timetables match this selection.");return null;}return chooseTimetable(c,list,title);}
+    private TimetableRow chooseTimetable(CourseCatalog c,List<TimetableRow> rows,String title){List<SelectionOption> options=rows.stream().map(t->{CourseChoice ch=courseChoice(c,t.offeringId());return new SelectionOption(t.id(),(ch==null?t.title():ch.label)+" — "+semesterLabel(c,t.semesterId())+" — Level "+t.level());}).toList();JComboBox<SelectionOption> pick=options(options);if(!form(title,new String[]{"Course offering"},pick))return null;int id=((SelectionOption)pick.getSelectedItem()).id();return rows.stream().filter(t->t.id()==id).findFirst().orElse(null);}
+    private CourseChoice courseChoice(CourseCatalog c,int id){OfferingRow o=c.offerings().stream().filter(x->x.id()==id).findFirst().orElse(null);if(o==null)return null;CourseRow cr=c.courses().stream().filter(x->x.id()==o.courseId()).findFirst().orElse(null);BatchRow b=c.batches().stream().filter(x->x.id()==o.batchId()).findFirst().orElse(null);return cr==null||b==null?null:new CourseChoice(id,cr.code()+" — "+cr.title()+" | "+b.code(),cr.id());}
+    private void showWeek(TimetableRow t,CourseCatalog c){var r=timetables.entriesForTimetable(actor,t.id());if(!r.successful()){error(r.error().message());return;}showWeek(t.title(),r.data(),c);}
+    private void showWeek(String title,List<EntryRow> slots,CourseCatalog c){String[] days={"Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"};DefaultTableModel m=new DefaultTableModel(new Object[]{"Day","Component","Start","End","Room / location"},0){@Override public boolean isCellEditable(int r,int col){return false;}};slots.stream().sorted(Comparator.comparingInt((EntryRow e)->Arrays.asList(DAYS).indexOf(e.dayOfWeek())).thenComparing(EntryRow::start)).forEach(e->{String day=Arrays.asList(DAYS).indexOf(e.dayOfWeek())<0?e.dayOfWeek():days[Arrays.asList(DAYS).indexOf(e.dayOfWeek())];String component=c==null?"":c.components().stream().filter(x->x.id()==e.componentId()).findFirst().map(x->x.type().toString()).orElse("");m.addRow(new Object[]{day,component,e.start(),e.end(),e.location()==null||e.location().isBlank()?"—":e.location()});});if(slots.isEmpty())m.addRow(new Object[]{"No allocated slots","—","—","—","—"});JOptionPane.showMessageDialog(this,new JScrollPane(new JTable(m)),title,JOptionPane.PLAIN_MESSAGE);}
+    private CourseCatalog catalog(){var r=courses.catalog(actor);if(!r.successful()){error(r.error().message());return null;}return r.data();}
+    private JComboBox<SelectionOption> options(List<SelectionOption> values){JComboBox<SelectionOption>b=new JComboBox<>(values.toArray(SelectionOption[]::new));SelectionOption.enableSearch(b);return b;}
+    private void field(JPanel p,int row,String label,Component value){GridBagConstraints a=new GridBagConstraints();a.gridx=0;a.gridy=row;a.anchor=GridBagConstraints.LINE_START;a.insets=new Insets(4,6,4,10);p.add(new JLabel(label),a);GridBagConstraints b=new GridBagConstraints();b.gridx=1;b.gridy=row;b.weightx=1;b.fill=GridBagConstraints.HORIZONTAL;b.insets=new Insets(4,4,4,6);p.add(value,b);}
+    private boolean form(String title,String[] labels,Component...components){JPanel p=new JPanel(new GridBagLayout());for(int i=0;i<labels.length;i++)field(p,i,labels[i],components[i]);return JOptionPane.showConfirmDialog(this,p,title,JOptionPane.OK_CANCEL_OPTION,JOptionPane.PLAIN_MESSAGE)==JOptionPane.OK_OPTION;}
+    private Integer selectedId(JComboBox<SelectionOption>b){Object o=b.getSelectedItem();return o instanceof SelectionOption x&&x.id()>0?x.id():null;}
+    private String departmentLabel(CourseCatalog c,int id){return c.departments().stream().filter(x->x.id()==id).findFirst().map(x->x.code()+" — "+x.name()).orElse("Department");}
+    private String semesterLabel(CourseCatalog c,int id){return c.semesters().stream().filter(x->x.id()==id).findFirst().map(this::semesterLabel).orElse("Term");}
+    private String semesterLabel(SemesterRow s){return s.academicYear()+" — Semester "+s.semesterNumber();}
+    private void button(JPanel p,String label,Runnable task){JButton b=new JButton(label);b.setPreferredSize(new Dimension(230,88));b.addActionListener(e->{try{task.run();}catch(RuntimeException x){error(x.getMessage());}});p.add(b);}
+    private void show(lk.ac.ruhuna.fot.ams.api.controller.ApiResponse<?> r){if(r.successful())info("Timetable action completed successfully.");else error(r.error().message());}
+    private void error(String s){JOptionPane.showMessageDialog(this,s,"Timetable",JOptionPane.ERROR_MESSAGE);}private void info(String s){JOptionPane.showMessageDialog(this,s,"Timetable",JOptionPane.INFORMATION_MESSAGE);}
 }
