@@ -66,11 +66,12 @@ public final class TimetableService {
         validateOfferingScope(timetable,offeringId,slots);
         if(timetableDao.findActiveTimetableForOffering(offeringId).isPresent()) throw new ValidationException("This course offering already has an active timetable. Use Update Timetable instead.");
         return transactions.execute(connection -> {
+            List<EntryRow> proposed=slots.stream().map(s -> new EntryRow(0,0,offeringId,s.componentId(),s.dayOfWeek(),s.start(),s.end(),blankToNull(s.location()))).toList();
+            checkCourseConflicts(timetable,proposed,0);
             TimetableRow owned = new TimetableRow(timetable.id(), timetable.title().trim(), timetable.departmentId(),
                     timetable.semesterId(), timetable.level(), actor.userId(), null, null,offeringId);
             long timetableId=timetableDao.insertTimetable(connection, owned);
-            List<EntryRow> materialized=slots.stream().map(s -> new EntryRow(0,(int)timetableId,offeringId,s.componentId(),s.dayOfWeek(),s.start(),s.end(),blankToNull(s.location()))).toList();
-            checkCourseConflicts(timetable,materialized,0);
+            List<EntryRow> materialized=proposed.stream().map(s -> new EntryRow(0,(int)timetableId,offeringId,s.componentId(),s.dayOfWeek(),s.start(),s.end(),s.location())).toList();
             for(EntryRow slot:materialized) timetableDao.insertEntry(connection,slot);
             audit(connection,actor.userId(),"TIMETABLE_CREATE",timetableId);
             return timetableId;
